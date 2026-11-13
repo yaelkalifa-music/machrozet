@@ -244,11 +244,11 @@ async function addFromText(text){
       added.push({ id:gid(), type:p.type, ref:p.ref, title:p.title || (p.type==='yt'?'שיר מיוטיוב':'שיר'), img: p.type==='yt' ? `https://i.ytimg.com/vi/${p.ref}/hqdefault.jpg` : '' });
     }
     if (!added.length){ msg.innerHTML=''; toast('כבר ברשימה'); return; }
+    for (const a of added){ if (a.type==='drive' && a.title==='שיר מהדרייב'){ const ok = await driveTitle(a, true); if (ok === 'private') throw new Error('השיר הזה בדרייב פרטי — צריך לשתף אותו: ⋮ ← שיתוף ← "כל מי שיש לו את הקישור"'); } }
     S.items.push(...added); save(); renderList(); renderPlayer();
     msg.innerHTML = `<div class="note">נוסף לרשימה ✓ ${added.length>1 ? added.length + ' שירים' : '«' + esc(added[0].title) + '»'}</div>`;
     // fetch YouTube title in the background
     added.filter(a => a.type==='yt' && (a.title==='שיר מיוטיוב')).forEach(ytTitle);
-    added.filter(a => a.type==='drive' && a.title==='שיר מהדרייב').forEach(driveTitle);
   } catch(e){ msg.innerHTML = '<div class="note err">' + esc(e.message || 'משהו השתבש') + '</div>'; }
 }
 async function syncFolder(fid, loud){
@@ -260,8 +260,9 @@ async function syncFolder(fid, loud){
   if (n){ save(); renderList(); renderPlayer(); }
   return n;
 }
-async function driveTitle(item){
-  try { const r = await fetch('/api/drive?file=' + item.ref); const j = await r.json(); if (j.title){ item.title = j.title; save(); renderList(); renderPlayer(); } } catch(e){}
+async function driveTitle(item, quiet){
+  try { const r = await fetch('/api/drive?file=' + item.ref); const j = await r.json(); if (j.error === 'not_shared') return 'private'; if (j.title){ item.title = j.title; if (!quiet){ save(); renderList(); renderPlayer(); } return 'ok'; } } catch(e){}
+  return 'unknown';
 }
 async function ytTitle(item){
   try {
