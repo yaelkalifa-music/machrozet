@@ -325,7 +325,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
   <div id="time">0:00.00</div>
   <button id="toolBtn" title="כלים (חץ / מספריים / מתיחה / בחירה)">➤</button><span id="toolTag" style="font-size:18px;display:none"></span><div id="barpos">1.1</div>
   <div class="sp"></div>
-  <button id="vidBtn" title="תצוגת וידאו" style="display:none">🎬</button><button id="metro" title="מטרונום">🥁</button>
+  <button id="recTop" title="הקלטה" style="color:#ff4d6d;font-size:18px">🎙</button><button id="vidBtn" title="תצוגת וידאו" style="display:none">🎬</button><button id="metro" title="מטרונום">🥁</button>
   <button id="zoomOut" title="הקטנה">−</button>
   <button id="zoomIn" title="הגדלה">+</button>
 </div>
@@ -3992,22 +3992,24 @@ $('recBtn').onclick=()=>{ if(rec){ stopRec(); return; } openSheet(`<h3>🎙 הק
   <div class="meter" style="margin-top:10px"><div id="rcLvl"></div></div><p id="rcMsg" style="margin-top:8px"></p>
   <div class="row"><button class="pri" id="rcGo">🔴 להתחיל להקליט</button><button id="rcClose">סגירה</button></div>`,()=>{ $('rcGo').onclick=()=>rec?stopRec():startRec(); $('rcClose').onclick=closeSheet; }); };
 $('recStopBar').onclick=()=>stopRec();
+$('recTop').onclick=()=>$('recBtn').onclick();
 async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg')) $('rcMsg').textContent=t; };
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('המכשיר לא מאפשר הקלטה כאן.'); return; }
-  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e){ msg(window.__HOSTED?'אין גישה למיקרופון. צריך לאשר גישה למיקרופון לאתר (בהגדרות הדפדפן).':'בתוך Claude המיקרופון חסום. ההקלטה עובדת בגרסה שבכתובת שלך (yael-machrozet.netlify.app).'); return; }
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e){ msg(window.__HOSTED?(/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1||/iPhone|iPad/.test(navigator.userAgent)?'אין גישה למיקרופון. באייפון/אייפד: בספארי לוחצים על aA (או על סמל האתר) ← הגדרות אתר ← מיקרופון ← לאפשר. אם זה מותקן במסך הבית: הגדרות ← ספארי ← מיקרופון ← לאפשר. ואז לנסות שוב.':'אין גישה למיקרופון. לוחצים על המנעול 🔒 שליד הכתובת למעלה ← מיקרופון ← לאפשר, ומנסים שוב.'):'בתוך Claude המיקרופון חסום. ההקלטה עובדת בגרסה שבכתובת שלך (yael-machrozet.netlify.app).'); return; }
   if(c.state!=='running'){ try{ await c.resume(); }catch(_){} }
   const src=c.createMediaStreamSource(stream); const an=c.createAnalyser(); an.fftSize=1024; src.connect(an);
   let mon=null; if($('rcMon')&&$('rcMon').checked){ mon=c.createGain(); mon.gain.value=1; if($('rcRev').checked){ const cv=c.createConvolver(); cv.buffer=makeIR(c); const wg=c.createGain(); wg.gain.value=0.35; src.connect(cv); cv.connect(wg); wg.connect(mon); } src.connect(mon); mon.connect(c.destination); }
-  const mime=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg'].find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
+  const APPLE=/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)&&!/Chrome|CriOS|Firefox|FxiOS/.test(navigator.userAgent)&&(navigator.maxTouchPoints>1||/iPhone|iPad|iPod/.test(navigator.userAgent)||/Safari/.test(navigator.userAgent));
+  const mime=(APPLE?['audio/mp4','audio/webm;codecs=opus','audio/webm']:['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg']).find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
   const mr=new MediaRecorder(stream,mime?{mimeType:mime}:undefined); const chunks=[]; mr.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
   const count=$('rcCount')&&$('rcCount').checked; const t0=S.playhead; let from=t0;
   if(count){ from=Math.max(0,t0-barSec(t0)); } stopPlay(); S.playhead=from; const wasMetro=S.metro; if(count) S.metro=true;
   mr.start(); const recCtxStart=c.currentTime; startPlay(); if(count){ setTimeout(()=>{ if(rec&&!wasMetro){ S.metro=false; metroStop(); } },(t0-from)*1000+200); }
   rec={stream,mr,chunks,t0:from,recCtxStart,base:play.base,mon,src,an,started:Date.now()};
   if($('rcGo')) $('rcGo').textContent='⏹ לעצור'; msg('מקליטה… הפלייבק מתנגן. אפשר לסגור את החלון.');
-  $('recBar').hidden=false; $('recBtn').textContent='⏹ עצירת הקלטה';
+  $('recBar').hidden=false; $('recBtn').textContent='⏹ עצירת הקלטה'; $('recTop').textContent='⏹';
   const buf=new Uint8Array(an.fftSize); (function lvl(){ if(!rec) return; an.getByteTimeDomainData(buf); let m=0; for(const v of buf) m=Math.max(m,Math.abs(v-128)); const el=$('rcLvl'); if(el) el.style.width=Math.min(100,m/128*140)+'%'; const s=Math.floor((Date.now()-rec.started)/1000); $('recTime').textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); requestAnimationFrame(lvl); })(); }
-async function stopRec(){ const r=rec; rec=null; if(!r) return; $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
+async function stopRec(){ const r=rec; rec=null; if(!r) return; $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; $('recTop').textContent='🎙'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
   const c=ac(); const blob=new Blob(r.chunks,{type:r.mr.mimeType||'audio/webm'}); const raw=await blob.arrayBuffer(); let buffer; try{ buffer=await decode(raw.slice(0)); }catch(e){ toast('לא הצלחתי לפענח את ההקלטה'); return; }
   const lat=(r.base-r.recCtxStart)+(c.outputLatency||0)+(c.baseLatency||0)+0.01;
   const id=nid(); const n=1+allClips().filter(x=>bufs[x.c.buf].kind==='vocal').length; const b={id,name:'הקלטה '+n,buffer,kind:'vocal',color:'#c58cff',snapAt:0,bpm:0,beat:beatSec(),first:0,down:0}; b.peaks=computePeaks(buffer); bufs[id]=b; dbPutFile(id,raw,b);
