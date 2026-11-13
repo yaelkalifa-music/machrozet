@@ -72,6 +72,10 @@ header .sub{color:var(--mute);font-size:13px;margin-top:2px}
 label.file{display:block;text-align:center;border:2px dashed var(--line);border-radius:16px;padding:20px 10px;color:var(--pink2);font-weight:600;font-size:16px;cursor:pointer}
 label.file input{display:none}
 .ic{font-size:13px}
+.lists{display:flex;gap:8px;overflow-x:auto;margin:14px -14px 0;padding:0 14px 4px;scrollbar-width:none}
+.lists::-webkit-scrollbar{display:none}
+.lists .chip{white-space:nowrap;flex:none}
+.lists .chip.on{background:var(--pink);border-color:var(--pink);color:#fff}
 </style>
 </head>
 <body>
@@ -108,6 +112,15 @@ label.file input{display:none}
     </div>
   </section>
 
+  <div class="lists" id="lists"></div>
+  <div id="listEdit" class="search" style="display:none">
+    <input id="listName" placeholder="שם הרשימה (למשל: לנסיעות, למקלחת, שבת)">
+    <button class="btn" id="listSave">שמירה</button>
+  </div>
+  <div id="listTools" class="toolbar" style="display:none">
+    <button class="chip" id="listRename">✏️ לשנות שם</button>
+    <button class="chip" id="listDel">🗑 למחוק את הרשימה</button>
+  </div>
   <nav class="tabs">
     <button class="tab on" data-tab="list">הרשימה</button>
     <button class="tab" data-tab="add">הוספת שירים</button>
@@ -171,7 +184,16 @@ const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
 
-let S = { items: [], folders: [], mode: 'all', shuffle: false, recent: [], curId: null };
+let S = { lists: [], listId: null, mode: 'all', shuffle: false, recent: [], curId: null };
+const curList = () => S.lists.find(l => l.id === S.listId) || S.lists[0];
+const IT = () => curList().items;
+function ensureLists(){
+  if (!Array.isArray(S.lists)) S.lists = [];
+  if (Array.isArray(S.items)){ S.lists.unshift({ id:'main', name:'הרשימה שלי', items:S.items, folders:S.folders||[] }); delete S.items; delete S.folders; }
+  if (!S.lists.length) S.lists.push({ id:'main', name:'הרשימה שלי', items:[], folders:[] });
+  S.lists.forEach(l => { l.items = l.items || []; l.folders = l.folders || []; });
+  if (!S.lists.some(l => l.id === S.listId)) S.listId = S.lists[0].id;
+}
 let view = 'all', shuffleBag = [], unlocked = false, wakeLock = null, wakeOn = false;
 let engine = null;           // 'audio' | 'yt'
 let yt = null, ytReady = false, ytQueue = null, ytTimer = null;
@@ -186,7 +208,7 @@ function setStatus(t, err){ const e=$('#status'); e.textContent=t||''; e.style.c
 
 /* storage */
 function save(){ try{ localStorage.setItem('ykPlaylist2', JSON.stringify(S)); }catch(e){} }
-function load(){ try{ const j=JSON.parse(localStorage.getItem('ykPlaylist2')||'null'); if(j&&Array.isArray(j.items)) S=Object.assign(S,j); }catch(e){} }
+function load(){ try{ const j=JSON.parse(localStorage.getItem('ykPlaylist2')||'null'); if(j&&(Array.isArray(j.items)||Array.isArray(j.lists))) S=Object.assign(S,j); }catch(e){} }
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e){}
 let idbP=null;
 function idb(){ if(idbP) return idbP; idbP=new Promise(r=>{ try{ const q=indexedDB.open('yk-playlist',1); q.onupgradeneeded=()=>q.result.createObjectStore('b'); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null);}catch(e){r(null);} }); return idbP; }
@@ -233,30 +255,31 @@ async function addFromText(text){
       const r = await fetch(API + encodeURIComponent(p.url));
       const j = await r.json().catch(()=>({}));
       if (!r.ok || !j.items){ throw new Error(j.error === 'playlist_unreadable' ? 'הפלייליסט בסונו פרטי — צריך להפוך אותו לציבורי (Public) או להוסיף שיר-שיר' : 'לא הצלחתי לקרוא את הקישור מסונו'); }
-      j.items.forEach(it => { if (!S.items.some(x => x.type==='suno' && x.ref===it.id)) added.push({ id:gid(), type:'suno', ref:it.id, audio:it.audio, img:it.image||'', title:(j.items.length===1 && p.title) || it.title || 'שיר מסונו' }); });
+      j.items.forEach(it => { if (!IT().some(x => x.type==='suno' && x.ref===it.id)) added.push({ id:gid(), type:'suno', ref:it.id, audio:it.audio, img:it.image||'', title:(j.items.length===1 && p.title) || it.title || 'שיר מסונו' }); });
     } else if (p.type === 'dfolder'){
       const n = await syncFolder(p.ref, true);
-      if (!S.folders.includes(p.ref)){ S.folders.push(p.ref); save(); }
+      if (!curList().folders.includes(p.ref)){ curList().folders.push(p.ref); save(); }
       msg.innerHTML = `<div class="note">התיקייה מחוברת ✓ ${n ? 'נוספו ' + n + ' שירים' : 'כל השירים כבר ברשימה'}.<br>שירים חדשים שתשימי בתיקייה ייכנסו לבד כשפותחים את האפליקציה.</div>`;
       return;
     } else {
-      if (S.items.some(x => x.type===p.type && x.ref===p.ref)) { msg.innerHTML=''; toast('כבר ברשימה'); return; }
+      if (IT().some(x => x.type===p.type && x.ref===p.ref)) { msg.innerHTML=''; toast('כבר ברשימה'); return; }
       added.push({ id:gid(), type:p.type, ref:p.ref, title:p.title || (p.type==='yt'?'שיר מיוטיוב':'שיר'), img: p.type==='yt' ? `https://i.ytimg.com/vi/${p.ref}/hqdefault.jpg` : '' });
     }
     if (!added.length){ msg.innerHTML=''; toast('כבר ברשימה'); return; }
     for (const a of added){ if (a.type==='drive' && a.title==='שיר מהדרייב'){ const ok = await driveTitle(a, true); if (ok === 'private') throw new Error('השיר הזה בדרייב פרטי — צריך לשתף אותו: ⋮ ← שיתוף ← "כל מי שיש לו את הקישור"'); } }
-    S.items.push(...added); save(); renderList(); renderPlayer();
+    IT().push(...added); save(); renderList(); renderPlayer();
     msg.innerHTML = `<div class="note">נוסף לרשימה ✓ ${added.length>1 ? added.length + ' שירים' : '«' + esc(added[0].title) + '»'}</div>`;
     // fetch YouTube title in the background
     added.filter(a => a.type==='yt' && (a.title==='שיר מיוטיוב')).forEach(ytTitle);
   } catch(e){ msg.innerHTML = '<div class="note err">' + esc(e.message || 'משהו השתבש') + '</div>'; }
 }
-async function syncFolder(fid, loud){
+async function syncFolder(fid, loud, list){
+  list = list || curList();
   const r = await fetch('/api/drive?folder=' + encodeURIComponent(fid));
   const j = await r.json().catch(()=>({}));
   if (!r.ok || !j.items){ if (loud) throw new Error(j.error==='not_shared' ? 'התיקייה לא משותפת — בדרייב: שיתוף ← "כל מי שיש לו את הקישור"' : 'לא הצלחתי לקרוא את התיקייה מהדרייב'); return 0; }
   let n = 0;
-  j.items.forEach(f => { if (!S.items.some(x => x.type==='drive' && x.ref===f.id)){ S.items.push({ id:gid(), type:'drive', ref:f.id, title:f.title || 'שיר מהדרייב', folder:fid }); n++; } });
+  j.items.forEach(f => { if (!list.items.some(x => x.type==='drive' && x.ref===f.id)){ list.items.push({ id:gid(), type:'drive', ref:f.id, title:f.title || 'שיר מהדרייב', folder:fid }); n++; } });
   if (n){ save(); renderList(); renderPlayer(); }
   return n;
 }
@@ -283,7 +306,7 @@ setSearch($('#yq'), $('#yGo'), 'https://www.youtube.com/results?search_query=', 
 
 $('#fileIn').addEventListener('change', async e => {
   let n=0;
-  for (const f of e.target.files){ const id='l_'+gid(); if (!(await idbPut(id,f))) blobUrls.set(id, URL.createObjectURL(f)); S.items.push({ id, type:'local', ref:id, title:f.name.replace(/\.(mp3|m4a|wav|aac|ogg)$/i,'') }); n++; }
+  for (const f of e.target.files){ const id='l_'+gid(); if (!(await idbPut(id,f))) blobUrls.set(id, URL.createObjectURL(f)); IT().push({ id, type:'local', ref:id, title:f.name.replace(/\.(mp3|m4a|wav|aac|ogg)$/i,'') }); n++; }
   e.target.value=''; save(); renderList(); renderPlayer(); toast(`נוספו ${n} שירים ✓`);
 });
 
@@ -348,9 +371,9 @@ au.addEventListener('error', () => {
 });
 
 /* ---------- sequencing ---------- */
-const cur = () => S.items.find(x => x.id === S.curId) || null;
+const cur = () => { for (const l of S.lists){ const f = l.items.find(x => x.id === S.curId); if (f) return f; } return null; };
 function nextId(dir){
-  const L = S.items; if (!L.length) return null;
+  const L = IT(); if (!L.length) return null;
   if (S.shuffle && dir > 0){
     if (!shuffleBag.length){ shuffleBag = L.map(x=>x.id).filter(id=>id!==S.curId); for(let i=shuffleBag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffleBag[i],shuffleBag[j]]=[shuffleBag[j],shuffleBag[i]];} if(!shuffleBag.length) return L[0].id; }
     return shuffleBag.shift();
@@ -361,12 +384,12 @@ function nextId(dir){
 }
 let skipGuard = 0;
 function advance(auto){
-  if (auto){ skipGuard++; if (skipGuard > S.items.length + 1){ setStatus('אף שיר ברשימה לא נטען — בדקי את האינטרנט', true); skipGuard=0; return; } }
+  if (auto){ skipGuard++; if (skipGuard > IT().length + 1){ setStatus('אף שיר ברשימה לא נטען — בדקי את האינטרנט', true); skipGuard=0; return; } }
   const n = nextId(1); if (n) play(n, !!auto);
 }
 function stopAll(){ try{ au.pause(); }catch(e){} if (ytReady){ try{ yt.pauseVideo(); }catch(e){} } }
 async function play(id, auto){
-  const it = S.items.find(x=>x.id===id); if (!it) return;
+  const it = IT().find(x=>x.id===id) || (cur() && cur().id===id ? cur() : null); if (!it) return;
   if (!auto) skipGuard = 0;
   S.curId = id; S.recent = [id, ...S.recent.filter(x=>x!==id)].slice(0,40); save();
   stopAll(); renderPlayer(); renderList(); setStatus('טוען…');
@@ -391,7 +414,7 @@ function seekBy(d){ const t = engine==='yt' && ytReady ? yt.getCurrentTime() : a
 function isPaused(){ if (engine==='yt' && ytReady){ const s=yt.getPlayerState(); return s!==1 && s!==3; } return au.paused; }
 function togglePlay(){
   unlock();
-  if (!S.curId || (!engine)){ const f = (cur() || S.items[0]); if (f) play(f.id); else toast('הרשימה ריקה — לשונית "הוספת שירים"'); return; }
+  if (!S.curId || (!engine)){ const f = (cur() || IT()[0]); if (f) play(f.id); else toast('הרשימה ריקה — לשונית "הוספת שירים"'); return; }
   if (engine==='yt' && ytReady){ isPaused() ? yt.playVideo() : yt.pauseVideo(); }
   else { au.paused ? au.play().catch(()=>{}) : au.pause(); }
   setTimeout(renderPlayIcon, 150);
@@ -401,7 +424,7 @@ const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQAC
 function unlock(){
   if (unlocked) return; unlocked = true;
   if (!au.getAttribute('src')){ try{ au.src=SILENT; au.play().catch(()=>{}); }catch(e){} }
-  if (S.items.some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
+  if (IT().some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
 }
 
 /* media session: car / bluetooth / lock screen buttons */
@@ -428,6 +451,37 @@ async function setWake(on, quiet){
 }
 document.addEventListener('visibilitychange', () => { if (wakeOn && document.visibilityState==='visible') setWake(true, true); });
 
+/* lists */
+let editMode = null; // 'new' | 'rename'
+function renderLists(){
+  $('#lists').innerHTML = S.lists.map(l => `<button class="chip ${l.id===S.listId?'on':''}" data-list="${l.id}">${esc(l.name)} · ${l.items.length}</button>`).join('') + `<button class="chip" data-list="__new">➕ רשימה חדשה</button><button class="chip" data-list="__tools">⋯</button>`;
+}
+$('#lists').addEventListener('click', e => {
+  const b = e.target.closest('[data-list]'); if (!b) return;
+  const id = b.dataset.list;
+  if (id === '__new'){ editMode='new'; $('#listName').value=''; $('#listEdit').style.display='flex'; $('#listTools').style.display='none'; $('#listName').focus(); return; }
+  if (id === '__tools'){ const t=$('#listTools'); t.style.display = t.style.display==='none' ? 'flex' : 'none'; $('#listEdit').style.display='none'; return; }
+  S.listId = id; shuffleBag = []; save(); renderLists(); renderList(); renderPlayer();
+  $('#listEdit').style.display='none'; $('#listTools').style.display='none';
+});
+$('#listSave').onclick = () => {
+  const name = $('#listName').value.trim(); if (!name){ toast('צריך לכתוב שם'); return; }
+  if (editMode === 'new'){ const l = { id:'l'+gid(), name, items:[], folders:[] }; S.lists.push(l); S.listId = l.id; toast('נפתחה רשימה חדשה — עכשיו מוסיפים לה שירים'); }
+  else curList().name = name;
+  $('#listEdit').style.display='none'; save(); renderLists(); renderList(); renderPlayer();
+};
+$('#listName').addEventListener('keydown', e => { if (e.key==='Enter') $('#listSave').click(); });
+$('#listRename').onclick = () => { editMode='rename'; $('#listName').value = curList().name; $('#listEdit').style.display='flex'; $('#listTools').style.display='none'; };
+$('#listDel').onclick = e => {
+  const b = e.currentTarget;
+  if (S.lists.length === 1){ toast('זו הרשימה היחידה'); return; }
+  if (b.dataset.c !== '1'){ b.dataset.c='1'; b.textContent='בטוח? ללחוץ שוב למחיקה'; setTimeout(()=>{ b.dataset.c=''; b.textContent='🗑 למחוק את הרשימה'; }, 3000); return; }
+  const l = curList(); l.items.filter(x=>x.type==='local').forEach(x=>idbDel(x.id));
+  S.lists = S.lists.filter(x => x !== l); S.listId = S.lists[0].id;
+  b.dataset.c=''; b.textContent='🗑 למחוק את הרשימה'; $('#listTools').style.display='none';
+  save(); renderLists(); renderList(); renderPlayer(); toast('הרשימה נמחקה');
+};
+
 /* render */
 function renderPlayIcon(){ $('#playIcon').innerHTML = isPaused() ? '<path d="M8 5v14l11-7z"/>' : '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'; }
 function drawTime(c, d){ $('#tCur').textContent=fmt(c); $('#tDur').textContent=fmt(d); const p = d ? Math.min(1, c/d) : 0; $('#fill').style.width=(p*100)+'%'; $('#knob').style.left=(p*100)+'%'; }
@@ -435,19 +489,20 @@ function typeLbl(it){ return { suno:'סונו', yt:'יוטיוב', ytlist:'פל�
 function renderPlayer(){
   const it = cur();
   $('#title').textContent = it ? it.title : 'לחצי ▶ להתחיל';
-  const i = it ? S.items.indexOf(it) : -1;
-  $('#nowLbl').textContent = it ? `${typeLbl(it)} · ${i+1} מתוך ${S.items.length}` : (S.items.length ? `${S.items.length} שירים ברשימה` : 'הרשימה ריקה');
+  const i = it ? IT().indexOf(it) : -1;
+  $('#nowLbl').textContent = it ? `${curList().name} · ${i>=0 ? (i+1)+' מתוך '+IT().length : typeLbl(it)}` : (IT().length ? `${IT().length} שירים ברשימה` : 'הרשימה ריקה');
   const c = $('#cover'); if (it && it.img){ c.style.backgroundImage = `url("${it.img}")`; c.textContent=''; } else { c.style.backgroundImage=''; c.textContent='🎵'; }
   renderPlayIcon(); renderModes();
 }
 function renderModes(){ $('#mAll').classList.toggle('on', S.mode==='all'); $('#mOne').classList.toggle('on', S.mode==='one'); $('#mShuf').classList.toggle('on', S.shuffle); $('#mWake').classList.toggle('on', wakeOn); }
 function renderList(){
+  renderLists();
   const q = $('#q').value.trim().toLowerCase();
-  let rows = S.items.map((it,i)=>({it,i}));
+  let rows = IT().map((it,i)=>({it,i}));
   if (view==='recent') rows = S.recent.map(id=>rows.find(r=>r.it.id===id)).filter(Boolean);
   if (q) rows = rows.filter(r=>r.it.title.toLowerCase().includes(q));
   const el = $('#list');
-  if (!S.items.length){ el.innerHTML = '<div class="empty">הרשימה עוד ריקה 🎶<br>עברי ל<b>"הוספת שירים"</b> והדביקי קישור מסונו או מיוטיוב.</div>'; return; }
+  if (!IT().length){ el.innerHTML = '<div class="empty">הרשימה עוד ריקה 🎶<br>עברי ל<b>"הוספת שירים"</b> והדביקי קישור מסונו או מיוטיוב.</div>'; return; }
   if (!rows.length){ el.innerHTML = '<div class="empty">'+(view==='recent'?'עוד לא נוגנו שירים':'לא נמצא שיר בשם הזה')+'</div>'; return; }
   el.innerHTML = rows.map(({it,i}) => {
     const mv = view==='all' && !q ? `<button class="ib" data-up="${it.id}">▲</button><button class="ib" data-down="${it.id}">▼</button>` : '';
@@ -458,11 +513,11 @@ $('#list').addEventListener('click', e => {
   const b = e.target.closest('[data-play],[data-up],[data-down],[data-del]'); if (!b) return;
   unlock();
   if (b.dataset.play){ play(b.dataset.play); return; }
-  const id = b.dataset.up||b.dataset.down||b.dataset.del, i = S.items.findIndex(x=>x.id===id); if (i<0) return;
+  const id = b.dataset.up||b.dataset.down||b.dataset.del, i = IT().findIndex(x=>x.id===id); if (i<0) return;
   if (b.dataset.del){
     if (b.dataset.c!=='1'){ b.dataset.c='1'; b.textContent='בטוח?'; b.style.width='auto'; b.style.padding='0 8px'; setTimeout(()=>{ if(b.isConnected){ b.dataset.c=''; b.textContent='✕'; b.style.width=''; b.style.padding=''; } },3000); return; }
-    const [x] = S.items.splice(i,1); if (x.type==='local') idbDel(x.id); S.recent = S.recent.filter(r=>r!==id);
-  } else { const j = b.dataset.up ? i-1 : i+1; if (j<0||j>=S.items.length) return; [S.items[i],S.items[j]]=[S.items[j],S.items[i]]; }
+    const [x] = IT().splice(i,1); if (x.type==='local') idbDel(x.id); S.recent = S.recent.filter(r=>r!==id);
+  } else { const j = b.dataset.up ? i-1 : i+1; if (j<0||j>=IT().length) return; [IT()[i],IT()[j]]=[IT()[j],IT()[i]]; }
   save(); renderList(); renderPlayer();
 });
 $('#q').addEventListener('input', renderList);
@@ -482,10 +537,10 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
 (function(){ const bar=$('#bar'); let down=false; const sk=e=>{ const r=bar.getBoundingClientRect(); const p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); const d = engine==='yt'&&ytReady ? yt.getDuration() : au.duration; if (d) seekTo(p*d); };
   bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
 
-load(); if (!Array.isArray(S.folders)) S.folders = []; renderPlayer(); renderList();
+load(); ensureLists(); renderLists(); renderPlayer(); renderList();
 // new songs dropped into connected Drive folders show up by themselves
-S.folders.forEach(f => syncFolder(f, false).then(n => { if (n) toast(`נוספו ${n} שירים חדשים מהדרייב ✓`); }).catch(()=>{}));
-if (S.items.some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
+S.lists.forEach(l => l.folders.forEach(f => syncFolder(f, false, l).then(n => { if (n) toast(`נוספו ${n} שירים חדשים מהדרייב ל«${l.name}» ✓`); }).catch(()=>{})));
+if (IT().some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
 })();
 </script>
 </body>
