@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>פלייליסט יעל כליפא</title>
+<meta name="theme-color" content="#140b12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="פלייליסט">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&family=Suez+One&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#140b12;--card:#22131e;--card2:#2c1827;--line:#3d2436;--pink:#ff5fa2;--pink2:#ff9cc6;--gold:#f2c46d;--text:#fbeef5;--mute:#b897a9}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:Heebo,system-ui,sans-serif}
+body{padding:calc(env(safe-area-inset-top) + 10px) 14px calc(env(safe-area-inset-bottom) + 24px)}
+button{font-family:inherit;color:inherit;border:0;cursor:pointer}
+input{font-family:inherit}
+.wrap{max-width:560px;margin:0 auto}
+header{text-align:center;margin:6px 0 12px}
+header h1{font-family:"Suez One",serif;font-weight:400;margin:0;font-size:30px;background:linear-gradient(90deg,var(--gold),var(--pink2),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+header .sub{color:var(--mute);font-size:13px;margin-top:2px}
+.player{background:linear-gradient(160deg,#3a1630,#1f0f1b 70%);border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:0 10px 30px #0006}
+.top{display:flex;gap:12px;align-items:center}
+.cover{width:64px;height:64px;border-radius:14px;background:#ffffff10 center/cover no-repeat;flex:none;display:grid;place-items:center;font-size:28px}
+.now{font-size:13px;color:var(--gold)}
+.title{font-size:21px;font-weight:800;line-height:1.25;margin-top:2px;word-break:break-word}
+.status{font-size:13px;color:var(--mute);min-height:18px;margin-top:6px}
+#ytBox{margin-top:10px;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#000;display:none}
+#ytBox.on{display:block}
+#ytBox iframe,#yt{width:100%;height:100%}
+.bar{position:relative;height:28px;margin:8px 0 0;touch-action:none;cursor:pointer;direction:ltr}
+.bar .track{position:absolute;top:12px;left:0;right:0;height:5px;border-radius:5px;background:#ffffff22}
+.bar .fill{position:absolute;top:12px;left:0;height:5px;border-radius:5px;background:linear-gradient(90deg,var(--pink),var(--gold));width:0}
+.bar .knob{position:absolute;top:6px;width:17px;height:17px;border-radius:50%;background:var(--gold);margin-left:-8px;left:0}
+.times{display:flex;justify-content:space-between;direction:ltr;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.ctrls{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:10px;direction:ltr}
+.cb{width:62px;height:62px;border-radius:50%;background:#ffffff12;display:grid;place-items:center}
+.cb svg{width:30px;height:30px;fill:var(--text)}
+.cb.small{width:52px;height:52px}.cb.small svg{width:24px;height:24px}
+.cb.play{width:88px;height:88px;background:linear-gradient(145deg,var(--pink),#d9367f);box-shadow:0 6px 20px #ff5fa255}
+.cb.play svg{width:42px;height:42px;fill:#fff}
+.cb:active{transform:scale(.94)}
+.modes{display:flex;gap:8px;justify-content:center;margin-top:14px;flex-wrap:wrap}
+.chip{padding:9px 13px;border-radius:30px;background:#ffffff10;font-size:14px;border:1px solid transparent;text-decoration:none;color:inherit;display:inline-block}
+.chip.on{background:#f2c46d22;border-color:var(--gold);color:var(--gold);font-weight:600}
+.tabs{display:flex;gap:6px;margin:16px 0 10px;background:var(--card);padding:5px;border-radius:16px}
+.tab{flex:1;padding:11px 2px;border-radius:12px;background:transparent;font-size:15px;color:var(--mute);font-weight:600}
+.tab.on{background:var(--card2);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+.panel{display:none}.panel.on{display:block}
+.search{display:flex;gap:8px;margin-bottom:10px}
+.search input{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;color:var(--text);font-size:16px;outline:none}
+.search input:focus{border-color:var(--pink)}
+.btn{background:var(--pink);color:#fff;border-radius:14px;padding:12px 16px;font-weight:700;font-size:15px;white-space:nowrap;text-decoration:none;display:inline-block}
+.btn.big{display:block;width:100%;text-align:center;padding:16px;font-size:18px;margin-bottom:10px}
+.btn.gold{background:var(--gold);color:#2a1620}
+.row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid transparent;border-radius:14px;padding:10px;margin-bottom:7px}
+.row.cur{border-color:var(--pink);background:#3a1630}
+.row .n{width:22px;text-align:center;color:var(--mute);font-size:13px;flex:none}
+.row .t{flex:1;min-width:0;font-size:16px;line-height:1.3;cursor:pointer}
+.row .t small{display:block;color:var(--mute);font-size:12px;margin-top:2px}
+.ib{width:38px;height:38px;border-radius:10px;background:#ffffff0d;font-size:16px;flex:none;display:grid;place-items:center}
+.empty{color:var(--mute);text-align:center;padding:26px 10px;line-height:1.6;font-size:15px}
+.note{background:#f2c46d14;border:1px solid #f2c46d44;color:#f6dfae;border-radius:14px;padding:12px 14px;font-size:14px;line-height:1.55;margin:8px 0 12px}
+.note.err{background:#ff5f5f14;border-color:#ff5f5f55;color:#ffc0c0}
+.lbl2{font-size:13px;color:var(--gold);margin:16px 2px 8px;font-weight:600}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%) translateY(140px);background:#000d;color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;transition:.25s;z-index:9;max-width:90vw;text-align:center}
+.toast.show{transform:translateX(-50%) translateY(0)}
+label.file{display:block;text-align:center;border:2px dashed var(--line);border-radius:16px;padding:20px 10px;color:var(--pink2);font-weight:600;font-size:16px;cursor:pointer}
+label.file input{display:none}
+.ic{font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>פלייליסט יעל כליפא</h1>
+    <div class="sub">סונו · יוטיוב · דרייב · ברצף ובלופ</div>
+  </header>
+
+  <section class="player">
+    <div class="top">
+      <div class="cover" id="cover">🎵</div>
+      <div style="flex:1;min-width:0">
+        <div class="now" id="nowLbl">מוכן לנגן</div>
+        <div class="title" id="title">לחצי ▶ להתחיל</div>
+      </div>
+    </div>
+    <div id="ytBox"><div id="yt"></div></div>
+    <div class="status" id="status"></div>
+    <div class="bar" id="bar"><div class="track"></div><div class="fill" id="fill"></div><div class="knob" id="knob"></div></div>
+    <div class="times"><span id="tCur">0:00</span><span id="tDur">0:00</span></div>
+    <div class="ctrls">
+      <button class="cb" id="bPrev" aria-label="שיר קודם"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 18V6z"/></svg></button>
+      <button class="cb small" id="bBack" aria-label="אחורה 15 שניות"><svg viewBox="0 0 24 24"><path d="M12 5V1L7 6l5 5V7a6 6 0 1 1-6 6H4a8 8 0 1 0 8-8z"/></svg></button>
+      <button class="cb play" id="bPlay" aria-label="נגן / עצור"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="cb small" id="bFwd" aria-label="קדימה 15 שניות"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg></button>
+      <button class="cb" id="bNext" aria-label="שיר הבא"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
+    </div>
+    <div class="modes">
+      <button class="chip" id="mAll">🔁 לופ על הכל</button>
+      <button class="chip" id="mOne">🔂 לופ על שיר</button>
+      <button class="chip" id="mShuf">🔀 ערבוב</button>
+      <button class="chip" id="mWake">☀️ מסך דולק</button>
+    </div>
+  </section>
+
+  <nav class="tabs">
+    <button class="tab on" data-tab="list">הרשימה</button>
+    <button class="tab" data-tab="add">הוספת שירים</button>
+  </nav>
+
+  <section class="panel on" id="p-list">
+    <div class="search"><input id="q" type="search" placeholder="🔎 חיפוש ברשימה…" autocomplete="off"></div>
+    <div class="toolbar">
+      <button class="chip on" id="vAll">כל השירים</button>
+      <button class="chip" id="vRecent">🕘 נוגנו לאחרונה</button>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section class="panel" id="p-add">
+    <button class="btn big" id="pasteAdd">📋 הדבקה והוספה</button>
+    <div class="note">מעתיקים קישור לשיר בסונו או ביוטיוב (שיתוף ← העתקת קישור), חוזרים לכאן ולוחצים <b>הדבקה והוספה</b>. אפשר גם פלייליסט שלם מסונו או מיוטיוב.</div>
+    <div class="search">
+      <input id="lUrl" placeholder="או להדביק כאן קישור" dir="auto">
+      <button class="btn" id="lAdd">הוספה</button>
+    </div>
+    <div id="addMsg"></div>
+
+    <div class="lbl2">✨ חיפוש בסונו</div>
+    <div class="search">
+      <input id="sq" type="search" placeholder="שם השיר…" autocomplete="off">
+      <a class="btn" id="sGo" href="https://suno.com/me" target="_blank" rel="noopener">חיפוש</a>
+    </div>
+    <div class="toolbar">
+      <a class="chip" href="https://suno.com/me" target="_blank" rel="noopener">🎵 השירים שלי בסונו</a>
+      <a class="chip" href="https://suno.com/me/playlists" target="_blank" rel="noopener">📂 הפלייליסטים שלי</a>
+    </div>
+
+    <div class="lbl2">▶️ חיפוש ביוטיוב</div>
+    <div class="search">
+      <input id="yq" type="search" placeholder="שם השיר…" autocomplete="off">
+      <a class="btn" id="yGo" href="https://www.youtube.com/" target="_blank" rel="noopener">חיפוש</a>
+    </div>
+    <div class="toolbar">
+      <a class="chip" href="https://www.youtube.com/playlist?list=LL" target="_blank" rel="noopener">👍 שאהבתי</a>
+      <a class="chip" href="https://www.youtube.com/feed/playlists" target="_blank" rel="noopener">📂 הפלייליסטים שלי</a>
+    </div>
+
+    <div class="lbl2">📁 מהדרייב</div>
+    <div class="note">בדרייב: על השיר ⋮ ← שיתוף ← "כל מי שיש לו את הקישור" ← העתקת קישור, ואז הדבקה והוספה למעלה.</div>
+
+    <div class="lbl2">📱 מהטלפון</div>
+    <label class="file">לבחור שירים מהטלפון (MP3)
+      <input type="file" id="fileIn" accept="audio/*,.mp3,.m4a,.wav" multiple>
+    </label>
+  </section>
+</div>
+
+<audio id="au" preload="auto" playsinline></audio>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const au = $('#au');
+const API = '/api/suno?url=';
+
+let S = { items: [], mode: 'all', shuffle: false, recent: [], curId: null };
+let view = 'all', shuffleBag = [], unlocked = false, wakeLock = null, wakeOn = false;
+let engine = null;           // 'audio' | 'yt'
+let yt = null, ytReady = false, ytQueue = null, ytTimer = null;
+const blobUrls = new Map();
+
+/* utils */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = t => { if (!isFinite(t) || t < 0) t = 0; return Math.floor(t/60) + ':' + String(Math.floor(t%60)).padStart(2,'0'); };
+const gid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+function toast(m, ms=2600){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>t.classList.remove('show'), ms); }
+function setStatus(t, err){ const e=$('#status'); e.textContent=t||''; e.style.color = err ? '#ffb3b3' : ''; }
+
+/* storage */
+function save(){ try{ localStorage.setItem('ykPlaylist2', JSON.stringify(S)); }catch(e){} }
+function load(){ try{ const j=JSON.parse(localStorage.getItem('ykPlaylist2')||'null'); if(j&&Array.isArray(j.items)) S=Object.assign(S,j); }catch(e){} }
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch(e){}
+let idbP=null;
+function idb(){ if(idbP) return idbP; idbP=new Promise(r=>{ try{ const q=indexedDB.open('yk-playlist',1); q.onupgradeneeded=()=>q.result.createObjectStore('b'); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null);}catch(e){r(null);} }); return idbP; }
+async function idbGet(k){ const d=await idb(); if(!d) return null; return new Promise(r=>{ try{ const q=d.transaction('b').objectStore('b').get(k); q.onsuccess=()=>r(q.result||null); q.onerror=()=>r(null);}catch(e){r(null);} }); }
+async function idbPut(k,v){ const d=await idb(); if(!d) return false; return new Promise(r=>{ try{ const t=d.transaction('b','readwrite'); t.objectStore('b').put(v,k); t.oncomplete=()=>r(true); t.onerror=()=>r(false);}catch(e){r(false);} }); }
+async function idbDel(k){ const d=await idb(); if(!d) return; try{ d.transaction('b','readwrite').objectStore('b').delete(k);}catch(e){} }
+
+/* link parsing */
+function parseLink(text){
+  const m = String(text||'').match(/https?:\/\/[^\s<>"']+/i);
+  if (!m) return null;
+  const url = m[0].replace(/[).,]+$/,'');
+  let u; try { u = new URL(url); } catch(e){ return null; }
+  const h = u.hostname.replace(/^www\.|^m\.|^music\./,'');
+  const rest = String(text).replace(m[0],' ').replace(/\|\s*suno\b.*/i,'').replace(/check out (this|my) song:?/i,'').replace(/\s+by\s+@?\S+\s*$/i,'').replace(/\s+/g,' ').replace(/^[\s:–\-|]+|[\s:–\-|]+$/g,'').trim();
+  if (/youtube\.com$|youtu\.be$/.test(h)){
+    const list = u.searchParams.get('list');
+    let v = u.searchParams.get('v');
+    if (h === 'youtu.be') v = u.pathname.slice(1).split('/')[0];
+    const sh = u.pathname.match(/\/(shorts|live|embed)\/([\w-]{11})/); if (sh) v = sh[2];
+    if (list && (!v || u.pathname.startsWith('/playlist'))) return { type:'ytlist', ref:list, title: rest || 'פלייליסט מיוטיוב', url };
+    if (v) return { type:'yt', ref:v, title: rest, url };
+    return null;
+  }
+  if (/suno\.(com|ai)$/.test(h)) return { type:'suno', url, title: rest };
+  if (/drive\.google\.com$|docs\.google\.com$/.test(h)){
+    const id = (u.pathname.match(/\/d\/([\w-]{20,})/)||[])[1] || u.searchParams.get('id');
+    if (id) return { type:'drive', ref:id, title: rest || 'שיר מהדרייב', url };
+  }
+  if (/\.(mp3|m4a|wav|aac|ogg)(\?|$)/i.test(u.pathname)) return { type:'url', ref:url, title: rest || decodeURIComponent(u.pathname.split('/').pop()), url };
+  return null;
+}
+
+async function addFromText(text){
+  const msg = $('#addMsg');
+  const p = parseLink(text);
+  if (!p){ msg.innerHTML = '<div class="note err">לא זיהיתי קישור לשיר. צריך קישור מסונו, מיוטיוב או מהדרייב.</div>'; return; }
+  msg.innerHTML = '<div class="empty">מוסיפה…</div>';
+  try {
+    let added = [];
+    if (p.type === 'suno'){
+      const r = await fetch(API + encodeURIComponent(p.url));
+      const j = await r.json().catch(()=>({}));
+      if (!r.ok || !j.items){ throw new Error(j.error === 'playlist_unreadable' ? 'הפלייליסט בסונו פרטי — צריך להפוך אותו לציבורי (Public) או להוסיף שיר-שיר' : 'לא הצלחתי לקרוא את הקישור מסונו'); }
+      j.items.forEach(it => { if (!S.items.some(x => x.type==='suno' && x.ref===it.id)) added.push({ id:gid(), type:'suno', ref:it.id, audio:it.audio, img:it.image||'', title:(j.items.length===1 && p.title) || it.title || 'שיר מסונו' }); });
+    } else {
+      if (S.items.some(x => x.type===p.type && x.ref===p.ref)) { msg.innerHTML=''; toast('כבר ברשימה'); return; }
+      added.push({ id:gid(), type:p.type, ref:p.ref, title:p.title || (p.type==='yt'?'שיר מיוטיוב':'שיר'), img: p.type==='yt' ? `https://i.ytimg.com/vi/${p.ref}/hqdefault.jpg` : '' });
+    }
+    if (!added.length){ msg.innerHTML=''; toast('כבר ברשימה'); return; }
+    S.items.push(...added); save(); renderList(); renderPlayer();
+    msg.innerHTML = `<div class="note">נוסף לרשימה ✓ ${added.length>1 ? added.length + ' שירים' : '«' + esc(added[0].title) + '»'}</div>`;
+    // fetch YouTube title in the background
+    added.filter(a => a.type==='yt' && (a.title==='שיר מיוטיוב')).forEach(ytTitle);
+  } catch(e){ msg.innerHTML = '<div class="note err">' + esc(e.message || 'משהו השתבש') + '</div>'; }
+}
+async function ytTitle(item){
+  try {
+    const r = await fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + item.ref));
+    const j = await r.json(); if (j.title){ item.title = j.title; save(); renderList(); renderPlayer(); }
+  } catch(e){}
+}
+
+$('#pasteAdd').onclick = async () => {
+  try { const t = await navigator.clipboard.readText(); if (!t){ toast('אין קישור מועתק'); return; } $('#lUrl').value = t; addFromText(t); }
+  catch(e){ toast('לא הצלחתי להדביק — הדביקי בשדה למטה', 3500); $('#lUrl').focus(); }
+};
+$('#lAdd').onclick = () => { addFromText($('#lUrl').value); $('#lUrl').value=''; };
+$('#lUrl').addEventListener('keydown', e => { if (e.key==='Enter'){ addFromText($('#lUrl').value); $('#lUrl').value=''; } });
+function setSearch(inp, a, base, home){ const upd=()=>{ const v=inp.value.trim(); a.href = v ? base+encodeURIComponent(v) : home; }; inp.addEventListener('input',upd); upd(); inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); a.click(); } }); }
+setSearch($('#sq'), $('#sGo'), 'https://suno.com/search?q=', 'https://suno.com/me');
+setSearch($('#yq'), $('#yGo'), 'https://www.youtube.com/results?search_query=', 'https://www.youtube.com/');
+
+$('#fileIn').addEventListener('change', async e => {
+  let n=0;
+  for (const f of e.target.files){ const id='l_'+gid(); if (!(await idbPut(id,f))) blobUrls.set(id, URL.createObjectURL(f)); S.items.push({ id, type:'local', ref:id, title:f.name.replace(/\.(mp3|m4a|wav|aac|ogg)$/i,'') }); n++; }
+  e.target.value=''; save(); renderList(); renderPlayer(); toast(`נוספו ${n} שירים ✓`);
+});
+
+/* ---------- YouTube engine ---------- */
+function loadYT(){
+  if (loadYT.p) return loadYT.p;
+  loadYT.p = new Promise(res => {
+    window.onYouTubeIframeAPIReady = () => {
+      yt = new YT.Player('yt', { width:'100%', height:'100%', playerVars:{ playsinline:1, rel:0, modestbranding:1 },
+        events:{
+          onReady: () => { ytReady = true; res(); if (ytQueue){ const q=ytQueue; ytQueue=null; q(); } },
+          onStateChange: ytState,
+          onError: e => { if (engine==='yt'){ setStatus('השיר הזה ביוטיוב לא מאפשר ניגון מחוץ ליוטיוב — עוברת לבא', true); setTimeout(()=>advance(true), 1800); } }
+        }});
+    };
+    const s=document.createElement('script'); s.src='https://www.youtube.com/iframe_api'; s.onerror=()=>setStatus('יוטיוב לא נטען — אין אינטרנט?', true); document.head.appendChild(s);
+  });
+  return loadYT.p;
+}
+function ytState(e){
+  if (engine !== 'yt') return;
+  renderPlayIcon();
+  if (e.data === 0){ // ended
+    const it = cur();
+    if (it && it.type==='ytlist'){
+      try { const pl=yt.getPlaylist()||[]; if (yt.getPlaylistIndex() < pl.length-1) return; } catch(x){}
+    }
+    if (S.mode==='one'){ try{ yt.seekTo(0); yt.playVideo(); }catch(x){} return; }
+    advance(true);
+  }
+  if (e.data === 1){ setStatus(''); try { const d=yt.getVideoData(); if (d && d.title && it_needsTitle()) { cur().title = d.title; save(); renderPlayer(); renderList(); } } catch(x){} }
+}
+function it_needsTitle(){ const c=cur(); return c && c.type==='yt' && c.title==='שיר מיוטיוב'; }
+function ytPlay(it){
+  const go = () => {
+    if (it.type==='ytlist') yt.loadPlaylist({ list: it.ref, listType:'playlist', index:0 });
+    else yt.loadVideoById(it.ref);
+  };
+  if (ytReady) go(); else { ytQueue = go; loadYT(); }
+}
+clearInterval(ytTimer); ytTimer = setInterval(() => { if (engine==='yt' && ytReady){ try{ drawTime(yt.getCurrentTime(), yt.getDuration()); }catch(e){} } }, 500);
+
+/* ---------- audio engine ---------- */
+async function audioSrc(it){
+  if (it.type==='suno') return it.audio || `https://cdn1.suno.ai/${it.ref}.mp3`;
+  if (it.type==='drive') return `https://drive.google.com/uc?export=download&id=${it.ref}`;
+  if (it.type==='url') return it.ref;
+  if (it.type==='local'){
+    if (blobUrls.has(it.id)) return blobUrls.get(it.id);
+    const b = await idbGet(it.id); if (!b) throw new Error('local');
+    const u = URL.createObjectURL(b); blobUrls.set(it.id,u); return u;
+  }
+}
+au.addEventListener('ended', () => { if (engine!=='audio') return; if (S.mode==='one'){ au.currentTime=0; au.play().catch(()=>{}); return; } advance(true); });
+au.addEventListener('timeupdate', () => { if (engine==='audio') drawTime(au.currentTime, au.duration); });
+au.addEventListener('play', renderPlayIcon); au.addEventListener('pause', renderPlayIcon);
+au.addEventListener('error', () => {
+  if (engine!=='audio' || !au.getAttribute('src')) return;
+  const it = cur();
+  setStatus(it && it.type==='drive' ? 'השיר מהדרייב לא נפתח — צריך לשתף אותו "לכל מי שיש לו את הקישור". עוברת לבא' : 'השיר לא נטען — עוברת לבא', true);
+  setTimeout(()=>advance(true), 2200);
+});
+
+/* ---------- sequencing ---------- */
+const cur = () => S.items.find(x => x.id === S.curId) || null;
+function nextId(dir){
+  const L = S.items; if (!L.length) return null;
+  if (S.shuffle && dir > 0){
+    if (!shuffleBag.length){ shuffleBag = L.map(x=>x.id).filter(id=>id!==S.curId); for(let i=shuffleBag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffleBag[i],shuffleBag[j]]=[shuffleBag[j],shuffleBag[i]];} if(!shuffleBag.length) return L[0].id; }
+    return shuffleBag.shift();
+  }
+  if (S.shuffle && dir < 0){ const p = S.recent.find(id => id!==S.curId && L.some(x=>x.id===id)); if (p) return p; }
+  let i = L.findIndex(x => x.id === S.curId); if (i<0) return L[0].id;
+  return L[(i + dir + L.length) % L.length].id;
+}
+let skipGuard = 0;
+function advance(auto){
+  if (auto){ skipGuard++; if (skipGuard > S.items.length + 1){ setStatus('אף שיר ברשימה לא נטען — בדקי את האינטרנט', true); skipGuard=0; return; } }
+  const n = nextId(1); if (n) play(n, !!auto);
+}
+function stopAll(){ try{ au.pause(); }catch(e){} if (ytReady){ try{ yt.pauseVideo(); }catch(e){} } }
+async function play(id, auto){
+  const it = S.items.find(x=>x.id===id); if (!it) return;
+  if (!auto) skipGuard = 0;
+  S.curId = id; S.recent = [id, ...S.recent.filter(x=>x!==id)].slice(0,40); save();
+  stopAll(); renderPlayer(); renderList(); setStatus('טוען…');
+  if (it.type==='yt' || it.type==='ytlist'){
+    engine='yt'; $('#ytBox').classList.add('on'); au.removeAttribute('src');
+    if (!wakeOn) setWake(true, true);
+    ytPlay(it);
+  } else {
+    engine='audio'; $('#ytBox').classList.remove('on');
+    try { au.src = await audioSrc(it); await au.play().then(()=>{ setStatus(''); skipGuard=0; }).catch(err => { if (err && err.name==='NotAllowedError') setStatus('לחצי ▶ כדי לנגן'); }); }
+    catch(e){ setStatus('השיר נשמר בטלפון אחר — מוסיפים אותו שוב מהטלפון הזה', true); setTimeout(()=>advance(true), 2000); }
+  }
+  setMedia(it);
+}
+function prev(){
+  const t = engine==='yt' && ytReady ? yt.getCurrentTime() : au.currentTime;
+  if (t > 4){ seekTo(0); return; }
+  const n = nextId(-1); if (n) play(n);
+}
+function seekTo(t){ if (engine==='yt' && ytReady) yt.seekTo(t, true); else au.currentTime = t; }
+function seekBy(d){ const t = engine==='yt' && ytReady ? yt.getCurrentTime() : au.currentTime; seekTo(Math.max(0, t + d)); }
+function isPaused(){ if (engine==='yt' && ytReady){ const s=yt.getPlayerState(); return s!==1 && s!==3; } return au.paused; }
+function togglePlay(){
+  unlock();
+  if (!S.curId || (!engine)){ const f = (cur() || S.items[0]); if (f) play(f.id); else toast('הרשימה ריקה — לשונית "הוספת שירים"'); return; }
+  if (engine==='yt' && ytReady){ isPaused() ? yt.playVideo() : yt.pauseVideo(); }
+  else { au.paused ? au.play().catch(()=>{}) : au.pause(); }
+  setTimeout(renderPlayIcon, 150);
+}
+// first touch "unlocks" sound on iPhone for both engines, so the next songs can start by themselves
+const SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+function unlock(){
+  if (unlocked) return; unlocked = true;
+  if (!au.getAttribute('src')){ try{ au.src=SILENT; au.play().catch(()=>{}); }catch(e){} }
+  if (S.items.some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
+}
+
+/* media session: car / bluetooth / lock screen buttons */
+function setMedia(it){
+  if (!('mediaSession' in navigator)) return;
+  try { navigator.mediaSession.metadata = new MediaMetadata({ title: it.title, artist:'פלייליסט יעל כליפא', artwork: it.img ? [{src:it.img, sizes:'512x512'}] : [{src:'icon-512.png', sizes:'512x512', type:'image/png'}] }); } catch(e){}
+}
+if ('mediaSession' in navigator){
+  const h=(a,f)=>{ try{ navigator.mediaSession.setActionHandler(a,f); }catch(e){} };
+  h('play', ()=>{ if(engine==='yt'&&ytReady) yt.playVideo(); else au.play().catch(()=>{}); });
+  h('pause', ()=>{ if(engine==='yt'&&ytReady) yt.pauseVideo(); else au.pause(); });
+  h('nexttrack', ()=>advance(false)); h('previoustrack', prev);
+  h('seekforward', ()=>seekBy(15)); h('seekbackward', ()=>seekBy(-15));
+  h('seekto', d=>{ if(d&&d.seekTime!=null) seekTo(d.seekTime); });
+}
+
+/* wake lock */
+async function setWake(on, quiet){
+  try {
+    if (on){ wakeLock = await navigator.wakeLock.request('screen'); wakeOn = true; if(!quiet) toast('המסך יישאר דולק'); }
+    else { wakeOn=false; if (wakeLock){ await wakeLock.release(); wakeLock=null; } }
+  } catch(e){ wakeOn=false; if(!quiet) toast('הטלפון לא מאפשר להשאיר מסך דולק'); }
+  renderModes();
+}
+document.addEventListener('visibilitychange', () => { if (wakeOn && document.visibilityState==='visible') setWake(true, true); });
+
+/* render */
+function renderPlayIcon(){ $('#playIcon').innerHTML = isPaused() ? '<path d="M8 5v14l11-7z"/>' : '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'; }
+function drawTime(c, d){ $('#tCur').textContent=fmt(c); $('#tDur').textContent=fmt(d); const p = d ? Math.min(1, c/d) : 0; $('#fill').style.width=(p*100)+'%'; $('#knob').style.left=(p*100)+'%'; }
+function typeLbl(it){ return { suno:'סונו', yt:'יוטיוב', ytlist:'פלייליסט יוטיוב', drive:'דרייב', local:'מהטלפון', url:'קישור' }[it.type] || ''; }
+function renderPlayer(){
+  const it = cur();
+  $('#title').textContent = it ? it.title : 'לחצי ▶ להתחיל';
+  const i = it ? S.items.indexOf(it) : -1;
+  $('#nowLbl').textContent = it ? `${typeLbl(it)} · ${i+1} מתוך ${S.items.length}` : (S.items.length ? `${S.items.length} שירים ברשימה` : 'הרשימה ריקה');
+  const c = $('#cover'); if (it && it.img){ c.style.backgroundImage = `url("${it.img}")`; c.textContent=''; } else { c.style.backgroundImage=''; c.textContent='🎵'; }
+  renderPlayIcon(); renderModes();
+}
+function renderModes(){ $('#mAll').classList.toggle('on', S.mode==='all'); $('#mOne').classList.toggle('on', S.mode==='one'); $('#mShuf').classList.toggle('on', S.shuffle); $('#mWake').classList.toggle('on', wakeOn); }
+function renderList(){
+  const q = $('#q').value.trim().toLowerCase();
+  let rows = S.items.map((it,i)=>({it,i}));
+  if (view==='recent') rows = S.recent.map(id=>rows.find(r=>r.it.id===id)).filter(Boolean);
+  if (q) rows = rows.filter(r=>r.it.title.toLowerCase().includes(q));
+  const el = $('#list');
+  if (!S.items.length){ el.innerHTML = '<div class="empty">הרשימה עוד ריקה 🎶<br>עברי ל<b>"הוספת שירים"</b> והדביקי קישור מסונו או מיוטיוב.</div>'; return; }
+  if (!rows.length){ el.innerHTML = '<div class="empty">'+(view==='recent'?'עוד לא נוגנו שירים':'לא נמצא שיר בשם הזה')+'</div>'; return; }
+  el.innerHTML = rows.map(({it,i}) => {
+    const mv = view==='all' && !q ? `<button class="ib" data-up="${it.id}">▲</button><button class="ib" data-down="${it.id}">▼</button>` : '';
+    return `<div class="row ${it.id===S.curId?'cur':''}"><span class="n">${i+1}</span><div class="t" data-play="${it.id}">${esc(it.title)}<small>${typeLbl(it)}</small></div>${mv}<button class="ib" data-del="${it.id}">✕</button></div>`;
+  }).join('');
+}
+$('#list').addEventListener('click', e => {
+  const b = e.target.closest('[data-play],[data-up],[data-down],[data-del]'); if (!b) return;
+  unlock();
+  if (b.dataset.play){ play(b.dataset.play); return; }
+  const id = b.dataset.up||b.dataset.down||b.dataset.del, i = S.items.findIndex(x=>x.id===id); if (i<0) return;
+  if (b.dataset.del){
+    if (b.dataset.c!=='1'){ b.dataset.c='1'; b.textContent='בטוח?'; b.style.width='auto'; b.style.padding='0 8px'; setTimeout(()=>{ if(b.isConnected){ b.dataset.c=''; b.textContent='✕'; b.style.width=''; b.style.padding=''; } },3000); return; }
+    const [x] = S.items.splice(i,1); if (x.type==='local') idbDel(x.id); S.recent = S.recent.filter(r=>r!==id);
+  } else { const j = b.dataset.up ? i-1 : i+1; if (j<0||j>=S.items.length) return; [S.items[i],S.items[j]]=[S.items[j],S.items[i]]; }
+  save(); renderList(); renderPlayer();
+});
+$('#q').addEventListener('input', renderList);
+$('#vAll').onclick = ()=>{ view='all'; $('#vAll').classList.add('on'); $('#vRecent').classList.remove('on'); renderList(); };
+$('#vRecent').onclick = ()=>{ view='recent'; $('#vRecent').classList.add('on'); $('#vAll').classList.remove('on'); renderList(); };
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => { document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t)); document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on', p.id==='p-'+t.dataset.tab)); });
+
+$('#bPlay').onclick = togglePlay;
+$('#bNext').onclick = ()=>{ unlock(); advance(false); };
+$('#bPrev').onclick = ()=>{ unlock(); prev(); };
+$('#bFwd').onclick = ()=>seekBy(15);
+$('#bBack').onclick = ()=>seekBy(-15);
+$('#mAll').onclick = ()=>{ S.mode='all'; save(); renderModes(); };
+$('#mOne').onclick = ()=>{ S.mode = S.mode==='one'?'all':'one'; save(); renderModes(); };
+$('#mShuf').onclick = ()=>{ S.shuffle=!S.shuffle; shuffleBag=[]; save(); renderModes(); toast(S.shuffle?'ערבוב פועל':'לפי הסדר'); };
+$('#mWake').onclick = ()=>setWake(!wakeOn);
+(function(){ const bar=$('#bar'); let down=false; const sk=e=>{ const r=bar.getBoundingClientRect(); const p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); const d = engine==='yt'&&ytReady ? yt.getDuration() : au.duration; if (d) seekTo(p*d); };
+  bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
+
+load(); renderPlayer(); renderList();
+if (S.items.some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
+})();
+</script>
+</body>
+</html>
