@@ -88,6 +88,17 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .kedtx button{margin-top:6px;min-height:34px}
 #ruler .rcorner{gap:4px}
 #ruler .lgrip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;border-radius:6px;background:#7a2a45;color:#fff;font-size:14px;touch-action:none;cursor:nwse-resize;font-weight:400}
+#recPop{position:fixed;left:50%;transform:translateX(-50%);z-index:66;background:var(--bg2);border:1px solid #ff4d6d;border-radius:14px;padding:8px;box-shadow:0 8px 24px #000a;width:min(92vw,360px)}
+#recPop .rpTop{display:flex;gap:6px;align-items:center}
+#recPop .rpTop .meter{flex:1;margin:0}
+#recPop .rpTop button{min-height:40px}
+#recPop #rcGo{white-space:nowrap}
+#recPop #rcOpts{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:14px}
+#recPop #rcOpts[hidden]{display:none}
+#recPop #rcMsg{margin:6px 2px 0;font-size:13px}
+#recPop #rcMsg:empty{display:none}
+.reclive{position:absolute;top:6px;height:calc(var(--lane) - 12px);background:#ff4d6d22;border:1.5px dashed #ff4d6d;border-radius:8px;overflow:hidden;pointer-events:none;z-index:3}
+.reclive canvas{position:absolute;top:0;height:100%}
 #ruler{position:sticky;top:0;height:28px;background:var(--bg2);border-bottom:1px solid var(--line);z-index:5;cursor:pointer;touch-action:none}
 #ruler .rl{position:absolute;top:0;height:100%;border-left:1px solid #5a4a66;padding-left:3px;font-size:11px;color:var(--dim);line-height:28px;pointer-events:none}
 #ruler .rcorner{position:sticky;left:0;width:var(--hdr);height:100%;background:var(--bg2);z-index:2;font-size:11px;color:var(--dim);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line)}
@@ -125,7 +136,7 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 #multiBar{position:fixed;left:0;right:0;bottom:0;z-index:60;background:#2a1d33;border-top:2px solid #ffd36b;padding:8px 10px calc(8px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:6px;align-items:center}#multiBar[hidden]{display:none}#multiBar b{color:#ffd36b;margin-inline-end:4px}
 .clip.sel{box-shadow:0 0 0 2px #fff,0 0 14px rgba(255,92,154,.7);z-index:3}
 .clip canvas{position:absolute;top:0;height:100%;pointer-events:none}
-.clip .name{position:absolute;top:2px;left:16px;right:16px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;text-shadow:0 1px 2px #000;direction:rtl;text-align:left}
+.clip .name{position:absolute;top:2px;left:16px;right:auto;max-width:calc(100% - 32px);will-change:transform;background:#0007;padding:0 6px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;text-shadow:0 1px 2px #000;direction:rtl;text-align:left}
 .clip .fin,.clip .fout{position:absolute;top:0;height:100%;pointer-events:none}
 .clip .fin{left:0;background:linear-gradient(to bottom right,rgba(0,0,0,.55) 50%,transparent 50%)}
 .clip .fout{right:0;background:linear-gradient(to bottom left,rgba(0,0,0,.55) 50%,transparent 50%)}
@@ -3103,7 +3114,7 @@ function render(){
   });
   { const al=document.createElement('div'); al.className='addlane'; al.innerHTML='<button>+ ערוץ</button>'; al.querySelector('button').onclick=()=>{ pushHist(); newTrack(); render(); toast('נוסף ערוץ ✓'); }; lanesEl.appendChild(al); }
   $('empty').style.display=allClips().length?'none':'flex';
-  placePlayhead(); updPanel(); updUndo();
+  placePlayhead(); updPanel(); updUndo(); stickNames();
 }
 function esc(s){ return String(s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
 function clipEl(c){
@@ -3146,7 +3157,8 @@ function drawTile(i,c,w,b){
   g.fill(); return cv;
 }
 let scrollRaf=0;
-scroller.addEventListener('scroll',()=>{ if(scrollRaf) return; scrollRaf=requestAnimationFrame(()=>{ scrollRaf=0; document.querySelectorAll('.clip').forEach(el=>{ const f=findClip(el.dataset.id); if(!f) return; fillTiles(el.querySelector('.wv'),f.c,Math.max(6,f.c.dur*S.pps),bufs[f.c.buf]); }); }); },{passive:true});
+function stickNames(){ const vis=scroller.scrollLeft; document.querySelectorAll('.clip').forEach(el=>{ const f=findClip(el.dataset.id); const n=el.querySelector('.name'); if(!f||!n) return; const left=f.c.start*S.pps, w=f.c.dur*S.pps; const nw=n.offsetWidth; const off=Math.max(0,Math.min(vis-left+8,w-nw-32)); n.style.transform=off>0?`translateX(${off}px)`:''; }); }
+scroller.addEventListener('scroll',()=>{ if(scrollRaf) return; scrollRaf=requestAnimationFrame(()=>{ scrollRaf=0; stickNames(); document.querySelectorAll('.clip').forEach(el=>{ const f=findClip(el.dataset.id); if(!f) return; fillTiles(el.querySelector('.wv'),f.c,Math.max(6,f.c.dur*S.pps),bufs[f.c.buf]); }); }); },{passive:true});
 function placePlayhead(){ $('playhead').style.left=(HEADER+S.playhead*S.pps-1)+'px'; $('time').textContent=fmtTime(S.playhead); const bt=timeToBeat(S.playhead); $('barpos').textContent=(Math.floor(bt/BPB())+1)+'.'+(Math.floor(mod(bt,BPB()))+1); }
 function fmtTime(t){ const m=Math.floor(t/60), s=t-m*60; return m+':'+(s<10?'0':'')+s.toFixed(2); }
 
@@ -4126,16 +4138,37 @@ function keyPicker(){ const k=projectKey(); const v=$('playView'); const box=doc
 
 /* ---------- mic recording ---------- */
 let rec=null;
-$('recBtn').onclick=()=>{ if(rec){ stopRec(); return; } openSheet(`<h3>🎙 הקלטה מעל הפלייבק</h3><p>לוחצים "להתחיל". הפלייבק מתחיל להתנגן מהסמן הזהוב ואת שרה עליו. מומלץ אוזניות. אפשר לסגור את החלון ולנגן בקלידים תוך כדי ההקלטה.</p>
-  <div class="row"><label class="hint"><input type="checkbox" id="rcMon"> לשמוע את עצמי באוזניות</label><label class="hint"><input type="checkbox" id="rcRev" checked> עם ריוורב</label><label class="hint"><input type="checkbox" id="rcCount" checked> ספירה של תיבה לפני</label>${S.range?'<label class="hint"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן (פאנץ׳)</label>':''}</div><p class="hint">הקלטה חדשה נכנסת מעל הקודמת באותו ערוץ — שומעים רק את העליונה. בזמן ההקלטה הטייק הקודם מושתק.</p>
-  <div class="meter" style="margin-top:10px"><div id="rcLvl"></div></div><p id="rcMsg" style="margin-top:8px"></p>
-  <div class="row"><button class="pri" id="rcGo">🔴 להתחיל להקליט</button><button id="rcClose">סגירה</button></div>`,()=>{ $('rcGo').onclick=()=>rec?stopRec():startRec(); $('rcClose').onclick=closeSheet; }); };
+(function(){ const pop=document.createElement('div'); pop.id='recPop'; pop.hidden=true; const LS=k=>{ try{ return localStorage.getItem('machrozet_rc_'+k); }catch(_){ return null; } };
+  const ck=(id,lb,def)=>{ const v=LS(id); const on=v==null?def:v==='1'; return `<label><input type="checkbox" id="${id}" ${on?'checked':''}> ${lb}</label>`; };
+  pop.innerHTML=`<div class="rpTop"><button class="pri" id="rcGo">🔴 הקלטה</button><div class="meter"><div id="rcLvl"></div></div><button id="rcOpt" title="אפשרויות">⚙</button><button id="rcClose" title="סגירה">✕</button></div>
+    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcCount','ספירה של תיבה לפני',true)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
+  document.body.appendChild(pop);
+  pop.querySelectorAll('#rcOpts input').forEach(i=>i.onchange=()=>{ try{ localStorage.setItem('machrozet_rc_'+i.id,i.checked?'1':'0'); }catch(_){} });
+  $('rcOpt').onclick=()=>{ $('rcOpts').hidden=!$('rcOpts').hidden; };
+  $('rcClose').onclick=()=>{ pop.hidden=true; };
+  $('rcGo').onclick=()=>{ if(rec){ stopRec(); return; } $('rcMsg').textContent=''; startRec(); };
+  window.openRecPop=()=>{ $('rcPunchL').style.display=S.range?'':'none'; pop.hidden=false; const r=$('recTop').getBoundingClientRect(); pop.style.top=(r.bottom+6)+'px'; };
+  document.addEventListener('pointerdown',e=>{ if(!pop.hidden&&!rec&&!e.target.closest('#recPop,#recTop,#recBtn,.thead .rc')) pop.hidden=true; },true);
+})();
+$('recBtn').onclick=()=>{ if(rec){ stopRec(); return; } openRecPop(); };
 $('recStopBar').onclick=()=>stopRec();
 $('cTop').onclick=()=>{ const f=findClip(S.sel); if(!f) return; pushHist(); const t=f.t; t.clips.splice(t.clips.indexOf(f.c),1); t.clips.push(f.c); render(); restartPlay(); toast('הטייק הזה עכשיו למעלה — שומעים אותו ✓'); };
 setInterval(()=>{ const b=$('cTop'); if(!b) return; const f=S.sel&&findClip(S.sel); let show=false; if(f){ const t=f.t, c=f.c, i=t.clips.indexOf(c); show=t.clips.some((o,j)=>j>i&&o.start<c.start+c.dur-0.01&&o.start+o.dur>c.start+0.01); } b.style.display=show?'':'none'; },400);
 
 $('recTop').onclick=()=>$('recBtn').onclick();
-async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg')) $('rcMsg').textContent=t; };
+
+/* ---------- live waveform while recording ---------- */
+let LW=null;
+function startLiveWave(tid,t0){ LW={tid,t0,tiles:[],last:-1}; }
+function liveWavePush(v){ if(!LW||!rec) return; const t=S.playhead; if(t<LW.t0) return; const ti=S.tracks.findIndex(x=>x.id===LW.tid); if(ti<0) return; const lane=lanesEl.querySelectorAll('.lane')[ti]; if(!lane) return;
+  let box=lane.querySelector('.reclive'); if(!box){ box=document.createElement('div'); box.className='reclive'; lane.appendChild(box); LW.tiles=[]; LW.last=-1; LW.pps=S.pps; LW.pts=LW.pts||[]; LW.pts.forEach(p=>drawLW(box,p)); }
+  if(LW.pps!==S.pps){ box.remove(); LW.pps=S.pps; return; }
+  box.style.left=(HEADER+LW.t0*S.pps)+'px'; box.style.width=Math.max(2,(t-LW.t0)*S.pps)+'px';
+  const p={t,v:Math.min(1,v*1.4)}; LW.pts=LW.pts||[]; LW.pts.push(p); drawLW(box,p); }
+function drawLW(box,p){ const x=(p.t-LW.t0)*S.pps, T=512, i=Math.floor(x/T); let cv=box.querySelector(`canvas[data-i="${i}"]`); const H=LANE_H-12;
+  if(!cv){ cv=document.createElement('canvas'); cv.dataset.i=i; cv.width=T; cv.height=H; cv.style.left=(i*T)+'px'; box.appendChild(cv); }
+  const g=cv.getContext('2d'); g.fillStyle='#ff4d6d'; const h=Math.max(1,p.v*(H/2-4)); g.fillRect(Math.floor(x-i*T),H/2-h,Math.max(1,Math.ceil(S.pps/60)),h*2); }
+async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg')) $('rcMsg').textContent=t; if(t&&$('recPop')) $('recPop').hidden=false; };
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('המכשיר לא מאפשר הקלטה כאן.'); return; }
   try{ if(navigator.audioSession) navigator.audioSession.type='play-and-record'; }catch(_){}
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e0){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ console.error('mic',e); const n=(e&&e.name)||'';
@@ -4159,15 +4192,15 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   if(count){ from=Math.max(0,t0-barSec(t0)); } stopPlay(); S.playhead=from; const wasMetro=S.metro; if(count) S.metro=true;
   mr.start(); const recCtxStart=c.currentTime; startPlay(); if(count){ setTimeout(()=>{ if(rec&&!wasMetro){ S.metro=false; metroStop(); } },(t0-from)*1000+200); }
   rec={stream,mr,chunks,t0:from,tStart:t0,tid:rt.id,punch:punch?{l:S.range.l,r:S.range.r}:null,recCtxStart,base:play.base,mon,src,an,started:Date.now()};
-  if($('rcGo')) $('rcGo').textContent='⏹ לעצור'; msg('מקליטה… הפלייבק מתנגן. אפשר לסגור את החלון.');
+  if($('rcGo')) $('rcGo').textContent='⏹ לעצור'; if($('recPop')) $('recPop').hidden=true; startLiveWave(rt.id,t0);
   $('recBar').hidden=false; $('recBtn').textContent='⏹ עצירת הקלטה'; $('recTop').textContent='⏹';
-  const buf=new Uint8Array(an.fftSize); (function lvl(){ if(!rec) return; an.getByteTimeDomainData(buf); let m=0; for(const v of buf) m=Math.max(m,Math.abs(v-128)); const el=$('rcLvl'); if(el) el.style.width=Math.min(100,m/128*140)+'%'; const s=Math.floor((Date.now()-rec.started)/1000); $('recTime').textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); if(rec.punch&&S.playhead>=rec.punch.r+0.05){ stopRec(); return; } requestAnimationFrame(lvl); })(); }
-async function stopRec(){ const r=rec; rec=null; if(!r) return; window.__recMute=null; setTimeout(()=>{ try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(_){} },300); $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; $('recTop').textContent='🎙'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
+  const buf=new Uint8Array(an.fftSize); (function lvl(){ if(!rec) return; an.getByteTimeDomainData(buf); let m=0; for(const v of buf) m=Math.max(m,Math.abs(v-128)); const el=$('rcLvl'); if(el) el.style.width=Math.min(100,m/128*140)+'%'; liveWavePush(m/128); const s=Math.floor((Date.now()-rec.started)/1000); $('recTime').textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); if(rec.punch&&S.playhead>=rec.punch.r+0.05){ stopRec(); return; } requestAnimationFrame(lvl); })(); }
+async function stopRec(){ const r=rec; rec=null; if(!r) return; LW=null; document.querySelectorAll('.reclive').forEach(e=>e.remove()); window.__recMute=null; setTimeout(()=>{ try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(_){} },300); $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; $('recTop').textContent='🎙'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
   const c=ac(); const blob=new Blob(r.chunks,{type:r.mr.mimeType||'audio/webm'}); const raw=await blob.arrayBuffer(); let buffer; try{ buffer=await decode(raw.slice(0)); }catch(e){ toast('לא הצלחתי לפענח את ההקלטה'); return; }
   const lat=(r.base-r.recCtxStart)+(c.outputLatency||0)+(c.baseLatency||0)+0.01;
   const id=nid(); const n=1+allClips().filter(x=>bufs[x.c.buf].kind==='vocal').length; const b={id,name:'הקלטה '+n,buffer,kind:'vocal',color:'#c58cff',snapAt:0,bpm:0,beat:beatSec(),first:0,down:0}; b.peaks=computePeaks(buffer); bufs[id]=b; dbPutFile(id,raw,b);
   pushHist(); let t=S.tracks.find(x=>x.id===r.tid)||targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!t){ t=newTrack('שירה'); t.vocal=true; } const cl=mkClip(b,r.t0); cl.offset=Math.min(Math.max(0,lat),buffer.duration-0.1); cl.dur=buffer.duration-cl.offset;
-  { const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch){ cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start)); cl.fi=Math.max(cl.fi||0,0.01); cl.fo=Math.max(cl.fo||0,0.015); } } t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if($('rcGo')) $('rcGo').textContent='🔴 להתחיל להקליט'; }
+  { const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch){ cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start)); cl.fi=Math.max(cl.fi||0,0.01); cl.fo=Math.max(cl.fo||0,0.015); } } t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if($('rcGo')) $('rcGo').textContent='🔴 הקלטה'; }
 
 /* ---------- range (locators) ---------- */
 function setRange(l,r){ if(l==null){ S.range=null; } else { if(r<l){ const t=l; l=r; r=t; } if(r-l<0.05){ S.range=null; } else S.range={l,r}; } render(); updRangeBar(); }
