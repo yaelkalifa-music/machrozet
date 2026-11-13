@@ -65,6 +65,17 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 #vidBox .vbar button{padding:2px 8px;min-height:0}
 #bgJob{position:fixed;left:50%;transform:translateX(-50%);bottom:64px;z-index:70;background:#3a2a6a;border:1px solid #a98cff;color:#fff;border-radius:20px;padding:6px 8px 6px 14px;display:flex;gap:8px;align-items:center;font-size:14px;box-shadow:0 4px 16px #0008}
 #bgJob button{padding:2px 8px;min-height:0}
+#fxPop{position:fixed;z-index:65;display:none;background:var(--bg2);border:1px solid #c58cff;border-radius:14px;padding:10px;box-shadow:0 8px 28px #000a;max-height:80vh;overflow:auto}
+#fxPop .fxh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#fxPop .fxh button{min-height:0;padding:2px 10px}
+#fxPop .fxp{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+#fxPop .fxp button{flex:1 1 40%;min-width:70px;font-size:13px;white-space:nowrap}
+#fxPop .fxp button.on{background:#d6337a;border-color:#ff7ab0;color:#fff}
+#fxPop .fxr{display:grid;grid-template-columns:110px 1fr 46px;align-items:center;gap:6px;font-size:13px;margin:6px 0}
+#fxPop .fxr input{width:100%;direction:ltr}
+#fxPop .fxr b{font-size:12px;text-align:center}
+#fxPop .fxdim{opacity:.45}
+.thead .fxb.on{background:#5a2a7a;border-color:#c58cff}
 #ruler{position:sticky;top:0;height:28px;background:var(--bg2);border-bottom:1px solid var(--line);z-index:5;cursor:pointer;touch-action:none}
 #ruler .rl{position:absolute;top:0;height:100%;border-left:1px solid #5a4a66;padding-left:3px;font-size:11px;color:var(--dim);line-height:28px;pointer-events:none}
 #ruler .rcorner{position:sticky;left:0;width:var(--hdr);height:100%;background:var(--bg2);z-index:2;font-size:11px;color:var(--dim);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line)}
@@ -86,7 +97,7 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .thead .tn{cursor:pointer;padding:1px 4px;border-radius:6px}
 .thead.tgt .tn{background:var(--gold);color:#2a1a05;font-weight:700}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}.swatches button{width:38px;height:38px;border-radius:50%;padding:0;min-height:38px;border:2px solid #fff3}
-.thead .tb button{min-width:0!important;width:21px;height:24px;min-height:24px!important;padding:0!important;font-size:11px}.thead .tb2 button{width:31px;font-size:13px}.thead .tb2 .rc{color:#ff3b4f;font-size:15px}
+.thead .tb button{min-width:0!important;width:21px;height:24px;min-height:24px!important;padding:0!important;font-size:11px}.thead .tb2 button{width:21px;font-size:12px}.thead .tb2 .rc{color:#ff3b4f;font-size:15px}
 .addlane{height:44px;position:relative}.addlane button{position:sticky;left:4px;width:calc(var(--hdr) - 8px);height:36px;margin-top:4px;font-size:14px;border-style:dashed}
 #fabPlay{position:fixed;right:14px;bottom:calc(var(--ph,0px) + 14px);width:70px;height:70px;border-radius:50%;z-index:45;font-size:30px;background:linear-gradient(160deg,#ff5c9a,#c2266b);border:2px solid #ffd0e2;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:0}
 .thead input[type=range]{width:62px;height:18px;accent-color:var(--pink)}
@@ -381,7 +392,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cClose" class="backbtn">→ חזרה</button>
     </div>
     <div class="row qrow"><button id="cNotes" class="gold" style="display:none">🎹 עריכת תווים</button><span class="semibox"><span class="hint">🎵 סולם</span><button id="cSemiD">−</button><b id="cSemiV" style="min-width:34px;text-align:center;direction:ltr">0</b><button id="cSemiU">+</button></span><button id="cKaraoke">🎤✕ להוריד זמרת</button><button id="cSplit">✂ חיתוך בסמן</button></div>
-    <div class="row qrow"><button id="cTsTool" title="חץ מתיחה: גוררים את קצה הקטע והשיר נמתח (כמו השעון בקיובייס)">⏱ מתיחה</button><button id="cLoop">🔁 לנגן את הקטע</button><button id="cExp">⬇ ייצוא הקטע</button><button id="cCopy">⧉ העתקה</button><button id="cPaste">📋 הדבקה בסמן</button></div>
+    <div class="row qrow"><button id="cTsTool" title="חץ מתיחה: גוררים את קצה הקטע והשיר נמתח (כמו השעון בקיובייס)">⏱ מתיחה</button><button id="cLoop">🔁 לנגן את הקטע</button><button id="cExp">⬇ ייצוא הקטע</button><button id="cCopy">⧉ העתקה</button><button id="cPaste">📋 הדבקה בסמן</button><button id="cTop" style="display:none">⤒ הטייק הזה למעלה</button></div>
     <div class="row">
       <div class="ctl">ווליום <input type="range" id="cGain" min="0" max="200" step="1"><b id="cGainV"></b></div>
     </div>
@@ -3062,11 +3073,12 @@ function render(){
     const lane=document.createElement('div'); lane.className='lane'; lane.dataset.ti=ti;
     const th=document.createElement('div'); th.className='thead';
     if(S.target===t.id) th.classList.add('tgt'); if(t.color) th.style.borderLeft='4px solid '+t.color;
-    th.innerHTML=`<div class="tn">${esc(t.name)}</div><div class="tb"><button class="m ${t.mute?'on':''}" title="השתקה">M</button><button class="s ${t.solo?'on':''}" title="סולו">S</button><button class="mn" title="אפשרויות">⋯</button></div><div class="tb tb2"><button class="pl" title="נגינה לערוץ הזה">🎹</button><button class="rc" title="הקלטה לערוץ הזה">●</button></div><input type="range" min="0" max="150" value="${Math.round(t.vol*100)}">`;
+    th.innerHTML=`<div class="tn">${esc(t.name)}</div><div class="tb"><button class="m ${t.mute?'on':''}" title="השתקה">M</button><button class="s ${t.solo?'on':''}" title="סולו">S</button><button class="mn" title="אפשרויות">⋯</button></div><div class="tb tb2"><button class="pl" title="נגינה לערוץ הזה">🎹</button><button class="rc" title="הקלטה לערוץ הזה">●</button><button class="fxb ${fxOf(t)?'on':''}" title="אפקטים לערוץ">✨</button></div><input type="range" min="0" max="150" value="${Math.round(t.vol*100)}">`;
     th.querySelector('.m').onclick=()=>{ pushHist(); t.mute=!t.mute; render(); if(S.playing) restartPlay(); };
     th.querySelector('.s').onclick=()=>{ pushHist(); t.solo=!t.solo; render(); if(S.playing) restartPlay(); };
     th.querySelector('.mn').onclick=()=>trackMenu(t);
     th.querySelector('.pl').onclick=()=>{ S.target=t.id; render(); $('openPlay').click(); };
+    th.querySelector('.fxb').onclick=e=>{ e.stopPropagation(); openTrackFx(t,th); };
     th.querySelector('.rc').onclick=()=>{ S.target=t.id; render(); $('recBtn').click(); };
     th.querySelector('.tn').onclick=()=>{ S.target=S.target===t.id?null:t.id; render(); toast(S.target?('צלילים חדשים ייכנסו ל"'+t.name+'"'):'ביטלת ערוץ יעד'); };
     const r=th.querySelector('input'); r.onpointerdown=()=>{ r._b=snapState(); }; r.oninput=()=>{ t.vol=r.value/100; if(play.tg&&play.tg[t.id]) play.tg[t.id].gain.value=t.vol; }; r.onchange=()=>{ if(r._b) pushHist(r._b); r._b=null; };
@@ -3301,16 +3313,61 @@ function xfEff(t,cl){ let fi=cl.fi||0, fo=cl.fo||0; const ce=cl.start+cl.dur;
     if((o.xfIn&&o.start>cl.start+0.01&&oe>ce)||(cl.xfIn&&cl.start>o.start+0.01&&ce>oe)) return; occ.push([o.start,oe]); });
   if(fi===cl.fi&&fo===cl.fo&&!occ.length) return cl; return Object.assign({},cl,{fi:Math.min(fi,cl.dur),fo:Math.min(fo,cl.dur),occ}); }
 function xfZones(t){ const z=[]; const cs=[...t.clips].sort((a,b)=>a.start-b.start); for(let i=0;i<cs.length;i++) for(let j=i+1;j<cs.length;j++){ const a=cs[i], b=cs[j]; const ae=a.start+a.dur, be=b.start+b.dur; if(b.start>=ae-0.01) continue; if(be<=ae) continue; z.push({l:b.start,r:ae,id:b.id,on:!!b.xfIn}); } return z; }
+
+/* ---------- track vocal FX (low cut, EQ, multiband comp, comp, reverb, echo) ---------- */
+const FX_PRESETS={ natural:{label:'🌿 טבעי',low:100,bright:0.45,comp:0.4,rev:0.18,echo:0}, bright:{label:'✨ בהיר ויפה',low:120,bright:0.75,comp:0.5,rev:0.25,echo:0.05}, diva:{label:'👑 דיווה',low:100,bright:0.65,comp:0.6,rev:0.42,echo:0.18} };
+function fxOf(t){ if(t.fx) return t.fx.on===false?null:t.fx; return t.vocal?Object.assign({preset:'natural'},FX_PRESETS.natural):null; }
+const voxIrCache=new WeakMap();
+function makeVoxIR(c){ if(voxIrCache.has(c)) return voxIrCache.get(c); const sr=c.sampleRate, len=Math.floor(sr*2.4), b=c.createBuffer(2,len,sr);
+  for(let ch=0;ch<2;ch++){ const d=b.getChannelData(ch); let lp=0; for(let i=0;i<len;i++){ const t=i/sr; const damp=0.25+0.7*(i/len); lp=lp+(1-damp)*((Math.random()*2-1)-lp); const env=Math.pow(1-i/len,2.6)*(t<0.012?t/0.012:1); d[i]=lp*env*0.6; } }
+  voxIrCache.set(c,b); return b; }
+function mbComp(c,inp,amt){ if(amt<0.01) return inp; const bq=(ty,f)=>{ const n=c.createBiquadFilter(); n.type=ty; n.frequency.value=f; n.Q.value=-3.0103; return n; };
+  const lr=(ty,f,src)=>{ const a=bq(ty,f), b=bq(ty,f); src.connect(a); a.connect(b); return b; };
+  const low=lr('lowpass',250,inp), hiA=lr('highpass',250,inp), mid=lr('lowpass',4000,hiA), high=lr('highpass',4000,hiA);
+  const out=c.createGain(); out.gain.value=1;
+  [[low,0.025,0.25,-28],[mid,0.008,0.12,-24],[high,0.003,0.08,-26]].forEach(([n,at,re,th])=>{ const k=c.createDynamicsCompressor(); k.threshold.value=-4+th*amt; k.ratio.value=1.5+2.5*amt; k.attack.value=at; k.release.value=re; k.knee.value=8; n.connect(k); k.connect(out); });
+  return out; }
+function trackFx(c,t,fx,inp,dest,from){
+  const bq=(type,f,q,g)=>{ const n=c.createBiquadFilter(); n.type=type; n.frequency.value=f; if(q!=null) n.Q.value=q; if(g!=null) n.gain.value=g; return n; };
+  let p=inp; const add=n=>{ p.connect(n); p=n; return n; };
+  if(fx.low>30){ add(bq('highpass',fx.low,-3.0103)); add(bq('highpass',fx.low,-3.0103)); }
+  const br=fx.bright||0;
+  add(bq('peaking',300,1,-1-br*2)); add(bq('peaking',3200,0.9,br*4)); add(bq('peaking',7200,2.5,-br*2.5)); add(bq('highshelf',10000,null,br*8));
+  p=mbComp(c,p,fx.comp||0);
+  if((fx.comp||0)>0.01){ const k=c.createDynamicsCompressor(); k.threshold.value=-12-(fx.comp)*10; k.ratio.value=2+fx.comp*2; k.attack.value=0.006; k.release.value=0.18; k.knee.value=10; add(k); const mk=c.createGain(); mk.gain.value=1+fx.comp*0.5; add(mk); }
+  p.connect(dest);
+  if((fx.rev||0)>0.005){ const pre=c.createDelay(0.2); pre.delayTime.value=0.03; const hp=bq('highpass',220,0.7); const cv=c.createConvolver(); cv.buffer=makeVoxIR(c); const g=c.createGain(); g.gain.value=fx.rev*1.4; p.connect(pre); pre.connect(hp); hp.connect(cv); cv.connect(g); g.connect(dest); }
+  if((fx.echo||0)>0.005){ const dl=c.createDelay(4), fb=c.createGain(), wg=c.createGain(), lp=bq('lowpass',4000,0.7), hp=bq('highpass',300,0.7); dl.delayTime.value=Math.min(3.9,0.75*beatSec(from||0)); fb.gain.value=0.22+fx.echo*0.3; wg.gain.value=fx.echo*0.7; p.connect(dl); dl.connect(lp); lp.connect(hp); hp.connect(fb); fb.connect(dl); hp.connect(wg); wg.connect(dest); }
+}
+(function(){ const pop=document.createElement('div'); pop.id='fxPop'; document.body.appendChild(pop); let cur=null, rt=0, hist=false;
+  const restart=()=>{ clearTimeout(rt); rt=setTimeout(()=>{ if(S.playing) restartPlay(); scheduleSave(); },160); };
+  function draw(){ const t=cur; const fx=t.fx||(t.vocal?Object.assign({preset:'natural',on:true},FX_PRESETS.natural):{on:false,preset:'',low:100,bright:0.45,comp:0.4,rev:0.18,echo:0}); const on=fx.on!==false&&(t.fx||t.vocal);
+    const sl=(k,lb,min,max,step,val,fmt)=>`<label class="fxr"><span>${lb}</span><input type="range" data-k="${k}" min="${min}" max="${max}" step="${step}" value="${val}"><b>${fmt}</b></label>`;
+    pop.innerHTML=`<div class="fxh"><b>✨ אפקטים · ${esc(t.name)}</b><button class="fxx">✕</button></div>
+      <div class="fxp"><button data-p="off" class="${!on?'on':''}">כבוי</button>${Object.keys(FX_PRESETS).map(k=>`<button data-p="${k}" class="${on&&fx.preset===k?'on':''}">${FX_PRESETS[k].label}</button>`).join('')}</div>
+      <div class="${on?'':'fxdim'}">
+      ${sl('low','✂ חיתוך נמוכים',40,220,5,fx.low,Math.round(fx.low)+'Hz')}
+      ${sl('bright','☀ בהירות',0,1,0.05,fx.bright,Math.round(fx.bright*100)+'%')}
+      ${sl('comp','🎚 קומפרסור (מולטיבנד)',0,1,0.05,fx.comp,Math.round(fx.comp*100)+'%')}
+      ${sl('rev','🌫 ריוורב',0,1,0.02,fx.rev,Math.round(fx.rev*100)+'%')}
+      ${sl('echo','🔁 אקו',0,1,0.02,fx.echo,Math.round(fx.echo*100)+'%')}</div>`;
+    pop.querySelector('.fxx').onclick=()=>{ pop.style.display='none'; };
+    pop.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ if(!hist){ pushHist(); hist=true; } const k=b.dataset.p; if(k==='off') t.fx=Object.assign({},fx,{on:false}); else t.fx=Object.assign({on:true,preset:k},FX_PRESETS[k]); delete t.fx.label; draw(); render(); restart(); });
+    pop.querySelectorAll('input[data-k]').forEach(r=>{ r.oninput=()=>{ if(!hist){ pushHist(); hist=true; } const base=t.fx&&t.fx.on!==false?t.fx:Object.assign({preset:'natural'},FX_PRESETS.natural); t.fx=Object.assign({},base,{on:true,preset:'custom'}); delete t.fx.label; t.fx[r.dataset.k]=parseFloat(r.value); const k=r.dataset.k, v=t.fx[k]; r.nextElementSibling.textContent=k==='low'?Math.round(v)+'Hz':Math.round(v*100)+'%'; pop.querySelectorAll('[data-p]').forEach(b=>b.classList.remove('on')); pop.querySelector('.fxdim')&&pop.querySelector('.fxdim').classList.remove('fxdim'); restart(); }; r.onchange=()=>render(); });
+  }
+  window.openTrackFx=(t,anchor)=>{ cur=t; hist=false; draw(); pop.style.display='block'; const r=anchor.getBoundingClientRect(); const w=Math.min(330,innerWidth-12); pop.style.width=w+'px'; let left=r.right+6; if(left+w>innerWidth-6) left=Math.max(6,innerWidth-w-6); pop.style.left=left+'px'; const top=Math.max(6,Math.min(r.top-10,innerHeight-pop.offsetHeight-6)); pop.style.top=top+'px'; };
+  document.addEventListener('pointerdown',e=>{ if(pop.style.display==='block'&&!e.target.closest('#fxPop,.fxb')) pop.style.display='none'; },true);
+})();
 function schedule(c,dest,from,base,only,skip){
   const nodes=[], tg={}; let rev=null; const getRev=()=>{ if(!rev){ rev=c.createConvolver(); rev.buffer=makeIR(c); const rg=c.createGain(); rg.gain.value=0.9; rev.connect(rg); rg.connect(dest); } return rev; };
   const anySolo=S.tracks.some(t=>t.solo);
-  S.tracks.forEach(t=>{ const g=c.createGain(); g.gain.value=only?(only.has(t.id)?t.vol:0):((t.mute||(anySolo&&!t.solo))?0:t.vol); if(only&&!only.has(t.id)) return; g.connect(dest); tg[t.id]=g;
+  S.tracks.forEach(t=>{ const g=c.createGain(); g.gain.value=only?(only.has(t.id)?t.vol:0):((t.mute||(anySolo&&!t.solo))?0:t.vol); if(only&&!only.has(t.id)) return; if(!only&&window.__recMute===t.id) g.gain.value=0; g.connect(dest); tg[t.id]=g; const tfx=fxOf(t); let tin=g; if(tfx){ tin=c.createGain(); trackFx(c,t,tfx,tin,g,from); }
     t.clips.forEach(cl=>{ if(skip&&cl.id===skip) return; const end=cl.start+cl.dur; if(end<=from+0.001) return; const b=bufs[cl.buf]; if(!b) return;
       const st=Math.max(cl.start,from), when=base+(st-from), off=cl.offset+(st-cl.start), dur=end-st;
-      const s=c.createBufferSource(); s.buffer=b.buffer; const cg=c.createGain(); if(cl.kar&&b.buffer.numberOfChannels>1) karaoke(c,s,cg); else s.connect(cg); const vo=vfxChain(c,cl.vfx,cg); vo.connect(g);
+      const s=c.createBufferSource(); s.buffer=b.buffer; const cg=c.createGain(); if(cl.kar&&b.buffer.numberOfChannels>1) karaoke(c,s,cg); else s.connect(cg); const vo=vfxChain(c,cl.vfx,cg); vo.connect(tin);
       try{ cg.gain.setValueCurveAtTime(envCurve(xfEff(t,cl),st,end),when,dur); }catch(err){ cg.gain.value=cl.gain; }
       if(cl.rev>0){ const sg=c.createGain(); sg.gain.value=cl.rev*1.2; vo.connect(sg); sg.connect(getRev()); }
-      if(cl.echo>0){ const dl=c.createDelay(4), fb=c.createGain(), wg=c.createGain(), lp=c.createBiquadFilter(); dl.delayTime.value=Math.min(3.9,(cl.ediv||0.5)*beatSec(cl.start)); fb.gain.value=0.25+cl.echo*0.4; wg.gain.value=cl.echo*0.8; lp.type='lowpass'; lp.frequency.value=5000; vo.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wg); wg.connect(g); }
+      if(cl.echo>0){ const dl=c.createDelay(4), fb=c.createGain(), wg=c.createGain(), lp=c.createBiquadFilter(); dl.delayTime.value=Math.min(3.9,(cl.ediv||0.5)*beatSec(cl.start)); fb.gain.value=0.25+cl.echo*0.4; wg.gain.value=cl.echo*0.8; lp.type='lowpass'; lp.frequency.value=5000; vo.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wg); wg.connect(tin); }
       s.start(when,off,dur); nodes.push(s); }); });
   return {nodes,tg};
 }
@@ -3988,10 +4045,13 @@ function keyPicker(){ const k=projectKey(); const v=$('playView'); const box=doc
 /* ---------- mic recording ---------- */
 let rec=null;
 $('recBtn').onclick=()=>{ if(rec){ stopRec(); return; } openSheet(`<h3>🎙 הקלטה מעל הפלייבק</h3><p>לוחצים "להתחיל". הפלייבק מתחיל להתנגן מהסמן הזהוב ואת שרה עליו. מומלץ אוזניות. אפשר לסגור את החלון ולנגן בקלידים תוך כדי ההקלטה.</p>
-  <div class="row"><label class="hint"><input type="checkbox" id="rcMon"> לשמוע את עצמי באוזניות</label><label class="hint"><input type="checkbox" id="rcRev" checked> עם ריוורב</label><label class="hint"><input type="checkbox" id="rcCount" checked> ספירה של תיבה לפני</label></div>
+  <div class="row"><label class="hint"><input type="checkbox" id="rcMon"> לשמוע את עצמי באוזניות</label><label class="hint"><input type="checkbox" id="rcRev" checked> עם ריוורב</label><label class="hint"><input type="checkbox" id="rcCount" checked> ספירה של תיבה לפני</label>${S.range?'<label class="hint"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן (פאנץ׳)</label>':''}</div><p class="hint">הקלטה חדשה נכנסת מעל הקודמת באותו ערוץ — שומעים רק את העליונה. בזמן ההקלטה הטייק הקודם מושתק.</p>
   <div class="meter" style="margin-top:10px"><div id="rcLvl"></div></div><p id="rcMsg" style="margin-top:8px"></p>
   <div class="row"><button class="pri" id="rcGo">🔴 להתחיל להקליט</button><button id="rcClose">סגירה</button></div>`,()=>{ $('rcGo').onclick=()=>rec?stopRec():startRec(); $('rcClose').onclick=closeSheet; }); };
 $('recStopBar').onclick=()=>stopRec();
+$('cTop').onclick=()=>{ const f=findClip(S.sel); if(!f) return; pushHist(); const t=f.t; t.clips.splice(t.clips.indexOf(f.c),1); t.clips.push(f.c); render(); restartPlay(); toast('הטייק הזה עכשיו למעלה — שומעים אותו ✓'); };
+setInterval(()=>{ const b=$('cTop'); if(!b) return; const f=S.sel&&findClip(S.sel); let show=false; if(f){ const t=f.t, c=f.c, i=t.clips.indexOf(c); show=t.clips.some((o,j)=>j>i&&o.start<c.start+c.dur-0.01&&o.start+o.dur>c.start+0.01); } b.style.display=show?'':'none'; },400);
+
 $('recTop').onclick=()=>$('recBtn').onclick();
 async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg')) $('rcMsg').textContent=t; };
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('המכשיר לא מאפשר הקלטה כאן.'); return; }
@@ -4012,18 +4072,20 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   const APPLE=/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)&&!/Chrome|CriOS|Firefox|FxiOS/.test(navigator.userAgent)&&(navigator.maxTouchPoints>1||/iPhone|iPad|iPod/.test(navigator.userAgent)||/Safari/.test(navigator.userAgent));
   const mime=(APPLE?['audio/mp4','audio/webm;codecs=opus','audio/webm']:['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg']).find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
   const mr=new MediaRecorder(stream,mime?{mimeType:mime}:undefined); const chunks=[]; mr.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
-  const count=$('rcCount')&&$('rcCount').checked; const t0=S.playhead; let from=t0;
+  const count=$('rcCount')&&$('rcCount').checked; const punch=!!($('rcPunch')&&$('rcPunch').checked&&S.range); if(punch) S.playhead=S.range.l; const t0=S.playhead; let from=t0;
+  let rt=targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!rt){ pushHist(); rt=newTrack('שירה'); rt.vocal=true; render(); } window.__recMute=rt.id;
   if(count){ from=Math.max(0,t0-barSec(t0)); } stopPlay(); S.playhead=from; const wasMetro=S.metro; if(count) S.metro=true;
   mr.start(); const recCtxStart=c.currentTime; startPlay(); if(count){ setTimeout(()=>{ if(rec&&!wasMetro){ S.metro=false; metroStop(); } },(t0-from)*1000+200); }
-  rec={stream,mr,chunks,t0:from,recCtxStart,base:play.base,mon,src,an,started:Date.now()};
+  rec={stream,mr,chunks,t0:from,tStart:t0,tid:rt.id,punch:punch?{l:S.range.l,r:S.range.r}:null,recCtxStart,base:play.base,mon,src,an,started:Date.now()};
   if($('rcGo')) $('rcGo').textContent='⏹ לעצור'; msg('מקליטה… הפלייבק מתנגן. אפשר לסגור את החלון.');
   $('recBar').hidden=false; $('recBtn').textContent='⏹ עצירת הקלטה'; $('recTop').textContent='⏹';
-  const buf=new Uint8Array(an.fftSize); (function lvl(){ if(!rec) return; an.getByteTimeDomainData(buf); let m=0; for(const v of buf) m=Math.max(m,Math.abs(v-128)); const el=$('rcLvl'); if(el) el.style.width=Math.min(100,m/128*140)+'%'; const s=Math.floor((Date.now()-rec.started)/1000); $('recTime').textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); requestAnimationFrame(lvl); })(); }
-async function stopRec(){ const r=rec; rec=null; if(!r) return; setTimeout(()=>{ try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(_){} },300); $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; $('recTop').textContent='🎙'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
+  const buf=new Uint8Array(an.fftSize); (function lvl(){ if(!rec) return; an.getByteTimeDomainData(buf); let m=0; for(const v of buf) m=Math.max(m,Math.abs(v-128)); const el=$('rcLvl'); if(el) el.style.width=Math.min(100,m/128*140)+'%'; const s=Math.floor((Date.now()-rec.started)/1000); $('recTime').textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); if(rec.punch&&S.playhead>=rec.punch.r+0.05){ stopRec(); return; } requestAnimationFrame(lvl); })(); }
+async function stopRec(){ const r=rec; rec=null; if(!r) return; window.__recMute=null; setTimeout(()=>{ try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(_){} },300); $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; $('recTop').textContent='🎙'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
   const c=ac(); const blob=new Blob(r.chunks,{type:r.mr.mimeType||'audio/webm'}); const raw=await blob.arrayBuffer(); let buffer; try{ buffer=await decode(raw.slice(0)); }catch(e){ toast('לא הצלחתי לפענח את ההקלטה'); return; }
   const lat=(r.base-r.recCtxStart)+(c.outputLatency||0)+(c.baseLatency||0)+0.01;
   const id=nid(); const n=1+allClips().filter(x=>bufs[x.c.buf].kind==='vocal').length; const b={id,name:'הקלטה '+n,buffer,kind:'vocal',color:'#c58cff',snapAt:0,bpm:0,beat:beatSec(),first:0,down:0}; b.peaks=computePeaks(buffer); bufs[id]=b; dbPutFile(id,raw,b);
-  pushHist(); let t=targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!t){ t=newTrack('שירה'); t.vocal=true; } const cl=mkClip(b,r.t0); cl.offset=Math.min(Math.max(0,lat),buffer.duration-0.1); cl.dur=buffer.duration-cl.offset; t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if($('rcGo')) $('rcGo').textContent='🔴 להתחיל להקליט'; }
+  pushHist(); let t=S.tracks.find(x=>x.id===r.tid)||targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!t){ t=newTrack('שירה'); t.vocal=true; } const cl=mkClip(b,r.t0); cl.offset=Math.min(Math.max(0,lat),buffer.duration-0.1); cl.dur=buffer.duration-cl.offset;
+  { const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch){ cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start)); cl.fi=Math.max(cl.fi||0,0.01); cl.fo=Math.max(cl.fo||0,0.015); } } t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if($('rcGo')) $('rcGo').textContent='🔴 להתחיל להקליט'; }
 
 /* ---------- range (locators) ---------- */
 function setRange(l,r){ if(l==null){ S.range=null; } else { if(r<l){ const t=l; l=r; r=t; } if(r-l<0.05){ S.range=null; } else S.range={l,r}; } render(); updRangeBar(); }
