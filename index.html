@@ -3995,12 +3995,14 @@ $('recStopBar').onclick=()=>stopRec();
 $('recTop').onclick=()=>$('recBtn').onclick();
 async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg')) $('rcMsg').textContent=t; };
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('המכשיר לא מאפשר הקלטה כאן.'); return; }
+  try{ if(navigator.audioSession) navigator.audioSession.type='play-and-record'; }catch(_){}
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e0){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ console.error('mic',e); const n=(e&&e.name)||'';
     const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
     let t;
     if(IN_ART) t='בתוך Claude המיקרופון חסום. ההקלטה עובדת באתר: machrozet.pages.dev';
     else if(n==='NotFoundError'||n==='OverconstrainedError') t='לא נמצא מיקרופון. צריך לחבר מיקרופון (או אוזניות עם מיקרופון) ולנסות שוב. במחשב: הגדרות Windows ← מערכת ← קול ← קלט — לבדוק שיש מיקרופון.';
     else if(n==='NotReadableError'||n==='AbortError') t='המיקרופון תפוס על ידי תוכנה אחרת (למשל Cubase, זום או וואטסאפ). סוגרים אותה ומנסים שוב.';
+    else if((n==='NotAllowedError'||n==='SecurityError')&&/Android/.test(navigator.userAgent)) t='אין אישור למיקרופון. בכרום: לוחצים על הסמל שליד הכתובת למעלה ← הרשאות ← מיקרופון ← לאפשר. אם זה לא עוזר: הגדרות הטלפון ← אפליקציות ← Chrome ← הרשאות ← מיקרופון ← לאפשר. ואז לרענן ולנסות שוב.';
     else if(n==='NotAllowedError'||n==='SecurityError') t=ios?'אין אישור למיקרופון. בספארי: aA ← הגדרות אתר ← מיקרופון ← לאפשר. בכרום באייפד: הגדרות האייפד ← Chrome ← מיקרופון ← להדליק. ואז לנסות שוב.':'אין אישור למיקרופון. לוחצים על הסמל שליד הכתובת למעלה ← מיקרופון ← לאפשר ומרעננים. אם זה לא עוזר: הגדרות Windows ← פרטיות ← מיקרופון ← להדליק "אפשר לאפליקציות שולחן עבודה".';
     else t='לא הצלחתי לפתוח את המיקרופון ('+n+' '+(e&&e.message||'')+')';
     msg(t); toast(t,8000); return; } }
@@ -4017,7 +4019,7 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   if($('rcGo')) $('rcGo').textContent='⏹ לעצור'; msg('מקליטה… הפלייבק מתנגן. אפשר לסגור את החלון.');
   $('recBar').hidden=false; $('recBtn').textContent='⏹ עצירת הקלטה'; $('recTop').textContent='⏹';
   const buf=new Uint8Array(an.fftSize); (function lvl(){ if(!rec) return; an.getByteTimeDomainData(buf); let m=0; for(const v of buf) m=Math.max(m,Math.abs(v-128)); const el=$('rcLvl'); if(el) el.style.width=Math.min(100,m/128*140)+'%'; const s=Math.floor((Date.now()-rec.started)/1000); $('recTime').textContent='● '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); requestAnimationFrame(lvl); })(); }
-async function stopRec(){ const r=rec; rec=null; if(!r) return; $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; $('recTop').textContent='🎙'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
+async function stopRec(){ const r=rec; rec=null; if(!r) return; setTimeout(()=>{ try{ if(navigator.audioSession) navigator.audioSession.type='playback'; }catch(_){} },300); $('recBar').hidden=true; $('recBtn').textContent='🎙 הקלטה'; $('recTop').textContent='🎙'; const done=new Promise(res=>r.mr.onstop=res); r.mr.stop(); await done; r.stream.getTracks().forEach(t=>t.stop()); try{ r.src.disconnect(); if(r.mon) r.mon.disconnect(); }catch(_){} stopPlay();
   const c=ac(); const blob=new Blob(r.chunks,{type:r.mr.mimeType||'audio/webm'}); const raw=await blob.arrayBuffer(); let buffer; try{ buffer=await decode(raw.slice(0)); }catch(e){ toast('לא הצלחתי לפענח את ההקלטה'); return; }
   const lat=(r.base-r.recCtxStart)+(c.outputLatency||0)+(c.baseLatency||0)+0.01;
   const id=nid(); const n=1+allClips().filter(x=>bufs[x.c.buf].kind==='vocal').length; const b={id,name:'הקלטה '+n,buffer,kind:'vocal',color:'#c58cff',snapAt:0,bpm:0,beat:beatSec(),first:0,down:0}; b.peaks=computePeaks(buffer); bufs[id]=b; dbPutFile(id,raw,b);
