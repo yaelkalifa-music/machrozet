@@ -152,7 +152,7 @@ label.file input{display:none}
     </div>
 
     <div class="lbl2">📁 מהדרייב</div>
-    <div class="note">בדרייב: על השיר ⋮ ← שיתוף ← "כל מי שיש לו את הקישור" ← העתקת קישור, ואז הדבקה והוספה למעלה.</div>
+    <div class="note"><b>הכי נוח — תיקייה שלמה:</b> פותחים בדרייב תיקייה (למשל "פלייליסט"), שמים בה את השירים, ⋮ ← שיתוף ← "כל מי שיש לו את הקישור" ← העתקת קישור, ואז <b>הדבקה והוספה</b> למעלה.<br>מאז, כל שיר שתשימי בתיקייה ייכנס לפלייליסט לבד.<br>אפשר גם קישור לשיר בודד.</div>
 
     <div class="lbl2">📱 מהטלפון</div>
     <label class="file">לבחור שירים מהטלפון (MP3)
@@ -171,7 +171,7 @@ const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
 
-let S = { items: [], mode: 'all', shuffle: false, recent: [], curId: null };
+let S = { items: [], folders: [], mode: 'all', shuffle: false, recent: [], curId: null };
 let view = 'all', shuffleBag = [], unlocked = false, wakeLock = null, wakeOn = false;
 let engine = null;           // 'audio' | 'yt'
 let yt = null, ytReady = false, ytQueue = null, ytTimer = null;
@@ -213,6 +213,8 @@ function parseLink(text){
   }
   if (/suno\.(com|ai)$/.test(h)) return { type:'suno', url, title: rest };
   if (/drive\.google\.com$|docs\.google\.com$/.test(h)){
+    const fo = (u.pathname.match(/\/folders\/([\w-]{20,})/)||[])[1];
+    if (fo) return { type:'dfolder', ref:fo, url };
     const id = (u.pathname.match(/\/d\/([\w-]{20,})/)||[])[1] || u.searchParams.get('id');
     if (id) return { type:'drive', ref:id, title: rest || 'שיר מהדרייב', url };
   }
@@ -232,6 +234,11 @@ async function addFromText(text){
       const j = await r.json().catch(()=>({}));
       if (!r.ok || !j.items){ throw new Error(j.error === 'playlist_unreadable' ? 'הפלייליסט בסונו פרטי — צריך להפוך אותו לציבורי (Public) או להוסיף שיר-שיר' : 'לא הצלחתי לקרוא את הקישור מסונו'); }
       j.items.forEach(it => { if (!S.items.some(x => x.type==='suno' && x.ref===it.id)) added.push({ id:gid(), type:'suno', ref:it.id, audio:it.audio, img:it.image||'', title:(j.items.length===1 && p.title) || it.title || 'שיר מסונו' }); });
+    } else if (p.type === 'dfolder'){
+      const n = await syncFolder(p.ref, true);
+      if (!S.folders.includes(p.ref)){ S.folders.push(p.ref); save(); }
+      msg.innerHTML = `<div class="note">התיקייה מחוברת ✓ ${n ? 'נוספו ' + n + ' שירים' : 'כל השירים כבר ברשימה'}.<br>שירים חדשים שתשימי בתיקייה ייכנסו לבד כשפותחים את האפליקציה.</div>`;
+      return;
     } else {
       if (S.items.some(x => x.type===p.type && x.ref===p.ref)) { msg.innerHTML=''; toast('כבר ברשימה'); return; }
       added.push({ id:gid(), type:p.type, ref:p.ref, title:p.title || (p.type==='yt'?'שיר מיוטיוב':'שיר'), img: p.type==='yt' ? `https://i.ytimg.com/vi/${p.ref}/hqdefault.jpg` : '' });
@@ -241,7 +248,20 @@ async function addFromText(text){
     msg.innerHTML = `<div class="note">נוסף לרשימה ✓ ${added.length>1 ? added.length + ' שירים' : '«' + esc(added[0].title) + '»'}</div>`;
     // fetch YouTube title in the background
     added.filter(a => a.type==='yt' && (a.title==='שיר מיוטיוב')).forEach(ytTitle);
+    added.filter(a => a.type==='drive' && a.title==='שיר מהדרייב').forEach(driveTitle);
   } catch(e){ msg.innerHTML = '<div class="note err">' + esc(e.message || 'משהו השתבש') + '</div>'; }
+}
+async function syncFolder(fid, loud){
+  const r = await fetch('/api/drive?folder=' + encodeURIComponent(fid));
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok || !j.items){ if (loud) throw new Error(j.error==='not_shared' ? 'התיקייה לא משותפת — בדרייב: שיתוף ← "כל מי שיש לו את הקישור"' : 'לא הצלחתי לקרוא את התיקייה מהדרייב'); return 0; }
+  let n = 0;
+  j.items.forEach(f => { if (!S.items.some(x => x.type==='drive' && x.ref===f.id)){ S.items.push({ id:gid(), type:'drive', ref:f.id, title:f.title || 'שיר מהדרייב', folder:fid }); n++; } });
+  if (n){ save(); renderList(); renderPlayer(); }
+  return n;
+}
+async function driveTitle(item){
+  try { const r = await fetch('/api/drive?file=' + item.ref); const j = await r.json(); if (j.title){ item.title = j.title; save(); renderList(); renderPlayer(); } } catch(e){}
 }
 async function ytTitle(item){
   try {
@@ -308,7 +328,7 @@ clearInterval(ytTimer); ytTimer = setInterval(() => { if (engine==='yt' && ytRea
 /* ---------- audio engine ---------- */
 async function audioSrc(it){
   if (it.type==='suno') return it.audio || `https://cdn1.suno.ai/${it.ref}.mp3`;
-  if (it.type==='drive') return `https://drive.google.com/uc?export=download&id=${it.ref}`;
+  if (it.type==='drive') return `/api/drive?play=${it.ref}`;
   if (it.type==='url') return it.ref;
   if (it.type==='local'){
     if (blobUrls.has(it.id)) return blobUrls.get(it.id);
@@ -461,7 +481,9 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
 (function(){ const bar=$('#bar'); let down=false; const sk=e=>{ const r=bar.getBoundingClientRect(); const p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); const d = engine==='yt'&&ytReady ? yt.getDuration() : au.duration; if (d) seekTo(p*d); };
   bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
 
-load(); renderPlayer(); renderList();
+load(); if (!Array.isArray(S.folders)) S.folders = []; renderPlayer(); renderList();
+// new songs dropped into connected Drive folders show up by themselves
+S.folders.forEach(f => syncFolder(f, false).then(n => { if (n) toast(`נוספו ${n} שירים חדשים מהדרייב ✓`); }).catch(()=>{}));
 if (S.items.some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
 })();
 </script>
