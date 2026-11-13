@@ -3995,7 +3995,15 @@ $('recStopBar').onclick=()=>stopRec();
 $('recTop').onclick=()=>$('recBtn').onclick();
 async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg')) $('rcMsg').textContent=t; };
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('המכשיר לא מאפשר הקלטה כאן.'); return; }
-  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e){ msg(window.__HOSTED?(/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1||/iPhone|iPad/.test(navigator.userAgent)?'אין גישה למיקרופון. באייפון/אייפד: בספארי לוחצים על aA (או על סמל האתר) ← הגדרות אתר ← מיקרופון ← לאפשר. אם זה מותקן במסך הבית: הגדרות ← ספארי ← מיקרופון ← לאפשר. ואז לנסות שוב.':'אין גישה למיקרופון. לוחצים על המנעול 🔒 שליד הכתובת למעלה ← מיקרופון ← לאפשר, ומנסים שוב.'):'בתוך Claude המיקרופון חסום. ההקלטה עובדת בגרסה שבכתובת שלך (yael-machrozet.netlify.app).'); return; }
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e0){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ console.error('mic',e); const n=(e&&e.name)||'';
+    const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
+    let t;
+    if(IN_ART) t='בתוך Claude המיקרופון חסום. ההקלטה עובדת באתר: machrozet.pages.dev';
+    else if(n==='NotFoundError'||n==='OverconstrainedError') t='לא נמצא מיקרופון. צריך לחבר מיקרופון (או אוזניות עם מיקרופון) ולנסות שוב. במחשב: הגדרות Windows ← מערכת ← קול ← קלט — לבדוק שיש מיקרופון.';
+    else if(n==='NotReadableError'||n==='AbortError') t='המיקרופון תפוס על ידי תוכנה אחרת (למשל Cubase, זום או וואטסאפ). סוגרים אותה ומנסים שוב.';
+    else if(n==='NotAllowedError'||n==='SecurityError') t=ios?'אין אישור למיקרופון. בספארי: aA ← הגדרות אתר ← מיקרופון ← לאפשר. בכרום באייפד: הגדרות האייפד ← Chrome ← מיקרופון ← להדליק. ואז לנסות שוב.':'אין אישור למיקרופון. לוחצים על הסמל שליד הכתובת למעלה ← מיקרופון ← לאפשר ומרעננים. אם זה לא עוזר: הגדרות Windows ← פרטיות ← מיקרופון ← להדליק "אפשר לאפליקציות שולחן עבודה".';
+    else t='לא הצלחתי לפתוח את המיקרופון ('+n+' '+(e&&e.message||'')+')';
+    msg(t); toast(t,8000); return; } }
   if(c.state!=='running'){ try{ await c.resume(); }catch(_){} }
   const src=c.createMediaStreamSource(stream); const an=c.createAnalyser(); an.fftSize=1024; src.connect(an);
   let mon=null; if($('rcMon')&&$('rcMon').checked){ mon=c.createGain(); mon.gain.value=1; if($('rcRev').checked){ const cv=c.createConvolver(); cv.buffer=makeIR(c); const wg=c.createGain(); wg.gain.value=0.35; src.connect(cv); cv.connect(wg); wg.connect(mon); } src.connect(mon); mon.connect(c.destination); }
