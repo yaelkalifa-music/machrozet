@@ -81,6 +81,13 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 #fxPop .fxtr select{flex:1;min-width:0}
 #fxPop .fxtr.k{flex-wrap:wrap}#fxPop .fxtr.k select{flex:1 1 100%}
 #fxPop .tuOn.on{background:#d6337a;border-color:#ff7ab0;color:#fff}
+.kedb{position:absolute;top:0;left:46px;width:40px;height:34px;min-height:0!important;z-index:6;padding:0!important;font-size:18px;border-radius:10px;background:#3a2a6a;border:1px solid #a98cff}
+.kbox.kediting{outline:3px dashed #a98cff;outline-offset:2px;border-radius:12px}
+.kedov{position:absolute;inset:0;z-index:5;background:#1a10307a;touch-action:none;display:flex;align-items:center;justify-content:center;cursor:move;border-radius:12px}
+.kedtx{background:#000c;color:#fff;padding:10px 14px;border-radius:12px;text-align:center;font-size:14px;line-height:1.6;direction:rtl;pointer-events:auto}
+.kedtx button{margin-top:6px;min-height:34px}
+#ruler .rcorner{gap:4px}
+#ruler .lgrip{display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;border-radius:6px;background:#7a2a45;color:#fff;font-size:14px;touch-action:none;cursor:nwse-resize;font-weight:400}
 #ruler{position:sticky;top:0;height:28px;background:var(--bg2);border-bottom:1px solid var(--line);z-index:5;cursor:pointer;touch-action:none}
 #ruler .rl{position:absolute;top:0;height:100%;border-left:1px solid #5a4a66;padding-left:3px;font-size:11px;color:var(--dim);line-height:28px;pointer-events:none}
 #ruler .rcorner{position:sticky;left:0;width:var(--hdr);height:100%;background:var(--bg2);z-index:2;font-size:11px;color:var(--dim);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line)}
@@ -102,7 +109,7 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .thead .tn{cursor:pointer;padding:1px 4px;border-radius:6px}
 .thead.tgt .tn{background:var(--gold);color:#2a1a05;font-weight:700}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}.swatches button{width:38px;height:38px;border-radius:50%;padding:0;min-height:38px;border:2px solid #fff3}
-.thead .tb button{min-width:0!important;width:21px;height:24px;min-height:24px!important;padding:0!important;font-size:11px}.thead .tb2 button{width:21px;font-size:12px}.thead .tb2 .rc{color:#ff3b4f;font-size:15px}
+.thead .tb button{min-width:0!important;width:calc((var(--hdr) - 14px) / 3);height:24px;min-height:24px!important;padding:0!important;font-size:11px}.thead .tb2 button{width:calc((var(--hdr) - 14px) / 3);font-size:12px}.thead .tb2 .rc{color:#ff3b4f;font-size:15px}
 .addlane{height:44px;position:relative}.addlane button{position:sticky;left:4px;width:calc(var(--hdr) - 8px);height:36px;margin-top:4px;font-size:14px;border-style:dashed}
 #fabPlay{position:fixed;right:14px;bottom:calc(var(--ph,0px) + 14px);width:70px;height:70px;border-radius:50%;z-index:45;font-size:30px;background:linear-gradient(160deg,#ff5c9a,#c2266b);border:2px solid #ffd0e2;color:#fff;box-shadow:0 6px 18px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:0}
 .thead input[type=range]{width:62px;height:18px;accent-color:var(--pink)}
@@ -356,7 +363,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
 </div>
 <div id="scroller">
   <div id="content">
-    <div id="ruler"><div class="rcorner">תיבה</div></div>
+    <div id="ruler"><div class="rcorner"><span>תיבה</span><b class="lgrip" title="גוררים: ימינה = שמות ערוצים רחבים יותר, למטה = ערוצים גבוהים יותר">⤡</b></div></div>
     <div id="lanes"></div>
     <div id="playhead"></div>
   </div>
@@ -2673,7 +2680,9 @@ if (typeof module === "object" && typeof module.exports === "object") Object.ass
 </script>
 <script>
 "use strict";
-const HEADER=76, LANE_H=100, PEAK_RATE=400;
+let HEADER=76, LANE_H=100; const PEAK_RATE=400;
+(function(){ try{ const h=+localStorage.getItem('machrozet_hdr'), l=+localStorage.getItem('machrozet_laneh'); if(h>=70&&h<=240) HEADER=h; if(l>=56&&l<=280) LANE_H=l; }catch(_){} document.documentElement.style.setProperty('--hdr',HEADER+'px'); document.documentElement.style.setProperty('--lane',LANE_H+'px'); })();
+function setLayout(h,l){ const sl=scroller.scrollLeft-HEADER; HEADER=Math.round(clamp(h,70,240)); LANE_H=Math.round(clamp(l,56,280)); document.documentElement.style.setProperty('--hdr',HEADER+'px'); document.documentElement.style.setProperty('--lane',LANE_H+'px'); try{ localStorage.setItem('machrozet_hdr',HEADER); localStorage.setItem('machrozet_laneh',LANE_H); }catch(_){} render(); scroller.scrollLeft=Math.max(0,sl+HEADER); }
 const $=id=>document.getElementById(id);
 const PALETTE=['#ff5c9a','#5cc8ff','#8f7bff','#4fd1a5','#ff8a5c','#e86cf0'];
 const S={noFollow:(()=>{ try{ return localStorage.getItem('machrozet_nofollow')==='1'; }catch(_){ return false; } })(),bpb:4,bpm:120,pps:30,snap:1,tracks:[],sel:null,playhead:0,playing:false};
@@ -3114,7 +3123,7 @@ function layoutClip(el,c,redraw){
   if(redraw) drawWave(el.querySelector('.wv'),c,w,b);
 }
 const TILE=1024;
-function drawWave(box,c,w,b){ box.innerHTML=''; box._key=c.offset+'|'+c.dur+'|'+c.gain+'|'+S.pps; fillTiles(box,c,w,b); }
+function drawWave(box,c,w,b){ box.innerHTML=''; box._key=c.offset+'|'+c.dur+'|'+c.gain+'|'+S.pps+'|'+LANE_H; fillTiles(box,c,w,b); }
 function fillTiles(box,c,w,b){
   const left=HEADER+c.start*S.pps, vl=scroller.scrollLeft-left-scroller.clientWidth, vr=scroller.scrollLeft-left+scroller.clientWidth*2;
   const i0=Math.max(0,Math.floor(vl/TILE)), i1=Math.min(Math.ceil(w/TILE)-1,Math.floor(vr/TILE));
@@ -3273,6 +3282,15 @@ function rulerSeek(e,moving){ const r=contentEl.getBoundingClientRect(); const t
 function seek(t){ S.playhead=Math.max(0,t); placePlayhead(); ensureVisible(); if(S.playing) restartPlay(); }
 
 /* ---------- zoom ---------- */
+
+/* ---------- track layout: header width + lane height ---------- */
+(function(){ const g=document.querySelector('#ruler .lgrip'); if(!g) return; let d=null;
+  g.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); d={x:e.clientX,y:e.clientY,h:HEADER,l:LANE_H,id:e.pointerId}; try{ g.setPointerCapture(e.pointerId); }catch(_){} });
+  g.addEventListener('pointermove',e=>{ if(!d||e.pointerId!==d.id) return; e.stopPropagation(); const rtl=getComputedStyle(scroller).direction==='rtl'; const dx=(e.clientX-d.x)*(rtl?-1:1); const h=clamp(d.h+dx,70,240), l=clamp(d.l+(e.clientY-d.y),56,280); document.documentElement.style.setProperty('--hdr',h+'px'); document.documentElement.style.setProperty('--lane',l+'px'); d.nh=h; d.nl=l; });
+  const up=e=>{ if(!d) return; const nh=d.nh, nl=d.nl; d=null; if(nh!=null) setLayout(nh,nl); };
+  g.addEventListener('pointerup',up); g.addEventListener('pointercancel',up);
+  g.addEventListener('dblclick',()=>setLayout(76,100)); g.addEventListener('click',e=>e.stopPropagation());
+})();
 const ZMIN=2, ZMAX=4000;
 function zoomTo(pps,clientX){ const r=scroller.getBoundingClientRect(); const ax=(clientX==null? r.width/2 : clientX-r.left); const t=(scroller.scrollLeft+ax-HEADER)/S.pps; S.pps=clamp(pps,ZMIN,ZMAX); render(); scroller.scrollLeft=t*S.pps+HEADER-ax; }
 function zoom(f,clientX){ zoomTo(S.pps*f,clientX); }
@@ -3280,9 +3298,11 @@ $('zoomIn').onclick=()=>zoom(2); $('zoomOut').onclick=()=>zoom(0.5);
 scroller.addEventListener('wheel',e=>{ if(e.ctrlKey||e.metaKey){ e.preventDefault(); zoom(e.deltaY<0?1.2:1/1.2,e.clientX); } },{passive:false});
 // two-finger pinch zoom (touch events, works on iPhone and Android)
 let pinch=null;
-scroller.addEventListener('touchstart',e=>{ if(e.touches.length===2){ e.preventDefault(); drag=null; const [p,q]=e.touches; const r=scroller.getBoundingClientRect(); const mx=(p.clientX+q.clientX)/2; pinch={d:Math.max(10,Math.abs(p.clientX-q.clientX)),pps:S.pps,mx,ax:scroller.scrollLeft+mx-r.left,k:1}; contentEl.style.transformOrigin=pinch.ax+'px 0'; } },{passive:false});
-document.addEventListener('touchmove',e=>{ if(pinch&&e.touches.length>=2){ e.preventDefault(); const [p,q]=e.touches; const d=Math.max(10,Math.abs(p.clientX-q.clientX)); pinch.k=clamp(pinch.pps*d/pinch.d,ZMIN,ZMAX)/pinch.pps; contentEl.style.transform=`scaleX(${pinch.k})`; } },{passive:false});
-const pinchEnd=e=>{ if(!pinch||e.touches.length>=2) return; const p=pinch; pinch=null; contentEl.style.transform=''; if(Math.abs(p.k-1)>0.01){ S.pps=p.pps; zoomTo(p.pps*p.k,p.mx); } };
+scroller.addEventListener('touchstart',e=>{ if(e.touches.length===2){ e.preventDefault(); drag=null; const [p,q]=e.touches; const r=scroller.getBoundingClientRect(); const mx=(p.clientX+q.clientX)/2; pinch={d:Math.max(10,Math.abs(p.clientX-q.clientX)),dy:Math.max(10,Math.abs(p.clientY-q.clientY)),pps:S.pps,mx,ax:scroller.scrollLeft+mx-r.left,k:1,lh:LANE_H,mode:null}; contentEl.style.transformOrigin=pinch.ax+'px 0'; } },{passive:false});
+document.addEventListener('touchmove',e=>{ if(pinch&&e.touches.length>=2){ e.preventDefault(); const [p,q]=e.touches; const d=Math.max(10,Math.abs(p.clientX-q.clientX)), dy=Math.max(10,Math.abs(p.clientY-q.clientY)); if(!pinch.mode){ const ch=Math.abs(d-pinch.d), cv=Math.abs(dy-pinch.dy); if(cv>18&&cv>ch*1.3) pinch.mode='v'; else if(ch>18) pinch.mode='h'; else return; }
+    if(pinch.mode==='v'){ pinch.nl=clamp(pinch.lh*dy/pinch.dy,56,280); document.documentElement.style.setProperty('--lane',Math.round(pinch.nl)+'px'); return; }
+    pinch.k=clamp(pinch.pps*d/pinch.d,ZMIN,ZMAX)/pinch.pps; contentEl.style.transform=`scaleX(${pinch.k})`; } },{passive:false});
+const pinchEnd=e=>{ if(!pinch||e.touches.length>=2) return; const p=pinch; pinch=null; contentEl.style.transform=''; if(p.mode==='v'){ if(p.nl) setLayout(HEADER,p.nl); return; } if(Math.abs(p.k-1)>0.01){ S.pps=p.pps; zoomTo(p.pps*p.k,p.mx); } };
 document.addEventListener('touchend',pinchEnd); document.addEventListener('touchcancel',pinchEnd);
 ['gesturestart','gesturechange'].forEach(n=>document.addEventListener(n,e=>e.preventDefault(),{passive:false}));
 
@@ -3493,11 +3513,11 @@ window.addEventListener('blur',()=>document.body.classList.remove('alt-cut'));
 (function(){ const pop=document.createElement('div'); pop.id='toolPop'; document.body.appendChild(pop);
   const key=c=>document.body.dispatchEvent(new KeyboardEvent('keydown',{code:c,key:c.slice(-1).toLowerCase(),bubbles:true}));
   function draw(){ const t=S.tool||'arrow'; const B=(id,ic,lb,on)=>`<button data-a="${id}" class="${on?'on':''}"><b>${ic}</b>${lb}</button>`;
-    pop.innerHTML=B('arrow','➤','חץ',t==='arrow')+B('cut','✂','מספריים',t==='cut')+B('ts','⏱','מתיחה',t==='ts')+B('select','⬚','בחירה',t==='select')+'<hr>'+B('prev','⇤','קטע קודם')+B('next','⇥','קטע הבא')+B('follow',S.noFollow?'📌':'👁',S.noFollow?'לא עוקב':'עוקב',!S.noFollow)+B('snap','🧲',S.snap?'מצמיד':'חופשי',!!S.snap); }
+    pop.innerHTML=B('arrow','➤','חץ',t==='arrow')+B('cut','✂','מספריים',t==='cut')+B('ts','⏱','מתיחה',t==='ts')+B('select','⬚','בחירה',t==='select')+'<hr>'+B('prev','⇤','קטע קודם')+B('next','⇥','קטע הבא')+B('follow',S.noFollow?'📌':'👁',S.noFollow?'לא עוקב':'עוקב',!S.noFollow)+B('snap','🧲',S.snap?'מצמיד':'חופשי',!!S.snap)+'<hr>'+B('hw+','↔','שם ערוץ רחב')+B('hw-','↔','שם ערוץ צר')+B('lh+','↕','ערוצים גבוהים')+B('lh-','↕','ערוצים נמוכים'); }
   $('toolBtn').onclick=e=>{ e.stopPropagation(); if(pop.style.display==='flex'){ pop.style.display='none'; return; } draw(); pop.style.display='flex'; const r=$('toolBtn').getBoundingClientRect(); pop.style.top=(r.bottom+6)+'px'; pop.style.left=Math.max(6,Math.min(innerWidth-310,r.left-120))+'px'; };
   pop.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; e.stopPropagation(); const a=b.dataset.a;
     if(['arrow','cut','ts','select'].includes(a)){ setTool(a); pop.style.display='none'; return; }
-    if(a==='prev') key('KeyB'); else if(a==='next') key('KeyN'); else if(a==='follow') key('KeyF'); else if(a==='snap') $('snapQ').click(); draw(); });
+    if(a==='prev') key('KeyB'); else if(a==='next') key('KeyN'); else if(a==='follow') key('KeyF'); else if(a==='snap') $('snapQ').click(); else if(a==='hw+') setLayout(HEADER+24,LANE_H); else if(a==='hw-') setLayout(HEADER-24,LANE_H); else if(a==='lh+') setLayout(HEADER,LANE_H+24); else if(a==='lh-') setLayout(HEADER,LANE_H-24); draw(); });
   document.addEventListener('pointerdown',e=>{ if(pop.style.display==='flex'&&!e.target.closest('#toolPop,#toolBtn')) pop.style.display='none'; },true);
 })();
 function setTool(t){ S.tool=t; if(t==='select'){ if(!MS.on) msMode(true); } else if(MS.on) msMode(false); document.body.classList.toggle('tool-cut',t==='cut'); const n={arrow:'➤ חץ — לבחור ולהזיז',ts:'⏱ חץ מתיחה — גוררים את קצה הקטע והשיר נמתח/מתכווץ',select:'⬚ בחירה מרובה',cut:'✂ מספריים — לוחצים על קטע כדי לחתוך'}[t]; document.body.classList.toggle('tool-ts',t==='ts'); const tb2=$('cTsTool'); if(tb2) tb2.classList.toggle('on',t==='ts'); toast(n,1800); const tb=$('toolTag'); if(tb) tb.textContent=t==='cut'?'✂':t==='select'?'⬚':t==='ts'?'⏱':''; const tb3=$('toolBtn'); if(tb3){ tb3.textContent=t==='cut'?'✂':t==='select'?'⬚':t==='ts'?'⏱':'➤'; tb3.classList.toggle('on',t!=='arrow'); } }
@@ -3921,7 +3941,7 @@ function kbNW(port){ try{ const v=+localStorage.getItem(port?'machrozet_nwp':'ma
 function kbH(){ try{ const v=+localStorage.getItem('machrozet_kbh'); if(v>=80) return v; }catch(_){} return 0; }
 function kbHTML(lo,hi,nW,attr,wl,bl,cls){ const all=[]; for(let m=lo;m<=hi;m++) all.push(m); const white=all.filter(m=>![1,3,6,8,10].includes(m%12)); const wW=100/white.length;
   const strip=white.map((m,i)=>m%12===0?`<b style="left:${i*wW}%">${NOTE_HE[0]}${Math.floor(m/12)-1}</b>`:'').join('');
-  return `<div class="kbox" ${kbH()?`style="flex:none;height:${kbH()}px"`:''}><div class="kgrip" title="גוררים: רוחב והגובה של המקשים">⤡</div><div class="kstrip" title="מחליקים כאן ימינה/שמאלה"><div class="kstripin" style="width:${white.length/nW*100}%">${strip}</div></div><div class="khint">⇠ החליקי כאן ⇢</div><div class="kwrap"><div class="keys big ${cls}" style="width:${white.length/nW*100}%">${white.map(m=>`<button class="wk" data-${attr}="${m}">${wl(m)}</button>`).join('')}${all.filter(m=>[1,3,6,8,10].includes(m%12)).map(m=>{ const wi=white.indexOf(m-1); return `<button class="bk" data-${attr}="${m}" style="left:${(wi+1)*wW-wW*0.32}%;width:${wW*0.64}%">${bl(m)}</button>`; }).join('')}</div></div></div>`; }
+  return `<div class="kbox" ${kbH()?`style="flex:none;height:${kbH()}px"`:''}><div class="kgrip" title="גוררים: רוחב והגובה של המקשים">⤡</div><button class="kedb" title="להזיז / להגדיל / לכווץ את המקלדת">✋</button><div class="kstrip" title="מחליקים כאן ימינה/שמאלה"><div class="kstripin" style="width:${white.length/nW*100}%">${strip}</div></div><div class="khint">⇠ החליקי כאן ⇢</div><div class="kwrap"><div class="keys big ${cls}" style="width:${white.length/nW*100}%">${white.map(m=>`<button class="wk" data-${attr}="${m}">${wl(m)}</button>`).join('')}${all.filter(m=>[1,3,6,8,10].includes(m%12)).map(m=>{ const wi=white.indexOf(m-1); return `<button class="bk" data-${attr}="${m}" style="left:${(wi+1)*wW-wW*0.32}%;width:${wW*0.64}%">${bl(m)}</button>`; }).join('')}</div></div></div>`; }
 function kbSetup(v){ const wrap=v.querySelector('.kwrap'), strip=v.querySelector('.kstrip'); if(!wrap) return; const keys=wrap.querySelector('.keys'); const whites=[...keys.querySelectorAll('.wk')]; const port=innerHeight>innerWidth&&!PV.rotate; const W=()=>wrap.clientWidth/kbNW(port);
   // resize: drag the ⤡ grip (x = key width, y = height) or pinch two fingers on the strip
   const box=v.querySelector('.kbox'), grip=v.querySelector('.kgrip'); const nwKey=port?'machrozet_nwp':'machrozet_nw';
@@ -3943,6 +3963,28 @@ function kbSetup(v){ const wrap=v.querySelector('.kwrap'), strip=v.querySelector
   strip.addEventListener('pointermove',e=>{ if(!d||e.pointerId!==d.id) return; wrap.scrollLeft=d.sl-(e.clientX-d.x)*(keys.offsetWidth/strip.querySelector('.kstripin').offsetWidth)*1.0; sync(); });
   const up=()=>{ if(!d) return; d=null; const ww=whites[0].offsetWidth; wrap.scrollTo({left:Math.round(wrap.scrollLeft/ww)*ww,behavior:'smooth'}); setTimeout(()=>{ sync(); save(); },300); };
   strip.addEventListener('pointerup',up); strip.addEventListener('pointercancel',up);
+  // free move + pinch-scale of the whole keyboard (edit mode ✋)
+  { const gk=port?'machrozet_kbgeo_p':'machrozet_kbgeo'; const ld=()=>{ try{ return JSON.parse(localStorage.getItem(gk)||'null'); }catch(_){ return null; } };
+    const par=box.parentElement; const apply=g=>{ if(!g){ box.style.transform=''; box.style.width=''; return; } box.style.width=g.w+'%'; box.style.alignSelf='flex-start'; if(g.h){ box.style.flex='none'; box.style.height=g.h+'px'; } box.style.transform=`translate(${g.dx}px,${g.dy}px)`; };
+    apply(ld());
+    const eb=box.querySelector('.kedb'); let ov=null;
+    const exitEd=()=>{ if(ov){ ov.remove(); ov=null; } box.classList.remove('kediting'); eb.textContent='✋'; };
+    const enterEd=()=>{ box.classList.add('kediting'); eb.textContent='✓'; ov=document.createElement('div'); ov.className='kedov'; ov.innerHTML='<div class="kedtx">✋ גוררים באצבע אחת להזזה<br>🤏 שתי אצבעות: להגדיל / לכווץ<br><button class="kedreset">איפוס</button> <button class="keddone">✓ סיום</button></div>'; box.appendChild(ov);
+      const pts=new Map(); let st=null;
+      const cur=()=>{ const g=ld(); const pr=par.getBoundingClientRect(); return g||{w:100,h:box.offsetHeight,dx:0,dy:0,pw:pr.width}; };
+      const save=g=>{ try{ localStorage.setItem(gk,JSON.stringify(g)); }catch(_){} };
+      const clampG=g=>{ const pr=par.getBoundingClientRect(); const bw=pr.width*g.w/100; g.dx=Math.max(-10,Math.min(pr.width-bw+10,g.dx)); g.dy=Math.max(-pr.top+50,Math.min(innerHeight-pr.top-g.h-4,g.dy)); return g; };
+      ov.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; e.preventDefault(); try{ ov.setPointerCapture(e.pointerId); }catch(_){} pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const g=cur(); const a=[...pts.values()];
+        st={g:Object.assign({},g,{h:g.h||box.offsetHeight}),a:a.map(p=>({...p})),d:a.length===2?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1:0,n:a.length}; });
+      ov.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)||!st) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const a=[...pts.values()]; const g=Object.assign({},st.g);
+        if(a.length>=2&&st.n>=2){ const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1; const k=d/st.d; const pr=par.getBoundingClientRect(); g.w=Math.max(35,Math.min(100,st.g.w*k)); g.h=Math.max(110,Math.min(innerHeight*0.85,st.g.h*k)); const cx0=(st.a[0].x+st.a[1].x)/2, cx=(a[0].x+a[1].x)/2, cy0=(st.a[0].y+st.a[1].y)/2, cy=(a[0].y+a[1].y)/2; g.dx=st.g.dx+(cx-cx0)-(pr.width*(g.w-st.g.w)/100)/2; g.dy=st.g.dy+(cy-cy0)-(g.h-st.g.h)/2; }
+        else if(a.length===1&&st.n===1){ g.dx=st.g.dx+(e.clientX-st.a[0].x); g.dy=st.g.dy+(e.clientY-st.a[0].y); }
+        else return; clampG(g); apply(g); st.live=g; });
+      const up=e=>{ pts.delete(e.pointerId); if(st&&st.live){ save(st.live); } if(pts.size){ const g=cur(); const a=[...pts.values()]; st={g:Object.assign({},g),a:a.map(p=>({...p})),d:0,n:a.length}; } else st=null; };
+      ov.addEventListener('pointerup',up); ov.addEventListener('pointercancel',up);
+      ov.querySelector('.keddone').onclick=()=>{ exitEd(); buildPV(); };
+      ov.querySelector('.kedreset').onclick=()=>{ try{ localStorage.removeItem(gk); localStorage.removeItem('machrozet_kbh'); }catch(_){} exitEd(); buildPV(); }; };
+    eb.addEventListener('pointerdown',e=>e.stopPropagation()); eb.onclick=e=>{ e.stopPropagation(); if(ov){ exitEd(); buildPV(); } else enterEd(); }; }
   PV._kbJump=n=>{ const ww=whites[0].offsetWidth; wrap.scrollTo({left:Math.max(0,wrap.scrollLeft+n*7*ww),behavior:'smooth'}); setTimeout(()=>{ sync(); save(); },350); }; }
 async function buildPV(){ const v=$('playView'); layoutPV(); const k=projectKey(); const kname=KEY_HE[k.tonic]+(k.minor?' מינור':' מז\'ור');
   let body='';
