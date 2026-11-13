@@ -415,7 +415,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cClose" class="backbtn">→ חזרה</button>
     </div>
     <div class="row qrow"><button id="cNotes" class="gold" style="display:none">🎹 עריכת תווים</button><span class="semibox"><span class="hint">🎵 סולם</span><button id="cSemiD">−</button><b id="cSemiV" style="min-width:34px;text-align:center;direction:ltr">0</b><button id="cSemiU">+</button></span><button id="cKaraoke">🎤✕ להוריד זמרת</button><button id="cSplit">✂ חיתוך בסמן</button></div>
-    <div class="row qrow"><button id="cTsTool" title="חץ מתיחה: גוררים את קצה הקטע והשיר נמתח (כמו השעון בקיובייס)">⏱ מתיחה</button><button id="cLoop">🔁 לנגן את הקטע</button><button id="cExp">⬇ ייצוא הקטע</button><button id="cCopy">⧉ העתקה</button><button id="cPaste">📋 הדבקה בסמן</button><button id="cTop" style="display:none">⤒ הטייק הזה למעלה</button></div>
+    <div class="row qrow"><button id="cTsTool" title="חץ מתיחה: גוררים את קצה הקטע והשיר נמתח (כמו השעון בקיובייס)">⏱ מתיחה</button><button id="cLoop">🔁 לנגן את הקטע</button><button id="cExp">⬇ ייצוא הקטע</button><button id="cCopy">⧉ העתקה</button><button id="cPaste">📋 הדבקה בסמן</button><button id="cTop" style="display:none">⤒ הטייק הזה למעלה</button><button id="cClean">🧹 לנקות מוזיקה מהשירה</button></div>
     <div class="row">
       <div class="ctl">ווליום <input type="range" id="cGain" min="0" max="200" step="1"><b id="cGainV"></b></div>
     </div>
@@ -4141,7 +4141,7 @@ let rec=null;
 (function(){ const pop=document.createElement('div'); pop.id='recPop'; pop.hidden=true; const LS=k=>{ try{ return localStorage.getItem('machrozet_rc_'+k); }catch(_){ return null; } };
   const ck=(id,lb,def)=>{ const v=LS(id); const on=v==null?def:v==='1'; return `<label><input type="checkbox" id="${id}" ${on?'checked':''}> ${lb}</label>`; };
   pop.innerHTML=`<div class="rpTop"><button class="pri" id="rcGo">🔴 הקלטה</button><div class="meter"><div id="rcLvl"></div></div><button id="rcOpt" title="אפשרויות">⚙</button><button id="rcClose" title="סגירה">✕</button></div>
-    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcCount','ספירה של תיבה לפני',true)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
+    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcCount','ספירה של תיבה לפני',true)}${ck('rcClean','🧹 לנקות אוטומטית מוזיקה שנכנסה למיקרופון (בלי אוזניות)',false)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
   document.body.appendChild(pop);
   pop.querySelectorAll('#rcOpts input').forEach(i=>i.onchange=()=>{ try{ localStorage.setItem('machrozet_rc_'+i.id,i.checked?'1':'0'); }catch(_){} });
   $('rcOpt').onclick=()=>{ $('rcOpts').hidden=!$('rcOpts').hidden; };
@@ -4152,11 +4152,33 @@ let rec=null;
 })();
 $('recBtn').onclick=()=>{ if(rec){ stopRec(); return; } openRecPop(); };
 $('recStopBar').onclick=()=>stopRec();
+$('cClean').onclick=()=>{ const f=findClip(S.sel); if(f) cleanClip(f.c); };
 $('cTop').onclick=()=>{ const f=findClip(S.sel); if(!f) return; pushHist(); const t=f.t; t.clips.splice(t.clips.indexOf(f.c),1); t.clips.push(f.c); render(); restartPlay(); toast('הטייק הזה עכשיו למעלה — שומעים אותו ✓'); };
 setInterval(()=>{ const b=$('cTop'); if(!b) return; const f=S.sel&&findClip(S.sel); let show=false; if(f){ const t=f.t, c=f.c, i=t.clips.indexOf(c); show=t.clips.some((o,j)=>j>i&&o.start<c.start+c.dur-0.01&&o.start+o.dur>c.start+0.01); } b.style.display=show?'':'none'; },400);
 
 $('recTop').onclick=()=>$('recBtn').onclick();
 
+
+/* ---------- 🧹 remove music bleed from a vocal take (AI, same model as Diva Voice) ---------- */
+let mworker=null, mjob=0; const mjobs={};
+function getMusicWorker(){ if(mworker) return mworker; mworker=new Worker('music_worker.mjs',{type:'module'});
+  mworker.onmessage=e=>{ const j=mjobs[e.data.id]; if(!j) return; if(e.data.error){ delete mjobs[e.data.id]; j.reject(new Error(e.data.error)); return; } if(e.data.done){ delete mjobs[e.data.id]; j.resolve(e.data); return; } j.onProgress&&j.onProgress(e.data); };
+  mworker.onerror=e=>{ const err=new Error((e&&e.message)||'worker'); Object.keys(mjobs).forEach(k=>{ mjobs[k].reject(err); delete mjobs[k]; }); mworker=null; };
+  return mworker; }
+function musicJob(msg,onProgress,transfer){ return new Promise((resolve,reject)=>{ const id=++mjob; mjobs[id]={resolve,reject,onProgress}; getMusicWorker().postMessage({...msg,id},transfer||[]); }); }
+let cleaning=false;
+async function cleanClip(c,auto){ if(IN_ART||!window.__HOSTED){ toast('הניקוי עובד באתר machrozet.pages.dev',4000); return; } if(cleaning){ toast('כבר מנקה — רגע…'); return; }
+  const b=bufs[c.buf]; if(!b||!b.buffer){ toast('אי אפשר לנקות את הקטע הזה'); return; }
+  cleaning=true; const B=b.buffer, n=B.length, C=B.numberOfChannels; const X=new Float32Array(n); for(let ch=0;ch<C;ch++){ const d=B.getChannelData(ch); for(let i=0;i<n;i++) X[i]+=d[i]/C; }
+  const fmt=s=>s>=60?Math.floor(s/60)+':'+String(Math.round(s%60)).padStart(2,'0'):Math.round(s)+' שנ׳';
+  jobPill('🧹 מכינה את הניקוי…');
+  try{ const r=await musicJob({type:'vocals',X,sr:B.sampleRate},m=>{ if(m.stage==='download') jobPill('🧹 מורידה את הבינה המלאכותית (פעם אחת) '+Math.round(m.progress*100)+'%'); else if(m.stage==='prepare') jobPill('🧹 מכינה…'); else if(m.stage==='separate'){ const left=m.progress>0.03?(m.elapsed/m.progress)*(1-m.progress):0; jobPill('🧹 מנקה מוזיקה מהשירה '+Math.round(m.progress*100)+'%'+(left>4?' · עוד '+fmt(left):'')); } },[X.buffer]);
+    const V=r.V; const nb=ac().createBuffer(1,n,B.sampleRate); nb.copyToChannel(V.length>n?V.subarray(0,n):V,0);
+    pushHist(); const id=nid(); const nbuf=Object.assign({},b,{id,name:(b.name||'').replace(/ 🧹$/,'')+' 🧹',buffer:nb,src:undefined}); delete nbuf.src; nbuf.peaks=computePeaks(nb); bufs[id]=nbuf; try{ dbPutFile(id,wavEncode(nb).buffer,nbuf); }catch(_){}
+    allClips().forEach(x=>{ if(x.c.buf===b.id) x.c.buf=id; }); render(); scheduleSave(); if(S.playing) restartPlay();
+    jobPill(null); toast('🧹 המוזיקה נוקתה מהשירה ✓ — לא אהבת? ↶ ביטול',4000); }
+  catch(e){ console.error(e); jobPill(null); toast('הניקוי לא הצליח במכשיר הזה ('+(e&&e.message||e)+')',6000); }
+  finally{ cleaning=false; } }
 /* ---------- live waveform while recording ---------- */
 let LW=null;
 function startLiveWave(tid,t0){ LW={tid,t0,tiles:[],last:-1}; }
@@ -4200,7 +4222,7 @@ async function stopRec(){ const r=rec; rec=null; if(!r) return; LW=null; documen
   const lat=(r.base-r.recCtxStart)+(c.outputLatency||0)+(c.baseLatency||0)+0.01;
   const id=nid(); const n=1+allClips().filter(x=>bufs[x.c.buf].kind==='vocal').length; const b={id,name:'הקלטה '+n,buffer,kind:'vocal',color:'#c58cff',snapAt:0,bpm:0,beat:beatSec(),first:0,down:0}; b.peaks=computePeaks(buffer); bufs[id]=b; dbPutFile(id,raw,b);
   pushHist(); let t=S.tracks.find(x=>x.id===r.tid)||targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!t){ t=newTrack('שירה'); t.vocal=true; } const cl=mkClip(b,r.t0); cl.offset=Math.min(Math.max(0,lat),buffer.duration-0.1); cl.dur=buffer.duration-cl.offset;
-  { const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch){ cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start)); cl.fi=Math.max(cl.fi||0,0.01); cl.fo=Math.max(cl.fo||0,0.015); } } t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if($('rcGo')) $('rcGo').textContent='🔴 הקלטה'; }
+  { const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch){ cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start)); cl.fi=Math.max(cl.fi||0,0.01); cl.fo=Math.max(cl.fo||0,0.015); } } t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if($('rcGo')) $('rcGo').textContent='🔴 הקלטה'; if($('rcClean')&&$('rcClean').checked) setTimeout(()=>cleanClip(cl,true),600); }
 
 /* ---------- range (locators) ---------- */
 function setRange(l,r){ if(l==null){ S.range=null; } else { if(r<l){ const t=l; l=r; r=t; } if(r-l<0.05){ S.range=null; } else S.range={l,r}; } render(); updRangeBar(); }
