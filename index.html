@@ -3937,7 +3937,7 @@ function tapTempo(){ const now=performance.now(); tapTimes=tapTimes.filter(t=>no
 $('openPlay').onclick=async()=>{ ac(); initMidi(); PV.mode='piano'; const L=Promise.all([ensureMySfx(),ensureSfx()]); L.catch(()=>{}); openPlayView(); };
 function openPlayView(){ let v=$('playView'); if(!v){ v=document.createElement('div'); v.id='playView'; document.body.appendChild(v); window.addEventListener('resize',()=>{ if(!v.hidden) layoutPV(); }); } v.hidden=false; buildPV(); }
 function layoutPV(){ const v=$('playView'); const port=innerHeight>innerWidth; v.classList.toggle('rot',port&&!!PV.rotate); v.classList.toggle('port',port&&!PV.rotate); }
-function kbNW(port){ try{ const v=+localStorage.getItem(port?'machrozet_nwp':'machrozet_nw'); if(v>=4&&v<=26) return v; }catch(_){} return port?8:(PV.nW||12); }
+function kbNW(port){ try{ const v=+localStorage.getItem(port?'machrozet_nwp':'machrozet_nw'); if(v>=4&&v<=36) return v; }catch(_){} return port?8:(PV.nW||12); }
 function kbH(){ try{ const v=+localStorage.getItem('machrozet_kbh'); if(v>=80) return v; }catch(_){} return 0; }
 function kbHTML(lo,hi,nW,attr,wl,bl,cls){ const all=[]; for(let m=lo;m<=hi;m++) all.push(m); const white=all.filter(m=>![1,3,6,8,10].includes(m%12)); const wW=100/white.length;
   const strip=white.map((m,i)=>m%12===0?`<b style="left:${i*wW}%">${NOTE_HE[0]}${Math.floor(m/12)-1}</b>`:'').join('');
@@ -3945,15 +3945,15 @@ function kbHTML(lo,hi,nW,attr,wl,bl,cls){ const all=[]; for(let m=lo;m<=hi;m++) 
 function kbSetup(v){ const wrap=v.querySelector('.kwrap'), strip=v.querySelector('.kstrip'); if(!wrap) return; const keys=wrap.querySelector('.keys'); const whites=[...keys.querySelectorAll('.wk')]; const port=innerHeight>innerWidth&&!PV.rotate; const W=()=>wrap.clientWidth/kbNW(port);
   // resize: drag the ⤡ grip (x = key width, y = height) or pinch two fingers on the strip
   const box=v.querySelector('.kbox'), grip=v.querySelector('.kgrip'); const nwKey=port?'machrozet_nwp':'machrozet_nw';
-  const setNW=n=>{ n=Math.max(4,Math.min(26,Math.round(n))); try{ localStorage.setItem(nwKey,n); }catch(_){} if(!port) PV.nW=n; return n; };
+  const setNW=n=>{ n=Math.max(4,Math.min(36,Math.round(n))); try{ localStorage.setItem(nwKey,n); }catch(_){} if(!port) PV.nW=n; return n; };
   const badge=t=>{ let b=box.querySelector('.kbadge'); if(!b){ b=document.createElement('div'); b.className='kbadge'; box.appendChild(b); } b.textContent=t; };
   if(grip){ let g=null; grip.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); g={x:e.clientX,y:e.clientY,h:box.offsetHeight,n:kbNW(port),id:e.pointerId,nn:kbNW(port)}; try{ grip.setPointerCapture(e.pointerId); }catch(_){} });
-    grip.addEventListener('pointermove',e=>{ if(!g||e.pointerId!==g.id) return; const avail=box.parentElement.clientHeight; const h=Math.max(90,Math.min(Math.max(120,avail),g.h-(e.clientY-g.y))); box.style.flex='none'; box.style.height=h+'px'; g.nn=Math.max(4,Math.min(26,Math.round(g.n-(e.clientX-g.x)/28))); badge(g.nn+' מקשים · גובה '+Math.round(h)); });
+    grip.addEventListener('pointermove',e=>{ if(!g||e.pointerId!==g.id) return; const avail=box.parentElement.clientHeight; const h=Math.max(90,Math.min(Math.max(120,avail),g.h-(e.clientY-g.y))); box.style.flex='none'; box.style.height=h+'px'; g.nn=Math.max(4,Math.min(36,Math.round(g.n-(e.clientX-g.x)/28))); badge(g.nn+' מקשים · גובה '+Math.round(h)); });
     const end=e=>{ if(!g) return; try{ localStorage.setItem('machrozet_kbh',Math.round(box.offsetHeight)); }catch(_){} const changed=g.nn!==g.n; setNW(g.nn); g=null; const b=box.querySelector('.kbadge'); if(b) b.remove(); if(changed) buildPV(); };
     grip.addEventListener('pointerup',end); grip.addEventListener('pointercancel',end);
     grip.addEventListener('dblclick',()=>{ try{ localStorage.removeItem('machrozet_kbh'); localStorage.removeItem(nwKey); }catch(_){} buildPV(); }); }
   { const pts=new Map(); let pz=null; strip.addEventListener('pointerdown',e=>{ pts.set(e.pointerId,e.clientX); if(pts.size===2){ const a=[...pts.values()]; pz={d:Math.abs(a[0]-a[1])||1,n:kbNW(port),nn:kbNW(port)}; d=null; } },true);
-    strip.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,e.clientX); if(pz&&pts.size===2){ const a=[...pts.values()]; const r=(Math.abs(a[0]-a[1])||1)/pz.d; pz.nn=Math.max(4,Math.min(26,Math.round(pz.n/r))); badge(pz.nn+' מקשים'); e.stopImmediatePropagation(); } },true);
+    strip.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,e.clientX); if(pz&&pts.size===2){ const a=[...pts.values()]; const r=(Math.abs(a[0]-a[1])||1)/pz.d; pz.nn=Math.max(4,Math.min(36,Math.round(pz.n/r))); badge(pz.nn+' מקשים'); e.stopImmediatePropagation(); } },true);
     const pe=e=>{ pts.delete(e.pointerId); if(pz&&pts.size<2){ const n=pz.nn, ch=n!==pz.n; pz=null; setNW(n); const b=box.querySelector('.kbadge'); if(b) b.remove(); if(ch) buildPV(); } }; strip.addEventListener('pointerup',pe,true); strip.addEventListener('pointercancel',pe,true); }
   const attr=Object.keys(whites[0].dataset)[0]; const idxOf=m=>whites.findIndex(w=>+w.dataset[attr]>=m);
   const sync=()=>{ strip.scrollLeft=wrap.scrollLeft; };
@@ -3969,18 +3969,18 @@ function kbSetup(v){ const wrap=v.querySelector('.kwrap'), strip=v.querySelector
     apply(ld());
     const eb=box.querySelector('.kedb'); let ov=null;
     const exitEd=()=>{ if(ov){ ov.remove(); ov=null; } box.classList.remove('kediting'); eb.textContent='✋'; };
-    const enterEd=()=>{ box.classList.add('kediting'); eb.textContent='✓'; ov=document.createElement('div'); ov.className='kedov'; ov.innerHTML='<div class="kedtx">✋ גוררים באצבע אחת להזזה<br>🤏 שתי אצבעות: להגדיל / לכווץ<br><button class="kedreset">איפוס</button> <button class="keddone">✓ סיום</button></div>'; box.appendChild(ov);
+    const enterEd=()=>{ box.classList.add('kediting'); eb.textContent='✓'; ov=document.createElement('div'); ov.className='kedov'; ov.innerHTML='<div class="kedtx">✋ גוררים באצבע אחת להזזה<br>🤏 שתי אצבעות לצדדים: מקרבים = יותר קלידים, מרחיקים = קלידים גדולים<br>↕ שתי אצבעות למעלה־למטה: גובה<br><button class="kedreset">איפוס</button> <button class="keddone">✓ סיום</button></div>'; box.appendChild(ov);
       const pts=new Map(); let st=null;
       const cur=()=>{ const g=ld(); const pr=par.getBoundingClientRect(); return g||{w:100,h:box.offsetHeight,dx:0,dy:0,pw:pr.width}; };
       const save=g=>{ try{ localStorage.setItem(gk,JSON.stringify(g)); }catch(_){} };
       const clampG=g=>{ const pr=par.getBoundingClientRect(); const bw=pr.width*g.w/100; g.dx=Math.max(-10,Math.min(pr.width-bw+10,g.dx)); g.dy=Math.max(-pr.top+50,Math.min(innerHeight-pr.top-g.h-4,g.dy)); return g; };
       ov.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; e.preventDefault(); try{ ov.setPointerCapture(e.pointerId); }catch(_){} pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const g=cur(); const a=[...pts.values()];
-        st={g:Object.assign({},g,{h:g.h||box.offsetHeight}),a:a.map(p=>({...p})),d:a.length===2?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1:0,n:a.length}; });
+        st={g:Object.assign({},g,{h:g.h||box.offsetHeight}),a:a.map(p=>({...p})),d:a.length===2?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1:0,dx:a.length===2?Math.max(30,Math.abs(a[0].x-a[1].x)):0,dy:a.length===2?Math.max(30,Math.abs(a[0].y-a[1].y)):0,nw:kbNW(port),n:a.length}; });
       ov.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)||!st) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const a=[...pts.values()]; const g=Object.assign({},st.g);
-        if(a.length>=2&&st.n>=2){ const d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1; const k=d/st.d; const pr=par.getBoundingClientRect(); g.w=Math.max(35,Math.min(100,st.g.w*k)); g.h=Math.max(110,Math.min(innerHeight*0.85,st.g.h*k)); const cx0=(st.a[0].x+st.a[1].x)/2, cx=(a[0].x+a[1].x)/2, cy0=(st.a[0].y+st.a[1].y)/2, cy=(a[0].y+a[1].y)/2; g.dx=st.g.dx+(cx-cx0)-(pr.width*(g.w-st.g.w)/100)/2; g.dy=st.g.dy+(cy-cy0)-(g.h-st.g.h)/2; }
+        if(a.length>=2&&st.n>=2){ const kx=Math.max(30,Math.abs(a[0].x-a[1].x))/st.dx, ky=Math.max(30,Math.abs(a[0].y-a[1].y))/st.dy; const nn=Math.max(4,Math.min(36,Math.round(st.nw/kx))); st.nn=nn; const pct=whites.length/nn*100; keys.style.width=pct+'%'; const si=strip.querySelector('.kstripin'); if(si) si.style.width=pct+'%'; badge(nn+' קלידים'); if(st.dy>60){ g.h=Math.max(110,Math.min(innerHeight*0.85,st.g.h*ky)); g.dy=st.g.dy-(g.h-st.g.h)/2; } }
         else if(a.length===1&&st.n===1){ g.dx=st.g.dx+(e.clientX-st.a[0].x); g.dy=st.g.dy+(e.clientY-st.a[0].y); }
         else return; clampG(g); apply(g); st.live=g; });
-      const up=e=>{ pts.delete(e.pointerId); if(st&&st.live){ save(st.live); } if(pts.size){ const g=cur(); const a=[...pts.values()]; st={g:Object.assign({},g),a:a.map(p=>({...p})),d:0,n:a.length}; } else st=null; };
+      const up=e=>{ pts.delete(e.pointerId); if(st&&st.nn){ setNW(st.nn); } if(st&&st.live){ save(st.live); } if(pts.size){ const g=cur(); const a=[...pts.values()]; st={g:Object.assign({},g),a:a.map(p=>({...p})),d:0,n:a.length}; } else st=null; };
       ov.addEventListener('pointerup',up); ov.addEventListener('pointercancel',up);
       ov.querySelector('.keddone').onclick=()=>{ exitEd(); buildPV(); };
       ov.querySelector('.kedreset').onclick=()=>{ try{ localStorage.removeItem(gk); localStorage.removeItem('machrozet_kbh'); }catch(_){} exitEd(); buildPV(); }; };
