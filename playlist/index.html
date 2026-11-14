@@ -79,9 +79,12 @@ label.file input{display:none}
 #dExit{background:#ffffff14;border-radius:50%;width:44px;height:44px;font-size:18px}
 .dtitle{font-size:28px;font-weight:800;text-align:center;margin:18px 0 6px;line-height:1.25;min-height:70px;display:flex;align-items:center;justify-content:center}
 .dstat{text-align:center;color:var(--mute);font-size:17px;min-height:24px}
-.dbig{flex:1;margin-top:16px;border-radius:36px;background:linear-gradient(135deg,var(--gold),#e8a94a);color:#2a1620;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:34px;font-weight:800;text-decoration:none;box-shadow:0 10px 40px #f2c46d33}
-.dbig .dmi{font-size:90px;line-height:1}
-.dbig.on{background:linear-gradient(135deg,#ff5f7a,var(--pink));color:#fff;animation:pulse 1.2s infinite}
+.dwrap{flex:1;display:flex;align-items:center;justify-content:center}
+.dbig{width:min(86vw,62vh);height:min(86vw,62vh);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7fb6,#e8186f 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:32px;font-weight:800;text-decoration:none;box-shadow:0 0 0 10px #ff5fa233,0 20px 60px #e8186f66;border:0}
+.dbig .dmi{font-size:110px;line-height:1}
+.dbig.on{background:radial-gradient(circle at 35% 30%,#ff8a7a,#d61f1f 70%);animation:pulse 1.2s infinite}
+.dsuno{background:radial-gradient(circle at 35% 30%,#ffe09a,#e8a10e 70%)!important;color:#2a1620!important}
+.dhint{text-align:center;color:var(--mute);font-size:16px;margin-top:8px}
 .dsuno{background:linear-gradient(135deg,var(--pink),#d9367f);color:#fff}
 .vsrc{display:flex;gap:8px;margin-top:8px}
 .vs{flex:1;padding:16px 4px;border-radius:16px;background:#ffffff14;font-size:17px;font-weight:700;border:1px solid var(--line)}
@@ -213,8 +216,11 @@ label.file input{display:none}
   <div class="dtop"><span id="dList"></span><button id="dExit">✕</button></div>
   <div class="dtitle" id="dTitle">🎵</div>
   <div class="dstat" id="dStat"></div>
-  <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר?</span></button>
-  <a class="dbig dsuno" id="dSuno" target="_blank" rel="noopener" style="display:none"><span class="dmi">▶</span><span>לפתוח בסונו</span></a>
+  <div class="dwrap">
+    <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר?</span></button>
+    <a class="dbig dsuno" id="dSuno" target="_blank" rel="noopener" style="display:none"><span class="dmi">▶</span><span>סונו</span></a>
+  </div>
+  <div class="dhint">נגיעה בכל מקום במסך</div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -670,11 +676,19 @@ function findLocalOld(q, src){
 function say(t){ try { const u = new SpeechSynthesisUtterance(t); u.lang='he-IL'; u.rate=1.05; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch(e){} }
 function vStat(t){ $('#vStat').textContent = t || ''; const d=$('#dStat'); if (d) d.textContent = t || ''; }
 let voiceAdded = null;
+const spoken = t => String(t||'').replace(/\([^)]*\)/g,'').replace(/\.(mp3|wav|m4a)/ig,'').replace(/[_|]/g,' ').replace(/\d{1,2}[._]\d{1,2}[._]\d{2,4}/g,'').replace(/\s+/g,' ').trim();
 function playFound(f){
+  wasPlaying = false;   // a new song is coming — don't bring back the old one
   if (f.l.id !== S.listId){ S.listId = f.l.id; renderLists(); renderList(); }
-  play(f.it.id);
-  if (f.it.type === 'sunoapp'){ vStat('מצאתי ✓ לחצי על "לפתוח בסונו"'); say('מצאתי. לחצי על לפתוח בסונו'); }
-  else { vStat('מנגנת ✓'); say('מנגנת ' + f.it.title); }
+  if (f.it.type === 'sunoapp'){
+    play(f.it.id);
+    vStat('מצאתי ✓ געי במסך כדי לפתוח בסונו'); say('מצאתי את ' + spoken(f.it.title) + '. געי במסך כדי לפתוח בסונו');
+  } else {
+    vStat('מנגנת ✓');
+    // say the name first, then start the song (so the voice and the music don't clash)
+    say('מנגנת את ' + spoken(f.it.title));
+    setTimeout(() => play(f.it.id), 1400);
+  }
 }
 async function remoteSearch(q, src){
   const r = await fetch('/api/search?src=' + src + '&q=' + encodeURIComponent(q));
@@ -724,11 +738,8 @@ async function handleVoice(text){
   let bestLocal = null;
   [text, ...alts].forEach(a => { const qa = parseVoice(a).q; if (!qa) return; const r = rankLocal(qa, src)[0]; if (r && (!bestLocal || r.f > bestLocal.f)) { bestLocal = r; bestLocal.q = qa; } });
   if (bestLocal && bestLocal.f >= 0.8){ $('#heard').textContent = '«' + text + '»'; playFound(bestLocal); return; }
-  if (bestLocal && bestLocal.f >= 0.55 && q){
-    const ok = await askYesNo('התכוונת ל' + bestLocal.it.title + '?');
-    if (ok){ playFound(bestLocal); return; }
-  }
-  if (!q){ vStat('לא הבנתי את שם השיר — נסי שוב'); say('לא הבנתי, נסי שוב'); return; }
+  if (bestLocal && bestLocal.f >= 0.55 && q){ playFound(bestLocal); return; }
+  if (!q){ vStat('לא הבנתי את שם השיר — נסי שוב'); say('לא הבנתי. געי במסך ותגידי שוב'); return; }
   const where = src === 'suno' ? 'בסונו' : src === 'yt' ? 'ביוטיוב' : src === 'drive' ? 'בדרייב' : '';
   vStat('מחפשת "' + q + '" ' + where + '…');
   // 1) my lists first
@@ -766,7 +777,7 @@ async function handleVoice(text){
     }
   }
   vStat(src === 'drive' ? 'לא מצאתי בדרייב שיר בשם הזה' : src === 'suno' ? 'לא מצאתי בסונו. אפשר לנסות "' + q + ' ביוטיוב"' : 'לא מצאתי — נסי להגיד שוב');
-  say('לא מצאתי את השיר');
+  say('לא מצאתי את ' + q + '. געי במסך ותגידי שוב');
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, prevVol = 1, wasPlaying = false, prevId = null;
@@ -782,26 +793,43 @@ function listen(src){
   $('#vPanel').style.display = 'block'; $('#vAlt').innerHTML = '';
   if (!SR){ $('#vType').style.display = 'flex'; vStat('לחצי על 🎤 שבמקלדת ותגידי את שם השיר'); $('#vIn').value=''; $('#vIn').focus(); return; }
   if (rec){ try{ rec.stop(); }catch(e){} return; }
-  rec = new SR(); rec.lang = 'he-IL'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 5;
+  rec = new SR(); rec.lang = 'he-IL'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 5;
+  const myRec = rec; let silenceT = null;
+  const stopSoon = ms => { clearTimeout(silenceT); silenceT = setTimeout(() => { try { myRec.stop(); } catch(e){} }, ms); };
+  stopSoon(8000);                                   // nothing said at all → give up after 8s
+  setTimeout(() => { try { myRec.stop(); } catch(e){} }, 25000);   // never more than 25s
   // stop the music while searching
   wasPlaying = !isPaused(); prevId = S.curId; stopAll(); renderPlayIcon();
   $('#mic').classList.add('on'); $('#micLbl').textContent = 'מקשיבה… תגידי את השיר';
   $('#dMic').classList.add('on'); $('#dMicLbl').textContent = 'מקשיבה…';
   $('#heard').textContent = '';
-  vStat('תגידי את שם השיר. למשל "קול דודי" או "אמא רחל ביוטיוב"');
+  vStat('מקשיבה… אפשר לדבר בנחת. כשתסיימי אני אחפש');
+  try { speechSynthesis.cancel(); } catch(e){}
   let finalText = '';
-  rec.onresult = e => { let t=''; const alts=[]; for (const r of e.results){ t += r[0].transcript; for (let i=0;i<r.length;i++) alts.push(r[i].transcript); if (r.isFinal) finalText = t; } handleVoice.alts = alts; $('#heard').textContent = t; };
+  rec.onresult = e => {
+    let t=''; const alts=[];
+    for (const r of e.results){ t += r[0].transcript + ' '; for (let i=0;i<r.length;i++) alts.push(r[i].transcript); }
+    finalText = t.trim(); handleVoice.alts = alts; $('#heard').textContent = finalText;
+    stopSoon(2500);                                 // she paused for 2.5s → she finished talking
+  };
   rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
   rec.onend = () => {
     $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר לשים?';
     $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר?';
+    clearTimeout(silenceT);
     const t = finalText || $('#heard').textContent; rec = null;
     if (t && t.trim()) handleVoice(t.trim()).then(resumeIfNothing, resumeIfNothing); else resumeIfNothing();
   };
   try { rec.start(); } catch(e){ rec = null; $('#vType').style.display='flex'; }
 }
 $('#mic').onclick = () => listen(null);
-$('#dMic').onclick = () => { if ($('#dSuno').style.display === 'flex') return; listen(null); };
+$('#dMic').onclick = e => { e.preventDefault(); };
+$('#drive').addEventListener('click', e => {
+  if (e.target.closest('#dExit')) return;
+  const sb = $('#dSuno');
+  if (sb.style.display === 'flex'){ if (!e.target.closest('#dSuno')){ e.preventDefault(); sb.click(); } return; }
+  listen(null);
+});
 function setDrive(on){
   S.drive = !!on; save();
   $('#drive').style.display = on ? 'flex' : 'none';
@@ -809,7 +837,7 @@ function setDrive(on){
   if (on && !wakeOn) setWake(true, true);
 }
 $('#mDrive').onclick = () => setDrive(true);
-$('#dExit').onclick = () => setDrive(false);
+$('#dExit').onclick = e => { e.stopPropagation(); setDrive(false); };
 
 $('#vGo').onclick = () => { const t = $('#vIn').value.trim(); if (t) handleVoice(t); };
 $('#vIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ const t = $('#vIn').value.trim(); if (t) handleVoice(t); } });
