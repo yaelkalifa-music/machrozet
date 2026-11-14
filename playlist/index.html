@@ -74,6 +74,15 @@ label.file input{display:none}
 .ic{font-size:13px}
 .mic{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;margin-top:16px;padding:18px;border-radius:20px;background:linear-gradient(135deg,var(--gold),#e8a94a);color:#2a1620;font-size:21px;font-weight:800;box-shadow:0 6px 20px #f2c46d44}
 .mic .mi{font-size:30px}
+.drive{position:fixed;inset:0;z-index:8;background:radial-gradient(circle at 50% 30%,#3a1630,#140b12 70%);display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 12px) 18px calc(env(safe-area-inset-bottom) + 18px)}
+.dtop{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-size:15px}
+#dExit{background:#ffffff14;border-radius:50%;width:44px;height:44px;font-size:18px}
+.dtitle{font-size:28px;font-weight:800;text-align:center;margin:18px 0 6px;line-height:1.25;min-height:70px;display:flex;align-items:center;justify-content:center}
+.dstat{text-align:center;color:var(--mute);font-size:17px;min-height:24px}
+.dbig{flex:1;margin-top:16px;border-radius:36px;background:linear-gradient(135deg,var(--gold),#e8a94a);color:#2a1620;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;font-size:34px;font-weight:800;text-decoration:none;box-shadow:0 10px 40px #f2c46d33}
+.dbig .dmi{font-size:90px;line-height:1}
+.dbig.on{background:linear-gradient(135deg,#ff5f7a,var(--pink));color:#fff;animation:pulse 1.2s infinite}
+.dsuno{background:linear-gradient(135deg,var(--pink),#d9367f);color:#fff}
 .vsrc{display:flex;gap:8px;margin-top:8px}
 .vs{flex:1;padding:16px 4px;border-radius:16px;background:#ffffff14;font-size:17px;font-weight:700;border:1px solid var(--line)}
 .vs:active{background:var(--pink);color:#fff}
@@ -117,11 +126,6 @@ label.file input{display:none}
       <button class="cb" id="bNext" aria-label="שיר הבא"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
     </div>
     <button class="mic" id="mic"><span class="mi">🎤</span><span id="micLbl">איזה שיר לשים?</span></button>
-    <div class="vsrc">
-      <button class="vs" data-vsrc="suno">🎤 סונו</button>
-      <button class="vs" data-vsrc="yt">🎤 יוטיוב</button>
-      <button class="vs" data-vsrc="drive">🎤 דרייב</button>
-    </div>
     <div id="vPanel" class="vpanel" style="display:none">
       <div class="heard" id="heard"></div>
       <div class="vstat" id="vStat"></div>
@@ -137,6 +141,7 @@ label.file input{display:none}
       <button class="chip" id="mOne">🔂 לופ על שיר</button>
       <button class="chip" id="mShuf">🔀 ערבוב</button>
       <button class="chip" id="mWake">☀️ מסך דולק</button>
+      <button class="chip" id="mDrive">🚗 מצב נסיעה</button>
     </div>
   </section>
 
@@ -203,6 +208,13 @@ label.file input{display:none}
 </div>
 
 <audio id="au" preload="auto" playsinline></audio>
+<div class="drive" id="drive" style="display:none">
+  <div class="dtop"><span id="dList"></span><button id="dExit">✕</button></div>
+  <div class="dtitle" id="dTitle">🎵</div>
+  <div class="dstat" id="dStat"></div>
+  <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר?</span></button>
+  <a class="dbig dsuno" id="dSuno" target="_blank" rel="noopener" style="display:none"><span class="dmi">▶</span><span>לפתוח בסונו</span></a>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -445,8 +457,12 @@ function showSunoOpen(it){
   b.href = 'https://suno.com/song/' + it.ref;
   b.style.display = 'block';
   b.onclick = () => { sunoOut = it.id; };
+  const d = $('#dSuno'); d.href = b.href; d.onclick = () => { sunoOut = it.id; };
+  d.style.display = 'flex'; $('#dMic').style.display = 'none';
+  clearTimeout(showSunoOpen.t);   // not pressed within 20s → the big button goes back to the microphone
+  showSunoOpen.t = setTimeout(() => { if (!sunoOut){ d.style.display='none'; $('#dMic').style.display='flex'; } }, 20000);
 }
-function hideSunoOpen(){ const b=$('#sunoOpen'); if (b) b.style.display='none'; }
+function hideSunoOpen(){ const b=$('#sunoOpen'); if (b) b.style.display='none'; const d=$('#dSuno'); if (d){ d.style.display='none'; $('#dMic').style.display='flex'; } }
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !sunoOut) return;
   sunoOut = null; hideSunoOpen();
@@ -540,7 +556,7 @@ function findLocal(q, src){
   return bestScore >= need ? best : null;
 }
 function say(t){ try { const u = new SpeechSynthesisUtterance(t); u.lang='he-IL'; u.rate=1.05; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch(e){} }
-function vStat(t){ $('#vStat').textContent = t || ''; }
+function vStat(t){ $('#vStat').textContent = t || ''; const d=$('#dStat'); if (d) d.textContent = t || ''; }
 let voiceAdded = null;
 function playFound(f){
   if (f.l.id !== S.listId){ S.listId = f.l.id; renderLists(); renderList(); }
@@ -614,13 +630,15 @@ function listen(src){
   rec = new SR(); rec.lang = 'he-IL'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 5;
   prevVol = au.volume; au.volume = Math.min(prevVol, 0.15); try{ if (ytReady) yt.setVolume(15); }catch(e){}
   $('#mic').classList.add('on'); $('#micLbl').textContent = 'מקשיבה… תגידי את השיר';
+  $('#dMic').classList.add('on'); $('#dMicLbl').textContent = 'מקשיבה…';
   $('#heard').textContent = '';
-  vStat(forcedSrc ? 'תגידי רק את שם השיר' : 'תגידי את שם השיר. אפשר גם ללחוץ קודם על סונו / יוטיוב / דרייב');
+  vStat('תגידי את שם השיר. למשל "קול דודי" או "אמא רחל ביוטיוב"');
   let finalText = '';
   rec.onresult = e => { let t=''; const alts=[]; for (const r of e.results){ t += r[0].transcript; for (let i=0;i<r.length;i++) alts.push(r[i].transcript); if (r.isFinal) finalText = t; } handleVoice.alts = alts; $('#heard').textContent = t; };
   rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
   rec.onend = () => {
     $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר לשים?';
+    $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר?';
     au.volume = prevVol; try{ if (ytReady) yt.setVolume(100); }catch(e){}
     const t = finalText || $('#heard').textContent; rec = null;
     if (t && t.trim()) handleVoice(t.trim());
@@ -628,7 +646,16 @@ function listen(src){
   try { rec.start(); } catch(e){ rec = null; $('#vType').style.display='flex'; }
 }
 $('#mic').onclick = () => listen(null);
-document.querySelectorAll('[data-vsrc]').forEach(b => b.onclick = () => listen(b.dataset.vsrc));
+$('#dMic').onclick = () => { if ($('#dSuno').style.display === 'flex') return; listen(null); };
+function setDrive(on){
+  S.drive = !!on; save();
+  $('#drive').style.display = on ? 'flex' : 'none';
+  $('#mDrive').classList.toggle('on', !!on);
+  if (on && !wakeOn) setWake(true, true);
+}
+$('#mDrive').onclick = () => setDrive(true);
+$('#dExit').onclick = () => setDrive(false);
+
 $('#vGo').onclick = () => { const t = $('#vIn').value.trim(); if (t) handleVoice(t); };
 $('#vIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ const t = $('#vIn').value.trim(); if (t) handleVoice(t); } });
 
@@ -670,6 +697,7 @@ function typeLbl(it){ return { sunoapp:'סונו · נפתח באפליקציה'
 function renderPlayer(){
   const it = cur();
   $('#title').textContent = it ? it.title : 'לחצי ▶ להתחיל';
+  $('#dTitle').textContent = it ? it.title : '🎵'; $('#dList').textContent = '🚗 ' + curList().name;
   const i = it ? IT().indexOf(it) : -1;
   $('#nowLbl').textContent = it ? `${curList().name} · ${i>=0 ? (i+1)+' מתוך '+IT().length : typeLbl(it)}` : (IT().length ? `${IT().length} שירים ברשימה` : 'הרשימה ריקה');
   const c = $('#cover'); if (it && it.img){ c.style.backgroundImage = `url("${it.img}")`; c.textContent=''; } else { c.style.backgroundImage=''; c.textContent='🎵'; }
@@ -719,6 +747,7 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
   bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
 
 load(); ensureLists(); renderLists(); renderPlayer(); renderList();
+if (S.drive) setDrive(true);
 (async function importSunoFav(){
   const m = location.hash.match(/^#sunofav-([\w-]+)$/); if (!m) return;
   try {
