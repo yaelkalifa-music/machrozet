@@ -56,7 +56,7 @@ header .sub{color:var(--mute);font-size:13px;margin-top:2px}
 .btn{background:var(--pink);color:#fff;border-radius:14px;padding:12px 16px;font-weight:700;font-size:15px;white-space:nowrap;text-decoration:none;display:inline-block}
 .btn.big{display:block;width:100%;text-align:center;padding:16px;font-size:18px;margin-bottom:10px}
 .btn.gold{background:var(--gold);color:#2a1620}
-.row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid transparent;border-radius:14px;padding:10px;margin-bottom:7px}
+.row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid transparent;border-radius:14px;padding:10px;margin-bottom:7px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
 .row.cur{border-color:var(--pink);background:#3a1630}
 .row .n{width:22px;text-align:center;color:var(--mute);font-size:13px;flex:none}
 .row .t{flex:1;min-width:0;font-size:16px;line-height:1.3;cursor:pointer}
@@ -902,15 +902,46 @@ function renderList(){
     return `<div class="row ${it.id===S.curId?'cur':''}"><span class="n">${i+1}</span><div class="t" data-play="${it.id}">${esc(it.title)}<small>${typeLbl(it)}</small></div>${mv}<button class="ib" data-del="${it.id}">✕</button></div>`;
   }).join('');
 }
+// remove a song: ✕ or a quick swipe — no "are you sure?"
+function removeSong(id){
+  const i = IT().findIndex(x => x.id === id); if (i < 0) return;
+  const [x] = IT().splice(i, 1); if (x.type === 'local') idbDel(x.id);
+  S.recent = S.recent.filter(r => r !== id);
+  save(); renderList(); renderPlayer();
+}
+let swipe = null, swiped = false;
+$('#list').addEventListener('pointerdown', e => {
+  const row = e.target.closest('.row'); if (!row || e.target.closest('button')) return;
+  swipe = { row, x: e.clientX, y: e.clientY, dx: 0, on: false };
+});
+$('#list').addEventListener('pointermove', e => {
+  if (!swipe) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+  if (!swipe.on){ if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { swipe = null; return; } if (Math.abs(dx) > 12) swipe.on = true; else return; }
+  swipe.dx = dx; swipe.row.style.transition = 'none';
+  swipe.row.style.transform = `translateX(${dx}px)`; swipe.row.style.opacity = String(Math.max(0.2, 1 - Math.abs(dx) / 220));
+});
+const endSwipe = () => {
+  if (!swipe) return; const { row, dx, on } = swipe; swipe = null;
+  if (!on) return;
+  swiped = true; setTimeout(() => swiped = false, 50);
+  row.style.transition = 'transform .18s, opacity .18s';
+  if (Math.abs(dx) > 70){
+    row.style.transform = `translateX(${dx > 0 ? 500 : -500}px)`; row.style.opacity = '0';
+    const id = (row.querySelector('[data-play]') || row.querySelector('[data-del]')).dataset.play || row.querySelector('[data-del]').dataset.del;
+    setTimeout(() => removeSong(id), 170);
+  } else { row.style.transform = ''; row.style.opacity = ''; }
+};
+$('#list').addEventListener('pointerup', endSwipe);
+$('#list').addEventListener('pointercancel', endSwipe);
 $('#list').addEventListener('click', e => {
+  if (swiped) return;
   const b = e.target.closest('[data-play],[data-up],[data-down],[data-del]'); if (!b) return;
   unlock();
   if (b.dataset.play){ play(b.dataset.play); return; }
   const id = b.dataset.up||b.dataset.down||b.dataset.del, i = IT().findIndex(x=>x.id===id); if (i<0) return;
-  if (b.dataset.del){
-    if (b.dataset.c!=='1'){ b.dataset.c='1'; b.textContent='בטוח?'; b.style.width='auto'; b.style.padding='0 8px'; setTimeout(()=>{ if(b.isConnected){ b.dataset.c=''; b.textContent='✕'; b.style.width=''; b.style.padding=''; } },3000); return; }
-    const [x] = IT().splice(i,1); if (x.type==='local') idbDel(x.id); S.recent = S.recent.filter(r=>r!==id);
-  } else { const j = b.dataset.up ? i-1 : i+1; if (j<0||j>=IT().length) return; [IT()[i],IT()[j]]=[IT()[j],IT()[i]]; }
+  if (b.dataset.del){ removeSong(id); return; }
+  else { const j = b.dataset.up ? i-1 : i+1; if (j<0||j>=IT().length) return; [IT()[i],IT()[j]]=[IT()[j],IT()[i]]; }
   save(); renderList(); renderPlayer();
 });
 $('#q').addEventListener('input', renderList);
