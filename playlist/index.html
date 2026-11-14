@@ -598,7 +598,11 @@ const SRC_WORDS = {
   drive:['דרייב','דריב','דרייו','דרייף','דרייבר','דרייוו','drive','גוגל','גוגלדרייב']
 };
 let forcedSrc = null;   // set by the big source buttons
-const FILLER = new Set(['תשימי','תשים','שימי','שים','תנגני','תנגן','נגני','נגן','תפעילי','תפעיל','הפעילי','אני','רוצה','לשמוע','את','השיר','שיר','בבקשה','עכשיו','לי','תני','תביאי','מהפלייליסט','פלייליסט','קודם','יאללה','תחפשי','חפשי','חיפוש']);
+const FILLER = new Set(('תשימי תשים שימי שים תנגני תנגן נגני נגן תפעילי תפעיל הפעילי הפעל תדליק תדליקי תשמיע תשמיעי השמע השמיעי תשמעי '+
+ 'חפש חפשי תחפש תחפשי חיפוש תמצא תמצאי מצא מצאי תביא תביאי הבא תן תני לשים לנגן לחפש למצוא להשמיע לשמוע '+
+ 'אני אנחנו רוצה רוצים רציתי מבקשת מבקש אפשר תוכל תוכלי בבקשה עכשיו יאללה נו טוב אוקיי אוקי היי הי שלום '+
+ 'את אותו אותה השיר שיר שירים הזה הזאת לי לנו קודם עוד פעם שוב בשבילי מהפלייליסט פלייליסט ברשימה מהרשימה '+
+ 'קוראים לו שנקרא בשם שקוראים').split(/\s+/));
 const norm = t => String(t||'').toLowerCase().replace(/[֑-ׇ]/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim();
 function parseVoice(t){
   let src = null; const keep = [];
@@ -612,7 +616,43 @@ function parseVoice(t){
   });
   return { src, q: keep.join(' ') };
 }
+const fin = t => t.replace(/ך/g,'כ').replace(/ם/g,'מ').replace(/ן/g,'נ').replace(/ף/g,'פ').replace(/ץ/g,'צ');
+function lev(a, b){
+  if (a === b) return 0; const m = a.length, n = b.length; if (!m || !n) return m || n;
+  let prev = Array.from({length:n+1}, (_,j)=>j);
+  for (let i=1;i<=m;i++){ const cur=[i]; for (let j=1;j<=n;j++) cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1]+(a[i-1]===b[j-1]?0:1)); prev = cur; }
+  return prev[n];
+}
+// how well the spoken words fit a title (0..1)
+function fit(q, title){
+  const qw = fin(norm(q)).split(' ').filter(Boolean), tw = fin(norm(title)).split(' ').filter(Boolean);
+  if (!qw.length || !tw.length) return 0;
+  let got = 0, tot = 0;
+  qw.forEach(w => {
+    tot += w.length;
+    let best = 0;
+    tw.forEach(x => { const b = x.replace(/^[והבלמש](?=.{3})/, ''); [x, b].forEach(y => { const d = lev(w, y); const sim = 1 - d / Math.max(w.length, y.length); if (sim > best) best = sim; }); });
+    if (best >= 0.6) got += w.length * best;
+  });
+  let sc = got / tot;
+  if (fin(norm(title)).includes(fin(norm(q)))) sc = Math.max(sc, 0.98);
+  return sc;
+}
+function rankLocal(q, src){
+  const out = [];
+  S.lists.forEach(l => l.items.forEach(it => {
+    if (src === 'drive' && it.type !== 'drive') return;
+    if (src === 'suno' && it.type !== 'suno' && it.type !== 'sunoapp') return;
+    if (src === 'yt' && !/^yt/.test(it.type)) return;
+    const f = fit(q, it.title); if (f > 0) out.push({ it, l, f });
+  }));
+  return out.sort((a,b) => b.f - a.f);
+}
 function findLocal(q, src){
+  const r = rankLocal(q, src)[0];
+  return r && r.f >= 0.8 ? r : null;
+}
+function findLocalOld(q, src){
   const words = norm(q).split(' ').filter(Boolean); if (!words.length) return null;
   let best = null, bestScore = 0;
   S.lists.forEach(l => l.items.forEach(it => {
@@ -655,13 +695,39 @@ function addRemote(x){
   IT().push(it); save(); renderList();
   return { it, l: curList() };
 }
+// asks out loud and listens for "כן" / "לא" (tapping the button also counts)
+function askYesNo(question){
+  return new Promise(res => {
+    let done = false; const fin2 = v => { if (done) return; done = true; $('#vAlt').innerHTML=''; res(v); };
+    vStat(question); say(question);
+    $('#vAlt').innerHTML = '<button class="btn big" id="ynYes">כן ▶</button><button class="btn big gold" id="ynNo">לא</button>';
+    $('#ynYes').onclick = () => fin2(true); $('#ynNo').onclick = () => fin2(false);
+    if (!SR) return;
+    const wait = () => { try { if (speechSynthesis.speaking) return setTimeout(wait, 250); } catch(e){}
+      const r = new SR(); r.lang = 'he-IL'; r.maxAlternatives = 3;
+      r.onresult = e => { const t = [...e.results[0]].map(x => x.transcript).join(' '); if (/כן|נכון|בדיוק|יאללה|יפה|נכון מאוד|כמובן|זה|אוקיי|ok|yes/i.test(t)) fin2(true); else if (/לא|ממש לא|אחר|no/i.test(t)) fin2(false); };
+      r.onerror = () => {}; r.onend = () => {};
+      try { r.start(); } catch(e){} };
+    setTimeout(wait, 400);
+    setTimeout(() => fin2(false), 15000);
+  });
+}
 async function handleVoice(text){
   $('#heard').textContent = '«' + text + '»';
   $('#vAlt').innerHTML = '';
   let { src, q } = parseVoice(text);
+  const alts = (handleVoice.alts || []).filter(a => a && a.trim());
   if (forcedSrc){ src = forcedSrc; }
-  else { for (const alt of (handleVoice.alts || [])){ const p2 = parseVoice(alt); if (p2.src){ src = p2.src; break; } } }
+  else { for (const alt of alts){ const p2 = parseVoice(alt); if (p2.src){ src = p2.src; break; } } }
   handleVoice.alts = null; forcedSrc = null;
+  // the microphone often hears a few versions — take the one that best matches a song you have
+  let bestLocal = null;
+  [text, ...alts].forEach(a => { const qa = parseVoice(a).q; if (!qa) return; const r = rankLocal(qa, src)[0]; if (r && (!bestLocal || r.f > bestLocal.f)) { bestLocal = r; bestLocal.q = qa; } });
+  if (bestLocal && bestLocal.f >= 0.8){ $('#heard').textContent = '«' + text + '»'; playFound(bestLocal); return; }
+  if (bestLocal && bestLocal.f >= 0.55 && q){
+    const ok = await askYesNo('התכוונת ל' + bestLocal.it.title + '?');
+    if (ok){ playFound(bestLocal); return; }
+  }
   if (!q){ vStat('לא הבנתי את שם השיר — נסי שוב'); say('לא הבנתי, נסי שוב'); return; }
   const where = src === 'suno' ? 'בסונו' : src === 'yt' ? 'ביוטיוב' : src === 'drive' ? 'בדרייב' : '';
   vStat('מחפשת "' + q + '" ' + where + '…');
