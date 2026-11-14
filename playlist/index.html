@@ -83,10 +83,22 @@ label.file input{display:none}
 .dbig{width:min(86vw,62vh);height:min(86vw,62vh);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7fb6,#e8186f 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:32px;font-weight:800;text-decoration:none;box-shadow:0 0 0 10px #ff5fa233,0 20px 60px #e8186f66;border:0}
 .dbig .dmi{font-size:110px;line-height:1}
 #dMicLbl{font-size:36px;padding:0 24px;text-align:center;line-height:1.15}
+.dzone #dMicLbl,.dzone #dYtLbl{font-size:clamp(17px,3.3vh,32px);padding:0 18%}
 .dbig.on{background:radial-gradient(circle at 35% 30%,#ff8a7a,#d61f1f 70%);animation:pulse 1.2s infinite}
 .dsuno{background:radial-gradient(circle at 35% 30%,#ffe09a,#e8a10e 70%)!important;color:#2a1620!important}
 .dsuno.dyt{background:radial-gradient(circle at 35% 30%,#ff6b6b,#cc0000 70%)!important;color:#fff!important}
-.dhint{text-align:center;color:var(--mute);font-size:16px;margin-top:8px}
+.dzone{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;border-radius:24px}
+.dzbot{border-top:1px dashed #ffffff22;margin-top:6px}
+.dzone .dbig{height:92%;max-height:80vw;width:auto;aspect-ratio:1;font-size:clamp(18px,3.2vh,28px)}
+.dzone .dbig .dmi{font-size:clamp(36px,8vh,72px)}
+body.driving .drive .dtitle{min-height:0;margin:10px 0 2px;font-size:24px}
+.dyt2{background:radial-gradient(circle at 35% 30%,#ff6b6b,#cc0000 70%)!important;box-shadow:0 0 0 10px #ff000022,0 20px 60px #cc000055!important}
+.dyt2.on{animation:pulse 1.2s infinite}
+.dvid{display:none;position:relative;height:calc(min(52vw,26vh) + 40px);margin-top:6px;flex:none}
+.dvid.on{display:block}
+.dvopen{position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:#cc0000;color:#fff;border-radius:20px;padding:7px 16px;font-weight:700;font-size:15px}
+/* while driving, the real YouTube player is shown on top of the video spot */
+body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 .dsuno{background:linear-gradient(135deg,var(--pink),#d9367f);color:#fff}
 .vsrc{display:flex;gap:8px;margin-top:8px}
 .vs{flex:1;padding:16px 4px;border-radius:16px;background:#ffffff14;font-size:17px;font-weight:700;border:1px solid var(--line)}
@@ -219,11 +231,14 @@ label.file input{display:none}
   <div class="dtop"><span id="dList"></span><button id="dExit">✕</button></div>
   <div class="dtitle" id="dTitle">🎵</div>
   <div class="dstat" id="dStat"></div>
-  <div class="dwrap">
+  <div class="dvid" id="dVid"><button class="dvopen" id="dYtOpen">↗ לפתוח ביוטיוב</button></div>
+  <div class="dzone" id="zTop">
     <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר את רוצה?</span></button>
     <a class="dbig dsuno" id="dSuno" target="_blank" rel="noopener" style="display:none"><span class="dmi">▶</span><span>סונו</span></a>
   </div>
-  <div class="dhint">נגיעה בכל מקום במסך</div>
+  <div class="dzone dzbot" id="zBot">
+    <button class="dbig dyt2" id="dYt"><span class="dmi">▶</span><span id="dYtLbl">חיפוש ביוטיוב</span></button>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -467,7 +482,7 @@ async function play(id, auto){
 }
 /* songs from Suno favorites: open in the Suno app (private songs only play there).
    YouTube songs open in the YouTube app when "יוטיוב באפליקציה" is on — there Premium keeps playing in the background. */
-const ytInApp = () => S.ytApp !== false;
+const ytInApp = () => S.ytApp === true;
 const isExternal = it => it && (it.type === 'sunoapp' || (ytInApp() && (it.type === 'yt' || it.type === 'ytlist')));
 const extName = it => it.type === 'sunoapp' ? 'סונו' : 'יוטיוב';
 let sunoOut = null;
@@ -689,6 +704,7 @@ let voiceAdded = null;
 const spoken = t => String(t||'').replace(/\([^)]*\)/g,'').replace(/\.(mp3|wav|m4a)/ig,'').replace(/[_|]/g,' ').replace(/\d{1,2}[._]\d{1,2}[._]\d{2,4}/g,'').replace(/\s+/g,' ').trim();
 function playFound(f){
   wasPlaying = false;   // a new song is coming — don't bring back the old one
+  if (ytAppMode && /^yt/.test(f.it.type)){ ytAppMode = false; vStat('פותחת ביוטיוב ✓'); say('פותחת ביוטיוב את ' + spoken(f.it.title)); setTimeout(() => openYtApp(f.it.ref, f.it.type === 'ytlist'), 1300); return; }
   if (f.l.id !== S.listId){ S.listId = f.l.id; renderLists(); renderList(); }
   if (isExternal(f.it)){
     play(f.it.id);
@@ -773,6 +789,13 @@ async function handleVoice(text){
       const sc = x => { const t = norm(x.title); let n = 0; words.forEach(w => { if (t.includes(w)) n += 2; }); if (t.includes(norm(q))) n += 3; return n; };
       res = res.map((x,i)=>({x,i,s:sc(x)})).filter(o => src === 'drive' || o.s >= 2).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(o=>o.x);
     }
+    if (res.length && s2 === 'yt' && ytAppMode){
+      ytAppMode = false; wasPlaying = false;
+      vStat('פותחת ביוטיוב ✓'); $('#dTitle').textContent = res[0].title || q;
+      say('פותחת ביוטיוב את ' + spoken(res[0].title || q));
+      setTimeout(() => openYtApp(res[0].id, false), 1300);
+      return;
+    }
     if (res.length){
       const first = addRemote(res[0]); voiceAdded = first.it;
       playFound(first);
@@ -791,7 +814,7 @@ async function handleVoice(text){
   say('לא מצאתי את ' + q + '. געי במסך ותגידי שוב');
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, prevVol = 1, wasPlaying = false, prevId = null;
+let rec = null, prevVol = 1, wasPlaying = false, prevId = null, ytAppMode = false;
 // nothing new was found → the song that was playing before continues
 function resumeIfNothing(){
   if (!wasPlaying || S.curId !== prevId || !isPaused()) { wasPlaying = false; return; }
@@ -800,7 +823,8 @@ function resumeIfNothing(){
 }
 function listen(src){
   unlock();
-  forcedSrc = (typeof src === 'string') ? src : null;
+  ytAppMode = src === 'ytapp';
+  forcedSrc = ytAppMode ? 'yt' : (typeof src === 'string') ? src : null;
   $('#vPanel').style.display = 'block'; $('#vAlt').innerHTML = '';
   if (!SR){ $('#vType').style.display = 'flex'; vStat('לחצי על 🎤 שבמקלדת ותגידי את שם השיר'); $('#vIn').value=''; $('#vIn').focus(); return; }
   if (rec){ try{ rec.stop(); }catch(e){} return; }
@@ -812,7 +836,8 @@ function listen(src){
   // stop the music while searching
   wasPlaying = !isPaused(); prevId = S.curId; stopAll(); renderPlayIcon();
   $('#mic').classList.add('on'); $('#micLbl').textContent = 'מקשיבה… תגידי את השיר';
-  $('#dMic').classList.add('on'); $('#dMicLbl').textContent = 'מקשיבה…';
+  if (ytAppMode){ $('#dYt').classList.add('on'); $('#dYtLbl').textContent = 'מקשיבה…'; }
+  else { $('#dMic').classList.add('on'); $('#dMicLbl').textContent = 'מקשיבה…'; }
   $('#heard').textContent = '';
   vStat('מקשיבה… אפשר לדבר בנחת. כשתסיימי אני אחפש');
   try { speechSynthesis.cancel(); } catch(e){}
@@ -827,6 +852,7 @@ function listen(src){
   rec.onend = () => {
     $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר את רוצה?';
     $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר את רוצה?';
+    $('#dYt').classList.remove('on'); $('#dYtLbl').textContent = 'חיפוש ביוטיוב';
     clearTimeout(silenceT);
     const t = finalText || $('#heard').textContent; rec = null;
     if (t && t.trim()) handleVoice(t.trim()).then(resumeIfNothing, resumeIfNothing); else resumeIfNothing();
@@ -836,13 +862,39 @@ function listen(src){
 $('#mic').onclick = () => listen(null);
 $('#dMic').onclick = e => { e.preventDefault(); };
 $('#drive').addEventListener('click', e => {
-  if (e.target.closest('#dExit')) return;
-  const sb = $('#dSuno');
-  if (sb.style.display === 'flex'){ if (!e.target.closest('#dSuno')){ e.preventDefault(); sb.click(); } return; }
-  listen(null);
+  if (e.target.closest('#dExit') || e.target.closest('#dYtOpen')) return;
+  const top = !!e.target.closest('#zTop') || (!e.target.closest('#zBot') && e.clientY < innerHeight * 0.55);
+  if (top){
+    const sb = $('#dSuno');
+    if (sb.style.display === 'flex'){ if (!e.target.closest('#dSuno')){ e.preventDefault(); sb.click(); } return; }
+    listen(null);
+  } else {
+    listen('ytapp');            // bottom half: say a song → it opens in the YouTube app
+  }
 });
+$('#dYtOpen').onclick = e => { e.stopPropagation(); const it = cur(); if (it && /^yt/.test(it.type)) openYtApp(it.ref, it.type === 'ytlist'); };
+// keep the real player sitting exactly on the video spot of the driving screen
+function placeYt(){
+  const on = document.body.classList.contains('driving') && $('#ytBox').classList.contains('on');
+  $('#dVid').classList.toggle('on', on);
+  if (!on){ $('#ytBox').style.cssText = ''; return; }
+  const r = $('#dVid').getBoundingClientRect();
+  Object.assign($('#ytBox').style, { top: r.top + 'px', left: r.left + 'px', width: r.width + 'px', height: (r.height - 40) + 'px' });
+}
+setInterval(placeYt, 500); addEventListener('resize', placeYt);
+/* open a song in the YouTube app by itself (Premium keeps it playing in the background) */
+function openYtApp(id, list){
+  try { au.pause(); if (ytReady) yt.pauseVideo(); } catch(e){}
+  const web = list ? 'https://www.youtube.com/playlist?list=' + id : 'https://www.youtube.com/watch?v=' + id;
+  const app = list ? 'youtube://www.youtube.com/playlist?list=' + id : 'youtube://www.youtube.com/watch?v=' + id;
+  let left = false; const mark = () => { if (document.visibilityState === 'hidden') left = true; };
+  document.addEventListener('visibilitychange', mark);
+  location.href = app;                                         // the YouTube app opens and starts playing
+  setTimeout(() => { document.removeEventListener('visibilitychange', mark); if (!left){ const a = document.createElement('a'); a.href = web; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); } }, 1500);
+}
 function setDrive(on){
   S.drive = !!on; save();
+  document.body.classList.toggle('driving', !!on); setTimeout(placeYt, 50);
   $('#drive').style.display = on ? 'flex' : 'none';
   $('#mDrive').classList.toggle('on', !!on);
   if (on && !wakeOn) setWake(true, true);
