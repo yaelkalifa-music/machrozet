@@ -82,6 +82,7 @@ label.file input{display:none}
 .dwrap{flex:1;display:flex;align-items:center;justify-content:center}
 .dbig{width:min(86vw,62vh);height:min(86vw,62vh);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7fb6,#e8186f 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:32px;font-weight:800;text-decoration:none;box-shadow:0 0 0 10px #ff5fa233,0 20px 60px #e8186f66;border:0}
 .dbig .dmi{font-size:110px;line-height:1}
+#dMicLbl{font-size:36px;padding:0 24px;text-align:center;line-height:1.15}
 .dbig.on{background:radial-gradient(circle at 35% 30%,#ff8a7a,#d61f1f 70%);animation:pulse 1.2s infinite}
 .dsuno{background:radial-gradient(circle at 35% 30%,#ffe09a,#e8a10e 70%)!important;color:#2a1620!important}
 .dhint{text-align:center;color:var(--mute);font-size:16px;margin-top:8px}
@@ -217,7 +218,7 @@ label.file input{display:none}
   <div class="dtitle" id="dTitle">🎵</div>
   <div class="dstat" id="dStat"></div>
   <div class="dwrap">
-    <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר?</span></button>
+    <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר לשים?</span></button>
     <a class="dbig dsuno" id="dSuno" target="_blank" rel="noopener" style="display:none"><span class="dmi">▶</span><span>סונו</span></a>
   </div>
   <div class="dhint">נגיעה בכל מקום במסך</div>
@@ -815,7 +816,7 @@ function listen(src){
   rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
   rec.onend = () => {
     $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר לשים?';
-    $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר?';
+    $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר לשים?';
     clearTimeout(silenceT);
     const t = finalText || $('#heard').textContent; rec = null;
     if (t && t.trim()) handleVoice(t.trim()).then(resumeIfNothing, resumeIfNothing); else resumeIfNothing();
@@ -836,7 +837,7 @@ function setDrive(on){
   $('#mDrive').classList.toggle('on', !!on);
   if (on && !wakeOn) setWake(true, true);
 }
-$('#mDrive').onclick = () => setDrive(true);
+$('#mDrive').onclick = () => { setDrive(true); setTimeout(() => listen(null), 300); };
 $('#dExit').onclick = e => { e.stopPropagation(); setDrive(false); };
 
 $('#vGo').onclick = () => { const t = $('#vIn').value.trim(); if (t) handleVoice(t); };
@@ -931,6 +932,12 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
 
 load(); ensureLists(); renderLists(); renderPlayer(); renderList();
 if (S.drive) setDrive(true);
+(function playFromLink(){
+  const m = location.hash.match(/^#play=(.+)$/); if (!m) return;
+  let t = ''; try { t = decodeURIComponent(m[1]).trim(); } catch(e){}
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  if (t) setTimeout(() => { $('#vPanel').style.display='block'; unlock(); handleVoice(t); }, 700);
+})();
 renderGoogle();
 if (gPending && gPending.q){ setTimeout(() => { $('#vPanel').style.display='block'; handleVoice(gPending.q + (gPending.src === 'drive' ? ' מהדרייב' : '')); }, 600); }
 (async function importSunoFav(){
