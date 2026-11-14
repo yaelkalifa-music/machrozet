@@ -248,6 +248,16 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
+const BUILD = '1794682104';
+async function checkUpdate(){
+  try {
+    const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
+    const m = t.match(/const BUILD = '([^']+)'/);
+    if (m && m[1] !== BUILD && (typeof isPaused !== 'function' || isPaused())) location.reload();
+  } catch(e){}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+setTimeout(checkUpdate, 3000);
 
 let S = { lists: [], listId: null, mode: 'all', shuffle: false, recent: [], curId: null };
 const curList = () => S.lists.find(l => l.id === S.listId) || S.lists[0];
@@ -704,7 +714,7 @@ let voiceAdded = null;
 const spoken = t => String(t||'').replace(/\([^)]*\)/g,'').replace(/\.(mp3|wav|m4a)/ig,'').replace(/[_|]/g,' ').replace(/\d{1,2}[._]\d{1,2}[._]\d{2,4}/g,'').replace(/\s+/g,' ').trim();
 function playFound(f){
   wasPlaying = false;   // a new song is coming — don't bring back the old one
-  if (ytAppMode && /^yt/.test(f.it.type)){ ytAppMode = false; vStat('פותחת ביוטיוב ✓'); say('פותחת ביוטיוב את ' + spoken(f.it.title)); setTimeout(() => openYtApp(f.it.ref, f.it.type === 'ytlist'), 1300); return; }
+  if (ytAppMode && /^yt/.test(f.it.type)){ ytAppMode = false; vStat('פותחת ביוטיוב ✓'); openYtApp(f.it.ref, f.it.type === 'ytlist'); return; }
   if (f.l.id !== S.listId){ S.listId = f.l.id; renderLists(); renderList(); }
   if (isExternal(f.it)){
     play(f.it.id);
@@ -712,9 +722,7 @@ function playFound(f){
     vStat('מצאתי ✓ געי במסך כדי לפתוח ב' + n); say('מצאתי את ' + spoken(f.it.title) + '. געי במסך כדי לפתוח ב' + n);
   } else {
     vStat('מנגנת ✓');
-    // say the name first, then start the song (so the voice and the music don't clash)
-    say('מנגנת את ' + spoken(f.it.title));
-    setTimeout(() => play(f.it.id), 1400);
+    play(f.it.id);                                  // starts right away
   }
 }
 async function remoteSearch(q, src){
@@ -792,8 +800,7 @@ async function handleVoice(text){
     if (res.length && s2 === 'yt' && ytAppMode){
       ytAppMode = false; wasPlaying = false;
       vStat('פותחת ביוטיוב ✓'); $('#dTitle').textContent = res[0].title || q;
-      say('פותחת ביוטיוב את ' + spoken(res[0].title || q));
-      setTimeout(() => openYtApp(res[0].id, false), 1300);
+      openYtApp(res[0].id, false);
       return;
     }
     if (res.length){
@@ -846,7 +853,7 @@ function listen(src){
     let t=''; const alts=[];
     for (const r of e.results){ t += r[0].transcript + ' '; for (let i=0;i<r.length;i++) alts.push(r[i].transcript); }
     finalText = t.trim(); handleVoice.alts = alts; $('#heard').textContent = finalText;
-    stopSoon(2500);                                 // she paused for 2.5s → she finished talking
+    stopSoon(1800);                                 // she paused for ~2s → she finished talking
   };
   rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
   rec.onend = () => {
@@ -1025,6 +1032,7 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
   bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
 
 load(); ensureLists(); renderLists(); renderPlayer(); renderList();
+if (S.driveV !== 3){ S.driveV = 3; S.drive = true; save(); }
 if (S.drive !== false) setDrive(true);
 (function playFromLink(){
   const m = location.hash.match(/^#play=(.+)$/); if (!m) return;
