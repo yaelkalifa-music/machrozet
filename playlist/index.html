@@ -78,7 +78,8 @@ label.file input{display:none}
 .dtop{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-size:15px}
 #dExit{background:#ffffff14;border-radius:50%;width:44px;height:44px;font-size:18px}
 .dtitle{font-size:28px;font-weight:800;text-align:center;margin:18px 0 6px;line-height:1.25;min-height:70px;display:flex;align-items:center;justify-content:center}
-.dstat{text-align:center;color:var(--mute);font-size:17px;min-height:24px}
+.dstat{text-align:center;color:#fff;font-size:20px;font-weight:600;min-height:26px}
+.ddbg{text-align:center;color:#ffffff55;font-size:11px;direction:ltr;min-height:14px}
 .dwrap{flex:1;display:flex;align-items:center;justify-content:center}
 .dbig{width:min(86vw,62vh);height:min(86vw,62vh);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7fb6,#e8186f 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:32px;font-weight:800;text-decoration:none;box-shadow:0 0 0 10px #ff5fa233,0 20px 60px #e8186f66;border:0}
 .dbig .dmi{font-size:110px;line-height:1}
@@ -231,6 +232,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
   <div class="dtop"><span id="dList"></span><button id="dExit">✕</button></div>
   <div class="dtitle" id="dTitle">🎵</div>
   <div class="dstat" id="dStat"></div>
+  <div class="ddbg" id="dDbg"></div>
   <div class="dvid" id="dVid"><button class="dvopen" id="dYtOpen">↗ לפתוח ביוטיוב</button></div>
   <div class="dzone" id="zTop">
     <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר את רוצה?</span></button>
@@ -248,7 +250,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794685713';
+const BUILD = '1794685935';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -870,17 +872,24 @@ function listen(src){
     try { localStorage.setItem('ykMicSimple', '1'); } catch(e){}
     vStat('המיקרופון לא נפתח — געי שוב במסך'); say('געי שוב במסך');
   }, 3000);
-  r.onstart = () => { started = true; listen._retried = false; stopSoon(8000); };             // nothing said at all → give up after 8s
-  r.onaudiostart = () => { started = true; };
+  const trail = []; const mark = w => { trail.push(w); const d = $('#dDbg'); if (d) d.textContent = (continuous ? 'L ' : 'S ') + trail.join(' › '); };
+  mark('tap');
+  r.onstart = () => { mark('start'); started = true; stopSoon(9000); };   // nothing said at all → give up after 9s
+  r.onaudiostart = () => { mark('audio'); started = true; };
+  r.onspeechstart = () => mark('speech');
   r.onresult = e => {
-    started = true; r._heard = true;
+    if (!r._heard) mark('text'); started = true; r._heard = true;
     let t = ''; const alts = [];
     for (const x of e.results){ t += x[0].transcript + ' '; for (let i = 0; i < x.length; i++) alts.push(x[i].transcript); }
     finalText = t.trim(); handleVoice.alts = alts; $('#heard').textContent = finalText;
     const last = e.results[e.results.length - 1];
-    stopSoon(last && last.isFinal ? 1100 : 1700);                   // she stopped talking → search right away
+    if (continuous) stopSoon(last && last.isFinal ? 1100 : 1700);   // she stopped talking → search right away
+    else stopSoon(2500);                                            // simple mode: the phone normally ends it by itself
+    // show what it hears while she talks
+    const ds = $('#dStat'); if (ds) ds.textContent = '«' + finalText + '»';
   };
   r.onerror = e => {
+    mark('err:' + e.error);
     if (r._dead) return;
     const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed'
       ? 'אין גישה למיקרופון. באייפון: הגדרות ← Safari ← מיקרופון ← לאפשר, ואז לסגור ולפתוח את האפליקציה'
@@ -890,14 +899,14 @@ function listen(src){
     // "aborted" on iPhone = the long listening mode isn't supported here → switch to the simple mode and try again by itself
     if (e.error === 'aborted' || e.error === 'network' || e.error === 'service-not-allowed' && continuous){
       try { localStorage.setItem('ykMicSimple', '1'); } catch(x){}
-      if (!listen._retried){ listen._retried = true; r._dead = true; rec = null; clearTimeout(silenceT); clearTimeout(hardStop); clearTimeout(watchdog);
-        setTimeout(() => { listen._keepPrev = true; listen(ytAppMode ? 'ytapp' : forcedSrc); listen._keepPrev = false; }, 200); return; }
+      vStat('געי שוב במסך — עכשיו זה יעבוד'); return;
     }
     listen._retried = false;
     vStat(msg);
     if (continuous && e.error !== 'no-speech'){ try { localStorage.setItem('ykMicSimple', '1'); } catch(x){} }
   };
   r.onend = () => {
+    mark('end');
     clearTimeout(silenceT); clearTimeout(hardStop); clearTimeout(watchdog);
     if (r._dead) return;
     rec = null; micUI(false);
