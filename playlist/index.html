@@ -250,7 +250,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794685935';
+const BUILD = '1794686204';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -796,9 +796,10 @@ async function handleVoice(text){
     let res = [];
     try { res = s2 === 'gd' ? await gSearch(q) : await remoteSearch(q, s2); } catch(e){ if (e.code === 'need_login' && src === 'drive'){ gLogin(true, { q, src }); return; } }
     if (s2 === 'gd' && res.length){
-      const words = norm(q).split(' ').filter(Boolean);
-      const sc = x => { const t = norm(x.title); let n = 0; words.forEach(w => { if (t.includes(w)) n += 2; }); if (t.includes(norm(q))) n += 3; return n; };
-      res = res.map((x,i)=>({x,i,s:sc(x)})).filter(o => src === 'drive' || o.s >= 2).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(o=>o.x);
+      res = res.filter(x => !/^(יעל זה_|audio|recording|הקלטה)\s*\d*$/i.test(x.title.trim()))
+               .map((x,i)=>({x,i,s:fit(q, x.title)}))
+               .filter(o => o.s >= (src === 'drive' ? 0.5 : 0.9))
+               .sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(o=>o.x);
     }
     if (res.length && s2 === 'yt' && ytAppMode){
       ytAppMode = false; wasPlaying = false;
@@ -887,6 +888,7 @@ function listen(src){
     else stopSoon(2500);                                            // simple mode: the phone normally ends it by itself
     // show what it hears while she talks
     const ds = $('#dStat'); if (ds) ds.textContent = '«' + finalText + '»';
+    const big = ytAppMode ? $('#dYtLbl') : $('#dMicLbl'); if (big) big.textContent = finalText;
   };
   r.onerror = e => {
     mark('err:' + e.error);
