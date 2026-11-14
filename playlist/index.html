@@ -252,7 +252,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794687081';
+const BUILD = '1794687555';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -646,7 +646,7 @@ function renderGoogle(){
 
 /* ---------- voice: "רוצי ילדה מסונו" ---------- */
 const SRC_WORDS = {
-  suno:['נסו','ניסו','נסוו','נוסו','סונוו','סונו','סונה','סונא','סונוֹ','שונו','שונה','סאונו','סאנו','זונו','צונו','סנו','סוני','סונור','suno','sono','sonno','soon','מועדפים','המועדפים','במועדפים','מועדפות'],
+  suno:['סו','מסו','בסו','הסו','וסו','סונ','מסונ','שנו','סוני','מסוני','נסו','ניסו','נסוו','נוסו','סונוו','סונו','סונה','סונא','סונוֹ','שונו','שונה','סאונו','סאנו','זונו','צונו','סנו','סוני','סונור','suno','sono','sonno','soon','מועדפים','המועדפים','במועדפים','מועדפות'],
   yt:['יוטיוב','יוטוב','יוטיב','יוטיוּב','טיוב','יוטובה','youtube','utube'],
   drive:['דרייב','דריב','דרייו','דרייף','דרייבר','דרייוו','drive','גוגל','גוגלדרייב']
 };
