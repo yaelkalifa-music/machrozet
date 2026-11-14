@@ -511,7 +511,10 @@ function playFound(f){
 async function remoteSearch(q, src){
   const r = await fetch('/api/search?src=' + src + '&q=' + encodeURIComponent(q));
   const j = await r.json().catch(()=>({}));
-  return (j.items || []).filter(x => x.id);
+  const words = norm(q).split(' ').filter(Boolean);
+  const score = x => { const t = norm(x.title); let sc = 0; words.forEach(w => { if (t.includes(w)) sc += 2; }); if (t.includes(norm(q))) sc += 3; return sc; };
+  return (j.items || []).filter(x => x.id).map((x, i) => ({ x, i, sc: score(x) }))
+    .sort((a, b) => (b.sc - a.sc) || (a.i - b.i)).map(o => o.x);
 }
 function addRemote(x){
   const exist = S.lists.flatMap(l => l.items.map(it => ({ it, l }))).find(o => o.it.ref === x.id);
