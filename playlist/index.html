@@ -248,7 +248,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794682747';
+const BUILD = '1794685353';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -829,44 +829,76 @@ function resumeIfNothing(){
   wasPlaying = false;
   if (engine === 'yt' && ytReady) { try { yt.playVideo(); } catch(e){} } else au.play().catch(()=>{});
 }
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function micUI(on){
+  $('#mic').classList.toggle('on', on); $('#micLbl').textContent = on ? 'מקשיבה… תגידי את השיר' : 'איזה שיר את רוצה?';
+  const ytm = on && ytAppMode;
+  $('#dYt').classList.toggle('on', ytm); $('#dYtLbl').textContent = ytm ? 'מקשיבה…' : 'חיפוש ביוטיוב';
+  $('#dMic').classList.toggle('on', on && !ytAppMode); $('#dMicLbl').textContent = on && !ytAppMode ? 'מקשיבה…' : 'איזה שיר את רוצה?';
+}
+function killRec(){ const r = rec; rec = null; if (r){ r._dead = true; try { r.onend = r.onresult = r.onerror = r.onstart = null; r.abort(); } catch(e){} } }
 function listen(src){
   unlock();
+  // a tap while listening = "I finished" (if she already said something) or a fresh start (if it got stuck)
+  if (rec){
+    if (rec._heard && !rec._dead){ try { rec.stop(); } catch(e){} return; }
+    killRec();
+  }
   ytAppMode = src === 'ytapp';
   forcedSrc = ytAppMode ? 'yt' : (typeof src === 'string') ? src : null;
   $('#vPanel').style.display = 'block'; $('#vAlt').innerHTML = '';
   if (!SR){ $('#vType').style.display = 'flex'; vStat('לחצי על 🎤 שבמקלדת ותגידי את שם השיר'); $('#vIn').value=''; $('#vIn').focus(); return; }
-  if (rec){ try{ rec.stop(); }catch(e){} return; }
-  rec = new SR(); rec.lang = 'he-IL'; rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 5;
-  const myRec = rec; let silenceT = null;
-  const stopSoon = ms => { clearTimeout(silenceT); silenceT = setTimeout(() => { try { myRec.stop(); } catch(e){} }, ms); };
-  stopSoon(8000);                                   // nothing said at all → give up after 8s
-  setTimeout(() => { try { myRec.stop(); } catch(e){} }, 25000);   // never more than 25s
   // stop the music while searching
-  wasPlaying = !isPaused(); prevId = S.curId; stopAll(); renderPlayIcon();
-  $('#mic').classList.add('on'); $('#micLbl').textContent = 'מקשיבה… תגידי את השיר';
-  if (ytAppMode){ $('#dYt').classList.add('on'); $('#dYtLbl').textContent = 'מקשיבה…'; }
-  else { $('#dMic').classList.add('on'); $('#dMicLbl').textContent = 'מקשיבה…'; }
-  $('#heard').textContent = '';
-  vStat('מקשיבה… אפשר לדבר בנחת. כשתסיימי אני אחפש');
+  if (!listen._keepPrev){ wasPlaying = !isPaused(); prevId = S.curId; }
+  stopAll(); renderPlayIcon();
   try { speechSynthesis.cancel(); } catch(e){}
-  let finalText = '';
-  rec.onresult = e => {
-    let t=''; const alts=[];
-    for (const r of e.results){ t += r[0].transcript + ' '; for (let i=0;i<r.length;i++) alts.push(r[i].transcript); }
+  $('#heard').textContent = '';
+  micUI(true);
+  vStat('מקשיבה… אפשר לדבר בנחת. כשתסיימי אני אחפש');
+
+  let continuous = true;
+  try { if (localStorage.getItem('ykMicSimple') === '1') continuous = false; } catch(e){}
+  const r = new SR(); rec = r;
+  r.lang = 'he-IL'; r.interimResults = true; r.continuous = continuous; r.maxAlternatives = 5;
+  let finalText = '', silenceT = null, started = false;
+  const stopSoon = ms => { clearTimeout(silenceT); silenceT = setTimeout(() => { try { r.stop(); } catch(e){} }, ms); };
+  const hardStop = setTimeout(() => { try { r.stop(); } catch(e){} }, 25000);   // never more than 25s
+  // if the microphone never really starts, try again in the simpler mode (iPhone)
+  const watchdog = setTimeout(() => {
+    if (started || r._dead) return;
+    killRec(); micUI(false);
+    try { localStorage.setItem('ykMicSimple', '1'); } catch(e){}
+    vStat('המיקרופון לא נפתח — געי שוב במסך'); say('געי שוב במסך');
+  }, 3000);
+  r.onstart = () => { started = true; stopSoon(8000); };             // nothing said at all → give up after 8s
+  r.onaudiostart = () => { started = true; };
+  r.onresult = e => {
+    started = true; r._heard = true;
+    let t = ''; const alts = [];
+    for (const x of e.results){ t += x[0].transcript + ' '; for (let i = 0; i < x.length; i++) alts.push(x[i].transcript); }
     finalText = t.trim(); handleVoice.alts = alts; $('#heard').textContent = finalText;
     const last = e.results[e.results.length - 1];
-    stopSoon(last && last.isFinal ? 1100 : 1700);   // she stopped talking → search right away
+    stopSoon(last && last.isFinal ? 1100 : 1700);                   // she stopped talking → search right away
   };
-  rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
-  rec.onend = () => {
-    $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר את רוצה?';
-    $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר את רוצה?';
-    $('#dYt').classList.remove('on'); $('#dYtLbl').textContent = 'חיפוש ביוטיוב';
-    clearTimeout(silenceT);
-    const t = finalText || $('#heard').textContent; rec = null;
-    if (t && t.trim()) handleVoice(t.trim()).then(resumeIfNothing, resumeIfNothing); else resumeIfNothing();
+  r.onerror = e => {
+    if (r._dead) return;
+    const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed'
+      ? 'אין גישה למיקרופון. באייפון: הגדרות ← Safari ← מיקרופון ← לאפשר, ואז לסגור ולפתוח את האפליקציה'
+      : e.error === 'no-speech' ? 'לא שמעתי — געי שוב במסך'
+      : e.error === 'audio-capture' ? 'המיקרופון תפוס (אולי בשיחה?) — נסי שוב'
+      : 'המיקרופון לא עבד (' + e.error + ') — געי שוב במסך';
+    vStat(msg); say(e.error === 'no-speech' ? 'לא שמעתי' : 'המיקרופון לא עבד');
+    if (continuous && e.error !== 'no-speech' && e.error !== 'aborted'){ try { localStorage.setItem('ykMicSimple', '1'); } catch(x){} }
   };
-  try { rec.start(); } catch(e){ rec = null; $('#vType').style.display='flex'; }
+  r.onend = () => {
+    clearTimeout(silenceT); clearTimeout(hardStop); clearTimeout(watchdog);
+    if (r._dead) return;
+    rec = null; micUI(false);
+    const t = finalText.trim();
+    if (t) handleVoice(t).then(resumeIfNothing, resumeIfNothing); else resumeIfNothing();
+  };
+  try { r.start(); }
+  catch(e){ killRec(); micUI(false); clearTimeout(watchdog); clearTimeout(hardStop); vStat('המיקרופון לא נפתח — געי שוב במסך'); }
 }
 $('#mic').onclick = () => listen(null);
 $('#dMic').onclick = e => { e.preventDefault(); };
@@ -909,7 +941,7 @@ function setDrive(on){
   if (on && !wakeOn) setWake(true, true);
 }
 $('#mYtApp').onclick = () => { S.ytApp = !ytInApp(); save(); renderModes(); toast(ytInApp() ? 'שירי יוטיוב ייפתחו באפליקציית יוטיוב (ממשיכים ברקע עם פרימיום)' : 'שירי יוטיוב יתנגנו כאן (רק כשהמסך דולק)', 4000); };
-$('#mDrive').onclick = () => { setDrive(true); setTimeout(() => listen(null), 300); };
+$('#mDrive').onclick = () => { setDrive(true); listen(null); };
 $('#dExit').onclick = e => { e.stopPropagation(); setDrive(false); };
 
 $('#vGo').onclick = () => { const t = $('#vIn').value.trim(); if (t) handleVoice(t); };
