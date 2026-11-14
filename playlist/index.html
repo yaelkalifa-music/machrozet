@@ -72,6 +72,15 @@ header .sub{color:var(--mute);font-size:13px;margin-top:2px}
 label.file{display:block;text-align:center;border:2px dashed var(--line);border-radius:16px;padding:20px 10px;color:var(--pink2);font-weight:600;font-size:16px;cursor:pointer}
 label.file input{display:none}
 .ic{font-size:13px}
+.mic{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;margin-top:16px;padding:18px;border-radius:20px;background:linear-gradient(135deg,var(--gold),#e8a94a);color:#2a1620;font-size:21px;font-weight:800;box-shadow:0 6px 20px #f2c46d44}
+.mic .mi{font-size:30px}
+.mic.on{background:linear-gradient(135deg,#ff5f7a,var(--pink));color:#fff;animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 #ff5fa288}50%{box-shadow:0 0 0 14px #ff5fa200}}
+.vpanel{margin-top:10px;background:#0006;border-radius:16px;padding:12px}
+.heard{font-size:20px;font-weight:700;min-height:26px}
+.vstat{font-size:14px;color:var(--mute);margin-top:4px}
+.alt{display:block;width:100%;text-align:right;background:#ffffff12;border-radius:14px;padding:14px;margin-top:8px;font-size:16px}
+.alt small{display:block;color:var(--mute);font-size:12px}
 .lists{display:flex;gap:8px;overflow-x:auto;margin:14px -14px 0;padding:0 14px 4px;scrollbar-width:none}
 .lists::-webkit-scrollbar{display:none}
 .lists .chip{white-space:nowrap;flex:none}
@@ -103,6 +112,16 @@ label.file input{display:none}
       <button class="cb play" id="bPlay" aria-label="נגן / עצור"><svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
       <button class="cb small" id="bFwd" aria-label="קדימה 15 שניות"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg></button>
       <button class="cb" id="bNext" aria-label="שיר הבא"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
+    </div>
+    <button class="mic" id="mic"><span class="mi">🎤</span><span id="micLbl">איזה שיר לשים?</span></button>
+    <div id="vPanel" class="vpanel" style="display:none">
+      <div class="heard" id="heard"></div>
+      <div class="vstat" id="vStat"></div>
+      <div id="vAlt"></div>
+      <div class="search" id="vType" style="display:none;margin-top:8px">
+        <input id="vIn" placeholder="להקליד או ללחוץ 🎤 במקלדת" autocomplete="off">
+        <button class="btn" id="vGo">חיפוש</button>
+      </div>
     </div>
     <div class="modes">
       <button class="chip" id="mAll">🔁 לופ על הכל</button>
@@ -450,6 +469,119 @@ async function setWake(on, quiet){
   renderModes();
 }
 document.addEventListener('visibilitychange', () => { if (wakeOn && document.visibilityState==='visible') setWake(true, true); });
+
+/* ---------- voice: "רוצי ילדה מסונו" ---------- */
+const SRC_WORDS = { suno:['סונו','סונה','suno','סאנו'], yt:['יוטיוב','יוטוב','youtube','יוטיוּב','טיוב'], drive:['דרייב','דרייו','drive','הדרייב','גוגל'] };
+const FILLER = new Set(['תשימי','תשים','שימי','שים','תנגני','תנגן','נגני','נגן','תפעילי','תפעיל','הפעילי','אני','רוצה','לשמוע','את','השיר','שיר','בבקשה','עכשיו','לי','תני','תביאי','מהפלייליסט','פלייליסט','קודם','יאללה','תחפשי','חפשי','חיפוש']);
+const norm = t => String(t||'').toLowerCase().replace(/[֑-ׇ]/g,'').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim();
+function parseVoice(t){
+  let src = null; const keep = [];
+  norm(t).split(' ').forEach(w => {
+    if (!w) return;
+    const bare = w.replace(/^(ו?(מה|בה|מ|ב|ה|ל))(?=.{3})/, '');
+    for (const k in SRC_WORDS){ if (SRC_WORDS[k].includes(w) || SRC_WORDS[k].includes(bare)){ src = k; return; } }
+    if (w === 'במחשב' || w === 'בטלפון') return;
+    if (FILLER.has(w)) return;
+    keep.push(w);
+  });
+  return { src, q: keep.join(' ') };
+}
+function findLocal(q, src){
+  const words = norm(q).split(' ').filter(Boolean); if (!words.length) return null;
+  let best = null, bestScore = 0;
+  S.lists.forEach(l => l.items.forEach(it => {
+    if (src === 'drive' && it.type !== 'drive') return;
+    if (src === 'suno' && it.type !== 'suno') return;
+    if (src === 'yt' && !/^yt/.test(it.type)) return;
+    const t = norm(it.title);
+    let sc = 0; words.forEach(w => { if (t.includes(w)) sc += w.length; });
+    if (t.includes(norm(q))) sc += 50;
+    if (sc > bestScore){ bestScore = sc; best = { it, l }; }
+  }));
+  const need = Math.max(2, Math.ceil(words.join('').length * 0.6));
+  return bestScore >= need ? best : null;
+}
+function say(t){ try { const u = new SpeechSynthesisUtterance(t); u.lang='he-IL'; u.rate=1.05; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch(e){} }
+function vStat(t){ $('#vStat').textContent = t || ''; }
+let voiceAdded = null;
+function playFound(f){
+  if (f.l.id !== S.listId){ S.listId = f.l.id; renderLists(); renderList(); }
+  play(f.it.id); vStat('מנגנת ✓'); say('מנגנת ' + f.it.title);
+}
+async function remoteSearch(q, src){
+  const r = await fetch('/api/search?src=' + src + '&q=' + encodeURIComponent(q));
+  const j = await r.json().catch(()=>({}));
+  return (j.items || []).filter(x => x.id);
+}
+function addRemote(x){
+  const exist = S.lists.flatMap(l => l.items.map(it => ({ it, l }))).find(o => o.it.ref === x.id);
+  if (exist) return exist;
+  const it = x.type === 'suno'
+    ? { id:gid(), type:'suno', ref:x.id, audio:x.audio, img:x.image||'', title:x.title||'שיר מסונו' }
+    : { id:gid(), type:'yt', ref:x.id, title:x.title||'שיר מיוטיוב', img:`https://i.ytimg.com/vi/${x.id}/hqdefault.jpg` };
+  IT().push(it); save(); renderList();
+  return { it, l: curList() };
+}
+async function handleVoice(text){
+  $('#heard').textContent = '«' + text + '»';
+  $('#vAlt').innerHTML = '';
+  const { src, q } = parseVoice(text);
+  if (!q){ vStat('לא הבנתי את שם השיר — נסי שוב'); say('לא הבנתי, נסי שוב'); return; }
+  const where = src === 'suno' ? 'בסונו' : src === 'yt' ? 'ביוטיוב' : src === 'drive' ? 'בדרייב' : '';
+  vStat('מחפשת "' + q + '" ' + where + '…');
+  // 1) my lists first
+  let f = findLocal(q, src) || (src === 'suno' ? findLocal(q, null) : null);
+  if (!f && (src === 'drive' || src === 'suno')){ for (const l of S.lists) for (const fo of l.folders) await syncFolder(fo, false, l).catch(()=>0); f = findLocal(q, src) || (src === 'suno' ? findLocal(q, null) : null); }
+  if (f){ playFound(f); return; }
+  if (src === 'suno'){ vStat('השירים שלך בסונו פרטיים, אז אני מוצאת רק שירי סונו שכבר ברשימות שלך או בתיקיית הדרייב. את "' + q + '" לא מצאתי שם.'); say('לא מצאתי את השיר ברשימות'); return; }
+  if (src === 'drive'){ vStat('לא מצאתי בדרייב שיר כזה. אם הוא לא בתיקייה המחוברת — צריך להוסיף אותו קודם.'); say('לא מצאתי את השיר בדרייב'); return; }
+  // 2) search Suno / YouTube
+  const order = ['yt'];
+  for (const s2 of order){
+    let res = [];
+    try { res = await remoteSearch(q, s2); } catch(e){}
+    if (res.length){
+      const first = addRemote(res[0]); voiceAdded = first.it;
+      playFound(first);
+      $('#vAlt').innerHTML = res.length > 1 ? '<div class="vstat" style="margin-top:10px">לא השיר הנכון? לחצי על אחד:</div>' + res.slice(1,5).map((x,i) =>
+        `<button class="alt" data-alt="${i+1}">${esc(x.title || 'תוצאה ' + (i+2))}<small>${s2==='suno'?'סונו':'יוטיוב'}${x.length ? ' · ' + esc(x.length) : ''}</small></button>`).join('') : '';
+      $('#vAlt').onclick = e => {
+        const b = e.target.closest('[data-alt]'); if (!b) return;
+        // swap the wrong one out of the list
+        if (voiceAdded){ S.lists.forEach(l => { const i = l.items.indexOf(voiceAdded); if (i >= 0) l.items.splice(i,1); }); }
+        const g = addRemote(res[+b.dataset.alt]); voiceAdded = g.it; playFound(g); $('#vAlt').innerHTML='';
+      };
+      return;
+    }
+  }
+  vStat(src === 'suno' ? 'לא מצאתי בסונו. אפשר לנסות "' + q + ' ביוטיוב"' : 'לא מצאתי — נסי להגיד שוב');
+  say('לא מצאתי את השיר');
+}
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, prevVol = 1;
+function listen(){
+  unlock();
+  $('#vPanel').style.display = 'block'; $('#vAlt').innerHTML = '';
+  if (!SR){ $('#vType').style.display = 'flex'; vStat('לחצי על 🎤 שבמקלדת ותגידי את שם השיר'); $('#vIn').value=''; $('#vIn').focus(); return; }
+  if (rec){ try{ rec.stop(); }catch(e){} return; }
+  rec = new SR(); rec.lang = 'he-IL'; rec.interimResults = true; rec.continuous = false;
+  prevVol = au.volume; au.volume = Math.min(prevVol, 0.15); try{ if (ytReady) yt.setVolume(15); }catch(e){}
+  $('#mic').classList.add('on'); $('#micLbl').textContent = 'מקשיבה… תגידי את השיר';
+  $('#heard').textContent = ''; vStat('למשל: "רוצי ילדה מסונו" או "אמא רחל ביוטיוב"');
+  let finalText = '';
+  rec.onresult = e => { let t=''; for (const r of e.results){ t += r[0].transcript; if (r.isFinal) finalText = t; } $('#heard').textContent = t; };
+  rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
+  rec.onend = () => {
+    $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר לשים?';
+    au.volume = prevVol; try{ if (ytReady) yt.setVolume(100); }catch(e){}
+    const t = finalText || $('#heard').textContent; rec = null;
+    if (t && t.trim()) handleVoice(t.trim());
+  };
+  try { rec.start(); } catch(e){ rec = null; $('#vType').style.display='flex'; }
+}
+$('#mic').onclick = listen;
+$('#vGo').onclick = () => { const t = $('#vIn').value.trim(); if (t) handleVoice(t); };
+$('#vIn').addEventListener('keydown', e => { if (e.key === 'Enter'){ const t = $('#vIn').value.trim(); if (t) handleVoice(t); } });
 
 /* lists */
 let editMode = null; // 'new' | 'rename'
