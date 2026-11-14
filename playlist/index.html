@@ -85,6 +85,7 @@ label.file input{display:none}
 #dMicLbl{font-size:36px;padding:0 24px;text-align:center;line-height:1.15}
 .dbig.on{background:radial-gradient(circle at 35% 30%,#ff8a7a,#d61f1f 70%);animation:pulse 1.2s infinite}
 .dsuno{background:radial-gradient(circle at 35% 30%,#ffe09a,#e8a10e 70%)!important;color:#2a1620!important}
+.dsuno.dyt{background:radial-gradient(circle at 35% 30%,#ff6b6b,#cc0000 70%)!important;color:#fff!important}
 .dhint{text-align:center;color:var(--mute);font-size:16px;margin-top:8px}
 .dsuno{background:linear-gradient(135deg,var(--pink),#d9367f);color:#fff}
 .vsrc{display:flex;gap:8px;margin-top:8px}
@@ -146,6 +147,7 @@ label.file input{display:none}
       <button class="chip" id="mShuf">🔀 ערבוב</button>
       <button class="chip" id="mWake">☀️ מסך דולק</button>
       <button class="chip" id="mDrive">🚗 מצב נסיעה</button>
+      <button class="chip" id="mYtApp">▶ יוטיוב באפליקציה</button>
     </div>
   </section>
 
@@ -445,8 +447,8 @@ async function play(id, auto){
   const it = IT().find(x=>x.id===id) || (cur() && cur().id===id ? cur() : null); if (!it) return;
   if (!auto) skipGuard = 0;
   S.curId = id; S.recent = [id, ...S.recent.filter(x=>x!==id)].slice(0,40); save();
-  if (it.type==='sunoapp'){
-    if (auto){ setTimeout(()=>advance(true), 50); return; }   // songs that open in the Suno app are never auto-started
+  if (isExternal(it)){
+    if (auto){ setTimeout(()=>advance(true), 50); return; }   // songs that open in the Suno / YouTube app are never auto-started
     stopAll(); renderPlayer(); renderList(); setStatus('');
     showSunoOpen(it); setMedia(it); return;
   }
@@ -463,11 +465,18 @@ async function play(id, auto){
   }
   setMedia(it);
 }
-/* songs from Suno favorites: open in the Suno app (private songs only play there) */
+/* songs from Suno favorites: open in the Suno app (private songs only play there).
+   YouTube songs open in the YouTube app when "יוטיוב באפליקציה" is on — there Premium keeps playing in the background. */
+const ytInApp = () => S.ytApp !== false;
+const isExternal = it => it && (it.type === 'sunoapp' || (ytInApp() && (it.type === 'yt' || it.type === 'ytlist')));
+const extName = it => it.type === 'sunoapp' ? 'סונו' : 'יוטיוב';
 let sunoOut = null;
 function showSunoOpen(it){
   const b = $('#sunoOpen');
-  b.href = 'https://suno.com/song/' + it.ref;
+  b.href = it.type === 'sunoapp' ? 'https://suno.com/song/' + it.ref : it.type === 'ytlist' ? 'https://www.youtube.com/playlist?list=' + it.ref : 'https://www.youtube.com/watch?v=' + it.ref;
+  b.textContent = '▶ לפתוח ב' + extName(it);
+  $('#dSuno').querySelector('span:last-child').textContent = extName(it);
+  $('#dSuno').classList.toggle('dyt', it.type !== 'sunoapp');
   b.style.display = 'block';
   b.onclick = () => { sunoOut = it.id; };
   const d = $('#dSuno'); d.href = b.href; d.onclick = () => { sunoOut = it.id; };
@@ -481,7 +490,7 @@ document.addEventListener('visibilitychange', () => {
   sunoOut = null; hideSunoOpen();
   const nid = nextId(1); const nx = IT().find(x => x.id === nid);
   if (!nx) return;
-  if (nx.type === 'sunoapp'){ play(nid, false); toast('השיר הבא: ' + nx.title); }
+  if (isExternal(nx)){ play(nid, false); toast('השיר הבא: ' + nx.title); }
   else { toast('חזרת — ממשיכים לנגן 🎶'); play(nid, true); }
 });
 
@@ -681,9 +690,10 @@ const spoken = t => String(t||'').replace(/\([^)]*\)/g,'').replace(/\.(mp3|wav|m
 function playFound(f){
   wasPlaying = false;   // a new song is coming — don't bring back the old one
   if (f.l.id !== S.listId){ S.listId = f.l.id; renderLists(); renderList(); }
-  if (f.it.type === 'sunoapp'){
+  if (isExternal(f.it)){
     play(f.it.id);
-    vStat('מצאתי ✓ געי במסך כדי לפתוח בסונו'); say('מצאתי את ' + spoken(f.it.title) + '. געי במסך כדי לפתוח בסונו');
+    const n = extName(f.it);
+    vStat('מצאתי ✓ געי במסך כדי לפתוח ב' + n); say('מצאתי את ' + spoken(f.it.title) + '. געי במסך כדי לפתוח ב' + n);
   } else {
     vStat('מנגנת ✓');
     // say the name first, then start the song (so the voice and the music don't clash)
@@ -837,6 +847,7 @@ function setDrive(on){
   $('#mDrive').classList.toggle('on', !!on);
   if (on && !wakeOn) setWake(true, true);
 }
+$('#mYtApp').onclick = () => { S.ytApp = !ytInApp(); save(); renderModes(); toast(ytInApp() ? 'שירי יוטיוב ייפתחו באפליקציית יוטיוב (ממשיכים ברקע עם פרימיום)' : 'שירי יוטיוב יתנגנו כאן (רק כשהמסך דולק)', 4000); };
 $('#mDrive').onclick = () => { setDrive(true); setTimeout(() => listen(null), 300); };
 $('#dExit').onclick = e => { e.stopPropagation(); setDrive(false); };
 
@@ -887,7 +898,7 @@ function renderPlayer(){
   const c = $('#cover'); if (it && it.img){ c.style.backgroundImage = `url("${it.img}")`; c.textContent=''; } else { c.style.backgroundImage=''; c.textContent='🎵'; }
   renderPlayIcon(); renderModes();
 }
-function renderModes(){ $('#mAll').classList.toggle('on', S.mode==='all'); $('#mOne').classList.toggle('on', S.mode==='one'); $('#mShuf').classList.toggle('on', S.shuffle); $('#mWake').classList.toggle('on', wakeOn); }
+function renderModes(){ $('#mYtApp').classList.toggle('on', ytInApp()); $('#mAll').classList.toggle('on', S.mode==='all'); $('#mOne').classList.toggle('on', S.mode==='one'); $('#mShuf').classList.toggle('on', S.shuffle); $('#mWake').classList.toggle('on', wakeOn); }
 function renderList(){
   renderLists();
   const q = $('#q').value.trim().toLowerCase();
