@@ -123,6 +123,7 @@ label.file input{display:none}
         <button class="btn" id="vGo">חיפוש</button>
       </div>
     </div>
+    <a class="btn big gold" id="sunoOpen" target="_blank" rel="noopener" style="display:none;margin-top:12px">▶ לפתוח בסונו</a>
     <div class="modes">
       <button class="chip" id="mAll">🔁 לופ על הכל</button>
       <button class="chip" id="mOne">🔂 לופ על שיר</button>
@@ -411,6 +412,12 @@ async function play(id, auto){
   const it = IT().find(x=>x.id===id) || (cur() && cur().id===id ? cur() : null); if (!it) return;
   if (!auto) skipGuard = 0;
   S.curId = id; S.recent = [id, ...S.recent.filter(x=>x!==id)].slice(0,40); save();
+  if (it.type==='sunoapp'){
+    if (auto){ setTimeout(()=>advance(true), 50); return; }   // songs that open in the Suno app are never auto-started
+    stopAll(); renderPlayer(); renderList(); setStatus('');
+    showSunoOpen(it); setMedia(it); return;
+  }
+  hideSunoOpen();
   stopAll(); renderPlayer(); renderList(); setStatus('טוען…');
   if (it.type==='yt' || it.type==='ytlist'){
     engine='yt'; $('#ytBox').classList.add('on'); au.removeAttribute('src');
@@ -423,6 +430,24 @@ async function play(id, auto){
   }
   setMedia(it);
 }
+/* songs from Suno favorites: open in the Suno app (private songs only play there) */
+let sunoOut = null;
+function showSunoOpen(it){
+  const b = $('#sunoOpen');
+  b.href = 'https://suno.com/song/' + it.ref;
+  b.style.display = 'block';
+  b.onclick = () => { sunoOut = it.id; };
+}
+function hideSunoOpen(){ const b=$('#sunoOpen'); if (b) b.style.display='none'; }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !sunoOut) return;
+  sunoOut = null; hideSunoOpen();
+  const nid = nextId(1); const nx = IT().find(x => x.id === nid);
+  if (!nx) return;
+  if (nx.type === 'sunoapp'){ play(nid, false); toast('השיר הבא: ' + nx.title); }
+  else { toast('חזרת — ממשיכים לנגן 🎶'); play(nid, true); }
+});
+
 function prev(){
   const t = engine==='yt' && ytReady ? yt.getCurrentTime() : au.currentTime;
   if (t > 4){ seekTo(0); return; }
@@ -491,7 +516,7 @@ function findLocal(q, src){
   let best = null, bestScore = 0;
   S.lists.forEach(l => l.items.forEach(it => {
     if (src === 'drive' && it.type !== 'drive') return;
-    if (src === 'suno' && it.type !== 'suno') return;
+    if (src === 'suno' && it.type !== 'suno' && it.type !== 'sunoapp') return;
     if (src === 'yt' && !/^yt/.test(it.type)) return;
     const t = norm(it.title);
     let sc = 0; words.forEach(w => { if (t.includes(w)) sc += w.length; });
@@ -506,7 +531,9 @@ function vStat(t){ $('#vStat').textContent = t || ''; }
 let voiceAdded = null;
 function playFound(f){
   if (f.l.id !== S.listId){ S.listId = f.l.id; renderLists(); renderList(); }
-  play(f.it.id); vStat('מנגנת ✓'); say('מנגנת ' + f.it.title);
+  play(f.it.id);
+  if (f.it.type === 'sunoapp'){ vStat('מצאתי ✓ לחצי על "לפתוח בסונו"'); say('מצאתי. לחצי על לפתוח בסונו'); }
+  else { vStat('מנגנת ✓'); say('מנגנת ' + f.it.title); }
 }
 async function remoteSearch(q, src){
   const r = await fetch('/api/search?src=' + src + '&q=' + encodeURIComponent(q));
@@ -620,7 +647,7 @@ $('#listDel').onclick = e => {
 /* render */
 function renderPlayIcon(){ $('#playIcon').innerHTML = isPaused() ? '<path d="M8 5v14l11-7z"/>' : '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>'; }
 function drawTime(c, d){ $('#tCur').textContent=fmt(c); $('#tDur').textContent=fmt(d); const p = d ? Math.min(1, c/d) : 0; $('#fill').style.width=(p*100)+'%'; $('#knob').style.left=(p*100)+'%'; }
-function typeLbl(it){ return { suno:'סונו', yt:'יוטיוב', ytlist:'פלייליסט יוטיוב', drive:'דרייב', local:'מהטלפון', url:'קישור' }[it.type] || ''; }
+function typeLbl(it){ return { sunoapp:'סונו · נפתח באפליקציה', suno:'סונו', yt:'יוטיוב', ytlist:'פלייליסט יוטיוב', drive:'דרייב', local:'מהטלפון', url:'קישור' }[it.type] || ''; }
 function renderPlayer(){
   const it = cur();
   $('#title').textContent = it ? it.title : 'לחצי ▶ להתחיל';
@@ -673,6 +700,24 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
   bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
 
 load(); ensureLists(); renderLists(); renderPlayer(); renderList();
+(async function importSunoFav(){
+  const m = location.hash.match(/^#sunofav-([\w-]+)$/); if (!m) return;
+  try {
+    const b64u = m[1].replace(/-/g,'+').replace(/_/g,'/'); const raw = Uint8Array.from(atob(b64u + '==='.slice((b64u.length+3)%4)), c=>c.charCodeAt(0));
+    const enc = await fetch('data/sf.json?' + Date.now()).then(r=>r.json());
+    const ub = s => Uint8Array.from(atob(s), c=>c.charCodeAt(0));
+    const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv: ub(enc.iv) }, key, ub(enc.ct));
+    const data = JSON.parse(new TextDecoder().decode(pt));
+    let l = S.lists.find(x => x.id === 'sunofav');
+    if (!l){ l = { id:'sunofav', name:'מועדפים מסונו', items:[], folders:[] }; S.lists.push(l); }
+    let n = 0;
+    data.items.forEach(([ref, title]) => { if (!l.items.some(x => x.ref === ref)){ l.items.push({ id:gid(), type:'sunoapp', ref, title }); n++; } });
+    S.listId = l.id; save(); renderLists(); renderList(); renderPlayer();
+    toast(n ? `נוספו ${n} שירים מהמועדפים בסונו ✓` : 'המועדפים מסונו כבר מעודכנים ✓', 4000);
+  } catch(e){ toast('לא הצלחתי לטעון את המועדפים מסונו', 4000); }
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+})();
 // new songs dropped into connected Drive folders show up by themselves
 S.lists.forEach(l => l.folders.forEach(f => syncFolder(f, false, l).then(n => { if (n) toast(`נוספו ${n} שירים חדשים מהדרייב ל«${l.name}» ✓`); }).catch(()=>{})));
 if (IT().some(x=>x.type==='yt'||x.type==='ytlist')) loadYT();
