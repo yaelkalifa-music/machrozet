@@ -79,6 +79,7 @@ label.file input{display:none}
 #dExit{background:#ffffff14;border-radius:50%;width:44px;height:44px;font-size:18px}
 .dtitle{font-size:28px;font-weight:800;text-align:center;margin:18px 0 6px;line-height:1.25;min-height:70px;display:flex;align-items:center;justify-content:center}
 .dstat{text-align:center;color:#fff;font-size:20px;font-weight:600;min-height:26px}
+.tosafari{margin-top:8px;background:var(--gold);color:#2a1620;border-radius:14px;padding:12px;font-size:16px;font-weight:800}
 .ddbg{text-align:center;color:#ffffff55;font-size:11px;direction:ltr;min-height:14px}
 .dwrap{flex:1;display:flex;align-items:center;justify-content:center}
 .dbig{width:min(86vw,62vh);height:min(86vw,62vh);border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7fb6,#e8186f 70%);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:32px;font-weight:800;text-decoration:none;box-shadow:0 0 0 10px #ff5fa233,0 20px 60px #e8186f66;border:0}
@@ -230,6 +231,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
 <audio id="au" preload="auto" playsinline></audio>
 <div class="drive" id="drive" style="display:none">
   <div class="dtop"><span id="dList"></span><button id="dExit">✕</button></div>
+  <button id="toSafari" class="tosafari" style="display:none">🎤 המיקרופון עובד רק בספארי — לעבור לספארי ←</button>
   <div class="dtitle" id="dTitle">🎵</div>
   <div class="dstat" id="dStat"></div>
   <div class="ddbg" id="dDbg"></div>
@@ -250,7 +252,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794686575';
+const BUILD = '1794687081';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -1101,6 +1103,40 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
   bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
 
 load(); ensureLists(); renderLists(); renderPlayer(); renderList();
+/* ---- move everything to Safari (the iPhone blocks the microphone in home-screen web apps) ---- */
+const STANDALONE = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+async function packState(){
+  const data = JSON.stringify({ S: { lists: S.lists.map(l => ({ ...l, items: l.items.filter(x => x.type !== 'local') })), listId: S.listId, mode: S.mode, shuffle: S.shuffle, ytApp: S.ytApp } });
+  let bytes = new TextEncoder().encode(data), z = 'r';
+  try { const cs = new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip')); bytes = new Uint8Array(await new Response(cs).arrayBuffer()); z = 'g'; } catch(e){}
+  let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
+  return z + btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function unpackState(p){
+  const z = p[0], b = p.slice(1).replace(/-/g,'+').replace(/_/g,'/');
+  let bytes = Uint8Array.from(atob(b + '==='.slice((b.length + 3) % 4)), c => c.charCodeAt(0));
+  if (z === 'g'){ const ds = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')); bytes = new Uint8Array(await new Response(ds).arrayBuffer()); }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+$('#toSafari').onclick = async e => {
+  e.stopPropagation();
+  const url = location.origin + '/playlist/#move-' + await packState();
+  location.href = 'x-safari-' + url;                         // iPhone: opens the same page in Safari, with all the songs
+  setTimeout(() => { if (document.visibilityState === 'visible') { try { navigator.clipboard.writeText(url); } catch(x){} toast('לא נפתח לבד: פתחי את ספארי והדביקי את הקישור (הוא כבר מועתק)', 6000); } }, 1800);
+};
+if (STANDALONE && IOS) $('#toSafari').style.display = 'block';
+window.__pack = packState;
+(async function moveIn(){
+  const m = location.hash.match(/^#move-(.+)$/); if (!m) return;
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  try {
+    const d = await unpackState(m[1]);
+    if (d && d.S && Array.isArray(d.S.lists)){
+      Object.assign(S, d.S); ensureLists(); save(); renderLists(); renderList(); renderPlayer(); renderModes();
+      toast('כל הרשימות הועברו לספארי ✓ עכשיו להתחבר לגוגל פעם אחת (לשונית "הוספת שירים")', 6000);
+    }
+  } catch(e){ toast('ההעברה לא הצליחה', 4000); }
+})();
 if (S.driveV !== 3){ S.driveV = 3; S.drive = true; save(); }
 if (S.drive !== false) setDrive(true);
 (function playFromLink(){
