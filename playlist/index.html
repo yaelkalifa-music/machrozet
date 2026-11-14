@@ -703,7 +703,13 @@ async function handleVoice(text){
   say('לא מצאתי את השיר');
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-let rec = null, prevVol = 1;
+let rec = null, prevVol = 1, wasPlaying = false, prevId = null;
+// nothing new was found → the song that was playing before continues
+function resumeIfNothing(){
+  if (!wasPlaying || S.curId !== prevId || !isPaused()) { wasPlaying = false; return; }
+  wasPlaying = false;
+  if (engine === 'yt' && ytReady) { try { yt.playVideo(); } catch(e){} } else au.play().catch(()=>{});
+}
 function listen(src){
   unlock();
   forcedSrc = (typeof src === 'string') ? src : null;
@@ -711,7 +717,8 @@ function listen(src){
   if (!SR){ $('#vType').style.display = 'flex'; vStat('לחצי על 🎤 שבמקלדת ותגידי את שם השיר'); $('#vIn').value=''; $('#vIn').focus(); return; }
   if (rec){ try{ rec.stop(); }catch(e){} return; }
   rec = new SR(); rec.lang = 'he-IL'; rec.interimResults = true; rec.continuous = false; rec.maxAlternatives = 5;
-  prevVol = au.volume; au.volume = Math.min(prevVol, 0.15); try{ if (ytReady) yt.setVolume(15); }catch(e){}
+  // stop the music while searching
+  wasPlaying = !isPaused(); prevId = S.curId; stopAll(); renderPlayIcon();
   $('#mic').classList.add('on'); $('#micLbl').textContent = 'מקשיבה… תגידי את השיר';
   $('#dMic').classList.add('on'); $('#dMicLbl').textContent = 'מקשיבה…';
   $('#heard').textContent = '';
@@ -722,9 +729,8 @@ function listen(src){
   rec.onend = () => {
     $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר לשים?';
     $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר?';
-    au.volume = prevVol; try{ if (ytReady) yt.setVolume(100); }catch(e){}
     const t = finalText || $('#heard').textContent; rec = null;
-    if (t && t.trim()) handleVoice(t.trim());
+    if (t && t.trim()) handleVoice(t.trim()).then(resumeIfNothing, resumeIfNothing); else resumeIfNothing();
   };
   try { rec.start(); } catch(e){ rec = null; $('#vType').style.display='flex'; }
 }
