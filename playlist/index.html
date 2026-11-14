@@ -248,7 +248,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794682104';
+const BUILD = '1794682747';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -428,9 +428,10 @@ clearInterval(ytTimer); ytTimer = setInterval(() => { if (engine==='yt' && ytRea
 async function audioSrc(it){
   if (it.type==='suno') return it.audio || `https://cdn1.suno.ai/${it.ref}.mp3`;
   if (it.type==='drive'){
-    if (gTok()){ try { return await gBlobUrl(it.ref); } catch(e){} }
     if (blobUrls.has('g_' + it.ref)) return blobUrls.get('g_' + it.ref);
     const cached = await idbGet('g_' + it.ref); if (cached){ const u = URL.createObjectURL(cached); blobUrls.set('g_' + it.ref, u); return u; }
+    const t = gTok();
+    if (t) return `/api/gdrive?id=${encodeURIComponent(it.ref)}&t=${encodeURIComponent(t)}`;   // streams → starts at once
     return `/api/drive?play=${it.ref}`;
   }
   if (it.type==='url') return it.ref;
@@ -853,7 +854,8 @@ function listen(src){
     let t=''; const alts=[];
     for (const r of e.results){ t += r[0].transcript + ' '; for (let i=0;i<r.length;i++) alts.push(r[i].transcript); }
     finalText = t.trim(); handleVoice.alts = alts; $('#heard').textContent = finalText;
-    stopSoon(1800);                                 // she paused for ~2s → she finished talking
+    const last = e.results[e.results.length - 1];
+    stopSoon(last && last.isFinal ? 1100 : 1700);   // she stopped talking → search right away
   };
   rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
   rec.onend = () => {
