@@ -99,7 +99,7 @@ body.driving .drive .dtitle{min-height:0;margin:10px 0 2px;font-size:24px}
 .dvid.on{display:block}
 .dvopen{position:absolute;bottom:0;left:50%;transform:translateX(-50%);background:#cc0000;color:#fff;border-radius:20px;padding:7px 16px;font-weight:700;font-size:15px}
 /* while driving, the real YouTube player is shown on top of the video spot */
-body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
+body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;pointer-events:none}
 .dsuno{background:linear-gradient(135deg,var(--pink),#d9367f);color:#fff}
 .vsrc{display:flex;gap:8px;margin-top:8px}
 .vs{flex:1;padding:16px 4px;border-radius:16px;background:#ffffff14;font-size:17px;font-weight:700;border:1px solid var(--line)}
@@ -250,7 +250,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794686204';
+const BUILD = '1794686575';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -414,13 +414,20 @@ function ytState(e){
     if (S.mode==='one'){ try{ yt.seekTo(0); yt.playVideo(); }catch(x){} return; }
     advance(true);
   }
+  if (e.data === 1 && ytWantSound){ ytWantSound = false; try { yt.unMute(); yt.setVolume(100); } catch(x){} clearNeedTap(); }
   if (e.data === 1){ setStatus(''); try { const d=yt.getVideoData(); if (d && d.title && it_needsTitle()) { cur().title = d.title; save(); renderPlayer(); renderList(); } } catch(x){} }
 }
 function it_needsTitle(){ const c=cur(); return c && c.type==='yt' && c.title==='שיר מיוטיוב'; }
+let ytWantSound = false, ytBlockT = null;
 function ytPlay(it){
   const go = () => {
+    try { yt.mute(); } catch(e){}
+    ytWantSound = true;
     if (it.type==='ytlist') yt.loadPlaylist({ list: it.ref, listType:'playlist', index:0 });
     else yt.loadVideoById(it.ref);
+    // if the phone still blocked it, the next touch anywhere just plays it
+    clearTimeout(ytBlockT);
+    ytBlockT = setTimeout(() => { try { if (engine === 'yt' && yt.getPlayerState() !== 1) needTap('youtube'); } catch(e){} }, 3500);
   };
   if (ytReady) go(); else { ytQueue = go; loadYT(); }
 }
@@ -488,7 +495,7 @@ async function play(id, auto){
     ytPlay(it);
   } else {
     engine='audio'; $('#ytBox').classList.remove('on');
-    try { au.src = await audioSrc(it); await au.play().then(()=>{ setStatus(''); skipGuard=0; }).catch(err => { if (err && err.name==='NotAllowedError') setStatus('לחצי ▶ כדי לנגן'); }); }
+    try { au.src = await audioSrc(it); await au.play().then(()=>{ setStatus(''); skipGuard=0; clearNeedTap(); }).catch(err => { if (err && err.name==='NotAllowedError'){ setStatus('לחצי ▶ כדי לנגן'); needTap('audio'); } }); }
     catch(e){ setStatus('השיר נשמר בטלפון אחר — מוסיפים אותו שוב מהטלפון הזה', true); setTimeout(()=>advance(true), 2000); }
   }
   setMedia(it);
@@ -833,6 +840,15 @@ function resumeIfNothing(){
   if (engine === 'yt' && ytReady) { try { yt.playVideo(); } catch(e){} } else au.play().catch(()=>{});
 }
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let tapToPlay = null;
+function needTap(kind){ tapToPlay = kind; vStat('געי במסך כדי לנגן ▶'); const l = $('#dMicLbl'); if (l) l.textContent = '▶ לנגן'; }
+function clearNeedTap(){ if (!tapToPlay) return; tapToPlay = null; const l = $('#dMicLbl'); if (l && !$('#dMic').classList.contains('on')) l.textContent = 'איזה שיר את רוצה?'; }
+function playBlocked(){
+  const k = tapToPlay; tapToPlay = null;
+  if (k === 'youtube' && ytReady){ try { yt.unMute(); yt.setVolume(100); yt.playVideo(); } catch(e){} }
+  else au.play().catch(()=>{});
+  vStat('מנגנת ✓'); const l = $('#dMicLbl'); if (l) l.textContent = 'איזה שיר את רוצה?';
+}
 function micUI(on){
   $('#mic').classList.toggle('on', on); $('#micLbl').textContent = on ? 'מקשיבה… תגידי את השיר' : 'איזה שיר את רוצה?';
   const ytm = on && ytAppMode;
@@ -918,11 +934,12 @@ function listen(src){
   try { r.start(); }
   catch(e){ killRec(); micUI(false); clearTimeout(watchdog); clearTimeout(hardStop); vStat('המיקרופון לא נפתח — געי שוב במסך'); }
 }
-$('#mic').onclick = () => listen(null);
+$('#mic').onclick = () => { if (tapToPlay){ playBlocked(); return; } listen(null); };
 $('#dMic').onclick = e => { e.preventDefault(); };
 $('#drive').addEventListener('click', e => {
   if (e.target.closest('#dExit') || e.target.closest('#dYtOpen')) return;
   const top = !!e.target.closest('#zTop') || (!e.target.closest('#zBot') && e.clientY < innerHeight * 0.55);
+  if (tapToPlay){ playBlocked(); return; }
   if (top){
     const sb = $('#dSuno');
     if (sb.style.display === 'flex'){ if (!e.target.closest('#dSuno')){ e.preventDefault(); sb.click(); } return; }
