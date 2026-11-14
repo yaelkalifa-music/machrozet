@@ -198,6 +198,7 @@ label.file input{display:none}
     </div>
 
     <div class="lbl2">📁 מהדרייב</div>
+    <div id="gBox"></div>
     <div class="note"><b>הכי נוח — תיקייה שלמה:</b> פותחים בדרייב תיקייה (למשל "פלייליסט"), שמים בה את השירים, ⋮ ← שיתוף ← "כל מי שיש לו את הקישור" ← העתקת קישור, ואז <b>הדבקה והוספה</b> למעלה.<br>מאז, כל שיר שתשימי בתיקייה ייכנס לפלייליסט לבד.<br>אפשר גם קישור לשיר בודד.</div>
 
     <div class="lbl2">📱 מהטלפון</div>
@@ -392,7 +393,12 @@ clearInterval(ytTimer); ytTimer = setInterval(() => { if (engine==='yt' && ytRea
 /* ---------- audio engine ---------- */
 async function audioSrc(it){
   if (it.type==='suno') return it.audio || `https://cdn1.suno.ai/${it.ref}.mp3`;
-  if (it.type==='drive') return `/api/drive?play=${it.ref}`;
+  if (it.type==='drive'){
+    if (gTok()){ try { return await gBlobUrl(it.ref); } catch(e){} }
+    if (blobUrls.has('g_' + it.ref)) return blobUrls.get('g_' + it.ref);
+    const cached = await idbGet('g_' + it.ref); if (cached){ const u = URL.createObjectURL(cached); blobUrls.set('g_' + it.ref, u); return u; }
+    return `/api/drive?play=${it.ref}`;
+  }
   if (it.type==='url') return it.ref;
   if (it.type==='local'){
     if (blobUrls.has(it.id)) return blobUrls.get(it.id);
@@ -519,6 +525,72 @@ async function setWake(on, quiet){
 }
 document.addEventListener('visibilitychange', () => { if (wakeOn && document.visibilityState==='visible') setWake(true, true); });
 
+/* ---------- Google sign-in → search & play the whole private Drive ---------- */
+const G_CLIENT = '792821530534-kichqb9r7jfvai2asq3pqtd20uudikvh.apps.googleusercontent.com';
+const G_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+const G_REDIRECT = location.origin + '/playlist/';
+function gTok(){ try { const t = JSON.parse(localStorage.getItem('ykG') || 'null'); if (t && t.exp > Date.now() + 60000) return t.token; } catch(e){} return null; }
+function gLogin(silent, pending){
+  const st = btoa(unescape(encodeURIComponent(JSON.stringify({ p: pending || null, r: Math.random().toString(36).slice(2) })))).replace(/=+$/,'').replace(/\+/g,'-').replace(/\//g,'_');
+  try { sessionStorage.setItem('ykGstate', st); } catch(e){}
+  const u = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+    client_id: G_CLIENT, redirect_uri: G_REDIRECT, response_type: 'token', scope: G_SCOPE,
+    include_granted_scopes: 'true', login_hint: 'yaelnouna@gmail.com', state: st, prompt: silent ? 'none' : 'consent'
+  });
+  location.href = u;
+}
+let gPending = null;
+(function gReturn(){
+  if (!/access_token=|error=/.test(location.hash)) return;
+  const h = new URLSearchParams(location.hash.slice(1));
+  try { history.replaceState(null, '', location.pathname); } catch(e){}
+  let st = h.get('state') || '', ok = false;
+  try { ok = st && st === sessionStorage.getItem('ykGstate'); } catch(e){}
+  if (h.get('access_token') && ok){
+    localStorage.setItem('ykG', JSON.stringify({ token: h.get('access_token'), exp: Date.now() + (+h.get('expires_in') || 3600) * 1000 }));
+    localStorage.setItem('ykGon', '1');
+    try { gPending = JSON.parse(decodeURIComponent(escape(atob(st.replace(/-/g,'+').replace(/_/g,'/'))))).p; } catch(e){}
+    setTimeout(() => toast('מחוברת לגוגל דרייב ✓'), 400);
+  } else if (h.get('error')) {
+    try { sessionStorage.setItem('ykGnoSilent', '1'); } catch(e){}
+    setTimeout(() => toast('ההתחברות לגוגל לא הושלמה — אפשר לנסות שוב בלשונית "הוספת שירים"', 4500), 400);
+  }
+})();
+// came back after a while: refresh the sign-in quietly (nothing is playing yet at this point)
+(function gAutoRefresh(){
+  let on = false, noSilent = false; try { on = localStorage.getItem('ykGon') === '1'; noSilent = sessionStorage.getItem('ykGnoSilent') === '1'; } catch(e){}
+  if (on && !gTok() && !noSilent && !/#sunofav-/.test(location.hash)) gLogin(true, null);
+})();
+async function gFetch(url){
+  const t = gTok(); if (!t) throw Object.assign(new Error('need_login'), { code:'need_login' });
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + t } });
+  if (r.status === 401){ localStorage.removeItem('ykG'); throw Object.assign(new Error('need_login'), { code:'need_login' }); }
+  if (!r.ok) throw new Error('drive_' + r.status);
+  return r;
+}
+async function gSearch(q){
+  const words = norm(q).split(' ').filter(w => w.length > 1).slice(0, 5);
+  if (!words.length) return [];
+  const qq = words.map(w => `name contains '${w.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}'`).join(' and ') + " and mimeType contains 'audio/' and trashed = false";
+  const r = await gFetch('https://www.googleapis.com/drive/v3/files?' + new URLSearchParams({ q: qq, pageSize: '25', orderBy: 'modifiedTime desc', fields: 'files(id,name,mimeType,size,modifiedTime)', supportsAllDrives: 'true', includeItemsFromAllDrives: 'true' }));
+  const j = await r.json();
+  return (j.files || []).filter(f => !/\.mid$/i.test(f.name)).map(f => ({ type:'gdrive', id:f.id, title:f.name.replace(/\.(mp3|m4a|wav|aac|ogg|flac)$/i,''), size:+f.size||0 }));
+}
+async function gBlobUrl(id){
+  const key = 'g_' + id;
+  if (blobUrls.has(key)) return blobUrls.get(key);
+  let b = await idbGet(key);
+  if (!b){ const r = await gFetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media&supportsAllDrives=true`); b = await r.blob(); if (b.size < 60e6) idbPut(key, b); }
+  const u = URL.createObjectURL(b); blobUrls.set(key, u); return u;
+}
+function renderGoogle(){
+  const el = $('#gBox'); if (!el) return;
+  el.innerHTML = gTok() || localStorage.getItem('ykGon') === '1'
+    ? '<div class="note">מחוברת לגוגל דרייב ✓ — אפשר להגיד "… מהדרייב" והאפליקציה תחפש בכל הדרייב.</div>'
+    : '<button class="btn big" id="gLogin">🔐 התחברי עם גוגל לדרייב</button><div class="note">מתחברים פעם אחת. אם מופיע "Google לא אימת את האפליקציה" — לוחצים "המשך". הדרייב נשאר פרטי.</div>';
+  const b = $('#gLogin'); if (b) b.onclick = () => gLogin(false, null);
+}
+
 /* ---------- voice: "רוצי ילדה מסונו" ---------- */
 const SRC_WORDS = {
   suno:['סונו','סונה','סונא','סונוֹ','שונו','שונה','סאונו','סאנו','זונו','צונו','סנו','סוני','סונור','suno','sono','sonno','soon','מועדפים','המועדפים','במועדפים','מועדפות'],
@@ -575,7 +647,9 @@ async function remoteSearch(q, src){
 function addRemote(x){
   const exist = S.lists.flatMap(l => l.items.map(it => ({ it, l }))).find(o => o.it.ref === x.id);
   if (exist) return exist;
-  const it = x.type === 'suno'
+  const it = x.type === 'gdrive'
+    ? { id:gid(), type:'drive', ref:x.id, title:x.title || 'שיר מהדרייב' }
+    : x.type === 'suno'
     ? { id:gid(), type:'suno', ref:x.id, audio:x.audio, img:x.image||'', title:x.title||'שיר מסונו' }
     : { id:gid(), type:'yt', ref:x.id, title:x.title||'שיר מיוטיוב', img:`https://i.ytimg.com/vi/${x.id}/hqdefault.jpg` };
   IT().push(it); save(); renderList();
@@ -596,17 +670,26 @@ async function handleVoice(text){
   if (!f && (src === 'drive' || src === 'suno')){ for (const l of S.lists) for (const fo of l.folders) await syncFolder(fo, false, l).catch(()=>0); f = findLocal(q, src) || (src === 'suno' ? findLocal(q, null) : null); }
   if (f){ playFound(f); return; }
   if (src === 'suno'){ vStat('השירים שלך בסונו פרטיים, אז אני מוצאת רק שירי סונו שכבר ברשימות שלך או בתיקיית הדרייב. את "' + q + '" לא מצאתי שם.'); say('לא מצאתי את השיר ברשימות'); return; }
-  if (src === 'drive'){ vStat('לא מצאתי בדרייב שיר כזה. אם הוא לא בתיקייה המחוברת — צריך להוסיף אותו קודם.'); say('לא מצאתי את השיר בדרייב'); return; }
-  // 2) search Suno / YouTube
-  const order = ['yt'];
+  if (src === 'drive' && !gTok()){
+    vStat('כדי לחפש בכל הדרייב צריך להתחבר לגוגל פעם אחת (לשונית "הוספת שירים")'); say('צריך להתחבר לגוגל');
+    $('#vAlt').innerHTML = '<button class="btn big" id="gLogin2">🔐 התחברי עם גוגל</button>';
+    $('#gLogin2').onclick = () => gLogin(false, { q, src }); return;
+  }
+  // 2) search the whole Drive (signed in) / YouTube
+  const order = src === 'drive' ? ['gd'] : src === 'yt' ? ['yt'] : (gTok() ? ['gd', 'yt'] : ['yt']);
   for (const s2 of order){
     let res = [];
-    try { res = await remoteSearch(q, s2); } catch(e){}
+    try { res = s2 === 'gd' ? await gSearch(q) : await remoteSearch(q, s2); } catch(e){ if (e.code === 'need_login' && src === 'drive'){ gLogin(true, { q, src }); return; } }
+    if (s2 === 'gd' && res.length){
+      const words = norm(q).split(' ').filter(Boolean);
+      const sc = x => { const t = norm(x.title); let n = 0; words.forEach(w => { if (t.includes(w)) n += 2; }); if (t.includes(norm(q))) n += 3; return n; };
+      res = res.map((x,i)=>({x,i,s:sc(x)})).filter(o => src === 'drive' || o.s >= 2).sort((a,b)=>(b.s-a.s)||(a.i-b.i)).map(o=>o.x);
+    }
     if (res.length){
       const first = addRemote(res[0]); voiceAdded = first.it;
       playFound(first);
       $('#vAlt').innerHTML = res.length > 1 ? '<div class="vstat" style="margin-top:10px">לא השיר הנכון? לחצי על אחד:</div>' + res.slice(1,5).map((x,i) =>
-        `<button class="alt" data-alt="${i+1}">${esc(x.title || 'תוצאה ' + (i+2))}<small>${s2==='suno'?'סונו':'יוטיוב'}${x.length ? ' · ' + esc(x.length) : ''}</small></button>`).join('') : '';
+        `<button class="alt" data-alt="${i+1}">${esc(x.title || 'תוצאה ' + (i+2))}<small>${s2==='gd'?'דרייב':s2==='suno'?'סונו':'יוטיוב'}${x.length ? ' · ' + esc(x.length) : ''}</small></button>`).join('') : '';
       $('#vAlt').onclick = e => {
         const b = e.target.closest('[data-alt]'); if (!b) return;
         // swap the wrong one out of the list
@@ -616,7 +699,7 @@ async function handleVoice(text){
       return;
     }
   }
-  vStat(src === 'suno' ? 'לא מצאתי בסונו. אפשר לנסות "' + q + ' ביוטיוב"' : 'לא מצאתי — נסי להגיד שוב');
+  vStat(src === 'drive' ? 'לא מצאתי בדרייב שיר בשם הזה' : src === 'suno' ? 'לא מצאתי בסונו. אפשר לנסות "' + q + ' ביוטיוב"' : 'לא מצאתי — נסי להגיד שוב');
   say('לא מצאתי את השיר');
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -748,6 +831,8 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
 
 load(); ensureLists(); renderLists(); renderPlayer(); renderList();
 if (S.drive) setDrive(true);
+renderGoogle();
+if (gPending && gPending.q){ setTimeout(() => { $('#vPanel').style.display='block'; handleVoice(gPending.q + (gPending.src === 'drive' ? ' מהדרייב' : '')); }, 600); }
 (async function importSunoFav(){
   const m = location.hash.match(/^#sunofav-([\w-]+)$/); if (!m) return;
   try {
