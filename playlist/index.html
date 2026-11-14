@@ -248,7 +248,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px}
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794685353';
+const BUILD = '1794685713';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -851,7 +851,7 @@ function listen(src){
   // stop the music while searching
   if (!listen._keepPrev){ wasPlaying = !isPaused(); prevId = S.curId; }
   stopAll(); renderPlayIcon();
-  try { speechSynthesis.cancel(); } catch(e){}
+  try { if (speechSynthesis.speaking) speechSynthesis.cancel(); } catch(e){}
   $('#heard').textContent = '';
   micUI(true);
   vStat('מקשיבה… אפשר לדבר בנחת. כשתסיימי אני אחפש');
@@ -870,7 +870,7 @@ function listen(src){
     try { localStorage.setItem('ykMicSimple', '1'); } catch(e){}
     vStat('המיקרופון לא נפתח — געי שוב במסך'); say('געי שוב במסך');
   }, 3000);
-  r.onstart = () => { started = true; stopSoon(8000); };             // nothing said at all → give up after 8s
+  r.onstart = () => { started = true; listen._retried = false; stopSoon(8000); };             // nothing said at all → give up after 8s
   r.onaudiostart = () => { started = true; };
   r.onresult = e => {
     started = true; r._heard = true;
@@ -887,8 +887,15 @@ function listen(src){
       : e.error === 'no-speech' ? 'לא שמעתי — געי שוב במסך'
       : e.error === 'audio-capture' ? 'המיקרופון תפוס (אולי בשיחה?) — נסי שוב'
       : 'המיקרופון לא עבד (' + e.error + ') — געי שוב במסך';
-    vStat(msg); say(e.error === 'no-speech' ? 'לא שמעתי' : 'המיקרופון לא עבד');
-    if (continuous && e.error !== 'no-speech' && e.error !== 'aborted'){ try { localStorage.setItem('ykMicSimple', '1'); } catch(x){} }
+    // "aborted" on iPhone = the long listening mode isn't supported here → switch to the simple mode and try again by itself
+    if (e.error === 'aborted' || e.error === 'network' || e.error === 'service-not-allowed' && continuous){
+      try { localStorage.setItem('ykMicSimple', '1'); } catch(x){}
+      if (!listen._retried){ listen._retried = true; r._dead = true; rec = null; clearTimeout(silenceT); clearTimeout(hardStop); clearTimeout(watchdog);
+        setTimeout(() => { listen._keepPrev = true; listen(ytAppMode ? 'ytapp' : forcedSrc); listen._keepPrev = false; }, 200); return; }
+    }
+    listen._retried = false;
+    vStat(msg);
+    if (continuous && e.error !== 'no-speech'){ try { localStorage.setItem('ykMicSimple', '1'); } catch(x){} }
   };
   r.onend = () => {
     clearTimeout(silenceT); clearTimeout(hardStop); clearTimeout(watchdog);
