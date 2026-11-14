@@ -162,6 +162,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
       <button class="chip" id="mWake">☀️ מסך דולק</button>
       <button class="chip" id="mDrive">🚗 מצב נסיעה</button>
       <button class="chip" id="mYtApp">▶ יוטיוב באפליקציה</button>
+      <button class="chip" id="mMove">📲 להעביר לטלפון אחר</button>
     </div>
   </section>
 
@@ -252,7 +253,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794687555';
+const BUILD = '1794691039';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -1125,6 +1126,12 @@ $('#toSafari').onclick = async e => {
   setTimeout(() => { if (document.visibilityState === 'visible') { try { navigator.clipboard.writeText(url); } catch(x){} toast('לא נפתח לבד: פתחי את ספארי והדביקי את הקישור (הוא כבר מועתק)', 6000); } }, 1800);
 };
 if (STANDALONE && IOS) $('#toSafari').style.display = 'block';
+$('#mMove').onclick = async e => {
+  e.stopPropagation();
+  const url = location.origin + '/playlist/#move-' + await packState();
+  try { if (navigator.share) { await navigator.share({ title: 'פלייליסט יעל כליפא', url }); return; } } catch(x){ if (x && x.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(url); toast('הקישור הועתק ✓ שלחי אותו לטלפון השני ופתחי שם בכרום', 6000); } catch(x){ prompt('העתיקי את הקישור:', url); }
+};
 window.__pack = packState;
 (async function moveIn(){
   const m = location.hash.match(/^#move-(.+)$/); if (!m) return;
@@ -1133,7 +1140,7 @@ window.__pack = packState;
     const d = await unpackState(m[1]);
     if (d && d.S && Array.isArray(d.S.lists)){
       Object.assign(S, d.S); ensureLists(); save(); renderLists(); renderList(); renderPlayer(); renderModes();
-      toast('כל הרשימות הועברו לספארי ✓ עכשיו להתחבר לגוגל פעם אחת (לשונית "הוספת שירים")', 6000);
+      toast('כל הרשימות הועברו ✓ עכשיו להתחבר לגוגל פעם אחת (לשונית "הוספת שירים")', 6000);
     }
   } catch(e){ toast('ההעברה לא הצליחה', 4000); }
 })();
