@@ -72,8 +72,8 @@ header .sub{color:var(--mute);font-size:13px;margin-top:2px}
 label.file{display:block;text-align:center;border:2px dashed var(--line);border-radius:16px;padding:20px 10px;color:var(--pink2);font-weight:600;font-size:16px;cursor:pointer}
 label.file input{display:none}
 .ic{font-size:13px}
-.mic{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;margin-top:16px;padding:18px;border-radius:20px;background:linear-gradient(135deg,var(--gold),#e8a94a);color:#2a1620;font-size:21px;font-weight:800;box-shadow:0 6px 20px #f2c46d44}
-.mic .mi{font-size:30px}
+.mic{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:min(72vw,300px);height:min(72vw,300px);margin:20px auto 4px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff7fb6,#e8186f 70%);color:#fff;font-size:26px;font-weight:800;box-shadow:0 0 0 8px #ff5fa233,0 16px 50px #e8186f66;text-align:center;line-height:1.15;padding:0 20px}
+.mic .mi{font-size:80px;line-height:1}
 .drive{position:fixed;inset:0;z-index:8;background:radial-gradient(circle at 50% 30%,#3a1630,#140b12 70%);display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 12px) 18px calc(env(safe-area-inset-bottom) + 18px)}
 .dtop{display:flex;justify-content:space-between;align-items:center;color:var(--gold);font-size:15px}
 #dExit{background:#ffffff14;border-radius:50%;width:44px;height:44px;font-size:18px}
@@ -90,7 +90,7 @@ label.file input{display:none}
 .vsrc{display:flex;gap:8px;margin-top:8px}
 .vs{flex:1;padding:16px 4px;border-radius:16px;background:#ffffff14;font-size:17px;font-weight:700;border:1px solid var(--line)}
 .vs:active{background:var(--pink);color:#fff}
-.mic.on{background:linear-gradient(135deg,#ff5f7a,var(--pink));color:#fff;animation:pulse 1.2s infinite}
+.mic.on{background:radial-gradient(circle at 35% 30%,#ff8a7a,#d61f1f 70%);color:#fff;animation:pulse 1.2s infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 #ff5fa288}50%{box-shadow:0 0 0 14px #ff5fa200}}
 .vpanel{margin-top:10px;background:#0006;border-radius:16px;padding:12px}
 .heard{font-size:20px;font-weight:700;min-height:26px}
@@ -129,7 +129,7 @@ label.file input{display:none}
       <button class="cb small" id="bFwd" aria-label="קדימה 15 שניות"><svg viewBox="0 0 24 24"><path d="M12 5V1l5 5-5 5V7a6 6 0 1 0 6 6h2a8 8 0 1 1-8-8z"/></svg></button>
       <button class="cb" id="bNext" aria-label="שיר הבא"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
     </div>
-    <button class="mic" id="mic"><span class="mi">🎤</span><span id="micLbl">איזה שיר לשים?</span></button>
+    <button class="mic" id="mic"><span class="mi">🎤</span><span id="micLbl">איזה שיר את רוצה?</span></button>
     <div id="vPanel" class="vpanel" style="display:none">
       <div class="heard" id="heard"></div>
       <div class="vstat" id="vStat"></div>
@@ -218,7 +218,7 @@ label.file input{display:none}
   <div class="dtitle" id="dTitle">🎵</div>
   <div class="dstat" id="dStat"></div>
   <div class="dwrap">
-    <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר לשים?</span></button>
+    <button class="dbig" id="dMic"><span class="dmi">🎤</span><span id="dMicLbl">איזה שיר את רוצה?</span></button>
     <a class="dbig dsuno" id="dSuno" target="_blank" rel="noopener" style="display:none"><span class="dmi">▶</span><span>סונו</span></a>
   </div>
   <div class="dhint">נגיעה בכל מקום במסך</div>
@@ -815,8 +815,8 @@ function listen(src){
   };
   rec.onerror = e => { vStat(e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'צריך לאשר גישה למיקרופון' : e.error === 'no-speech' ? 'לא שמעתי — נסי שוב' : 'המיקרופון לא עבד — אפשר להקליד'); if (e.error !== 'no-speech') $('#vType').style.display='flex'; };
   rec.onend = () => {
-    $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר לשים?';
-    $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר לשים?';
+    $('#mic').classList.remove('on'); $('#micLbl').textContent = 'איזה שיר את רוצה?';
+    $('#dMic').classList.remove('on'); $('#dMicLbl').textContent = 'איזה שיר את רוצה?';
     clearTimeout(silenceT);
     const t = finalText || $('#heard').textContent; rec = null;
     if (t && t.trim()) handleVoice(t.trim()).then(resumeIfNothing, resumeIfNothing); else resumeIfNothing();
@@ -931,7 +931,7 @@ $('#mWake').onclick = ()=>setWake(!wakeOn);
   bar.addEventListener('pointerdown',e=>{down=true;bar.setPointerCapture(e.pointerId);sk(e);}); bar.addEventListener('pointermove',e=>{if(down)sk(e);}); bar.addEventListener('pointerup',()=>down=false); bar.addEventListener('pointercancel',()=>down=false); })();
 
 load(); ensureLists(); renderLists(); renderPlayer(); renderList();
-if (S.drive) setDrive(true);
+if (S.drive !== false) setDrive(true);
 (function playFromLink(){
   const m = location.hash.match(/^#play=(.+)$/); if (!m) return;
   let t = ''; try { t = decodeURIComponent(m[1]).trim(); } catch(e){}
