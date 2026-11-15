@@ -57,6 +57,8 @@ header .sub{color:var(--mute);font-size:13px;margin-top:2px}
 .btn.big{display:block;width:100%;text-align:center;padding:16px;font-size:18px;margin-bottom:10px}
 .btn.gold{background:var(--gold);color:#2a1620}
 .row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid transparent;border-radius:14px;padding:10px;margin-bottom:7px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.ddbg{display:none!important}
+.chip.big2{background:var(--pink);color:#fff;font-weight:700}
 .mvbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-3px 0 9px;padding:8px 10px;border-radius:12px;background:#ffffff08;font-size:14px;color:var(--mute)}
 .row.cur{border-color:var(--pink);background:#3a1630}
 .row .n{width:22px;text-align:center;color:var(--mute);font-size:13px;flex:none}
@@ -157,11 +159,13 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
     </div>
     <a class="btn big gold" id="sunoOpen" target="_blank" rel="noopener" style="display:none;margin-top:12px">▶ לפתוח בסונו</a>
     <div class="modes">
-      <button class="chip" id="mAll">🔁 לופ על הכל</button>
-      <button class="chip" id="mOne">🔂 לופ על שיר</button>
+      <button class="chip big2" id="mDrive">🚗 מצב נסיעה</button>
+      <button class="chip" id="mLoop">🔁 חוזר על הכל</button>
       <button class="chip" id="mShuf">🔀 ערבוב</button>
+      <button class="chip" id="mMore">⚙️ עוד</button>
+    </div>
+    <div class="modes" id="moreBox" style="display:none">
       <button class="chip" id="mWake">☀️ מסך דולק</button>
-      <button class="chip" id="mDrive">🚗 מצב נסיעה</button>
       <button class="chip" id="mYtApp">▶ יוטיוב באפליקציה</button>
       <button class="chip" id="mMove">📲 להעביר לטלפון אחר</button>
     </div>
@@ -191,40 +195,26 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
   </section>
 
   <section class="panel" id="p-add">
-    <button class="btn big" id="pasteAdd">📋 הדבקה והוספה</button>
-    <div class="note">מעתיקים קישור לשיר בסונו או ביוטיוב (שיתוף ← העתקת קישור), חוזרים לכאן ולוחצים <b>הדבקה והוספה</b>. אפשר גם פלייליסט שלם מסונו או מיוטיוב.</div>
+    <button class="btn big" id="pasteAdd">📋 הדבקת קישור לשיר</button>
+    <div class="note">מעתיקים קישור לשיר (מסונו, יוטיוב או הדרייב) ולוחצים על הכפתור. זהו.</div>
     <div class="search">
       <input id="lUrl" placeholder="או להדביק כאן קישור" dir="auto">
       <button class="btn" id="lAdd">הוספה</button>
     </div>
     <div id="addMsg"></div>
 
-    <div class="lbl2">✨ חיפוש בסונו</div>
+    <div class="lbl2">🔎 למצוא שיר באתר</div>
     <div class="search">
       <input id="sq" type="search" placeholder="שם השיר…" autocomplete="off">
-      <a class="btn" id="sGo" href="https://suno.com/me" target="_blank" rel="noopener">חיפוש</a>
-    </div>
-    <div class="toolbar">
-      <a class="chip" href="https://suno.com/me" target="_blank" rel="noopener">🎵 השירים שלי בסונו</a>
-      <a class="chip" href="https://suno.com/me/playlists" target="_blank" rel="noopener">📂 הפלייליסטים שלי</a>
+      <a class="btn gold" id="sGo" href="https://suno.com/me" target="_blank" rel="noopener">סונו</a>
+      <a class="btn" id="yGo" href="https://www.youtube.com/" target="_blank" rel="noopener">יוטיוב</a>
     </div>
 
-    <div class="lbl2">▶️ חיפוש ביוטיוב</div>
-    <div class="search">
-      <input id="yq" type="search" placeholder="שם השיר…" autocomplete="off">
-      <a class="btn" id="yGo" href="https://www.youtube.com/" target="_blank" rel="noopener">חיפוש</a>
-    </div>
-    <div class="toolbar">
-      <a class="chip" href="https://www.youtube.com/playlist?list=LL" target="_blank" rel="noopener">👍 שאהבתי</a>
-      <a class="chip" href="https://www.youtube.com/feed/playlists" target="_blank" rel="noopener">📂 הפלייליסטים שלי</a>
-    </div>
-
-    <div class="lbl2">📁 מהדרייב</div>
+    <div class="lbl2">📁 הדרייב</div>
     <div id="gBox"></div>
-    <div class="note"><b>הכי נוח — תיקייה שלמה:</b> פותחים בדרייב תיקייה (למשל "פלייליסט"), שמים בה את השירים, ⋮ ← שיתוף ← "כל מי שיש לו את הקישור" ← העתקת קישור, ואז <b>הדבקה והוספה</b> למעלה.<br>מאז, כל שיר שתשימי בתיקייה ייכנס לפלייליסט לבד.<br>אפשר גם קישור לשיר בודד.</div>
 
     <div class="lbl2">📱 מהטלפון</div>
-    <label class="file">לבחור שירים מהטלפון (MP3)
+    <label class="file">לבחור שירים ששמורים בטלפון
       <input type="file" id="fileIn" accept="audio/*,.mp3,.m4a,.wav" multiple>
     </label>
   </section>
@@ -254,7 +244,7 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794724629';
+const BUILD = '1794725538';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
@@ -382,9 +372,9 @@ $('#pasteAdd').onclick = async () => {
 };
 $('#lAdd').onclick = () => { addFromText($('#lUrl').value); $('#lUrl').value=''; };
 $('#lUrl').addEventListener('keydown', e => { if (e.key==='Enter'){ addFromText($('#lUrl').value); $('#lUrl').value=''; } });
-function setSearch(inp, a, base, home){ const upd=()=>{ const v=inp.value.trim(); a.href = v ? base+encodeURIComponent(v) : home; }; inp.addEventListener('input',upd); upd(); inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); a.click(); } }); }
+function setSearch(inp, a, base, home, noEnter){ const upd=()=>{ const v=inp.value.trim(); a.href = v ? base+encodeURIComponent(v) : home; }; inp.addEventListener('input',upd); upd(); if (!noEnter) inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); a.click(); } }); }
 setSearch($('#sq'), $('#sGo'), 'https://suno.com/search?q=', 'https://suno.com/me');
-setSearch($('#yq'), $('#yGo'), 'https://www.youtube.com/results?search_query=', 'https://www.youtube.com/');
+setSearch($('#sq'), $('#yGo'), 'https://www.youtube.com/results?search_query=', 'https://www.youtube.com/', true);
 
 $('#fileIn').addEventListener('change', async e => {
   let n=0;
@@ -668,8 +658,8 @@ async function gBlobUrl(id){
 function renderGoogle(){
   const el = $('#gBox'); if (!el) return;
   el.innerHTML = gTok() || localStorage.getItem('ykGon') === '1'
-    ? '<div class="note">מחוברת לגוגל דרייב ✓ — אפשר להגיד "… מהדרייב" והאפליקציה תחפש בכל הדרייב.</div>'
-    : '<button class="btn big" id="gLogin">🔐 התחברי עם גוגל לדרייב</button><div class="note">מתחברים פעם אחת. אם מופיע "Google לא אימת את האפליקציה" — לוחצים "המשך". הדרייב נשאר פרטי.</div>';
+    ? '<div class="note">מחוברת לדרייב ✓ אומרים "… מהדרייב" והוא מוצא.</div>'
+    : '<button class="btn big" id="gLogin">🔐 התחברות לדרייב (פעם אחת)</button>';
   const b = $('#gLogin'); if (b) b.onclick = () => gLogin(false, null);
 }
 
@@ -1063,7 +1053,7 @@ function renderPlayer(){
   const c = $('#cover'); if (it && it.img){ c.style.backgroundImage = `url("${it.img}")`; c.textContent=''; } else { c.style.backgroundImage=''; c.textContent='🎵'; }
   renderPlayIcon(); renderModes();
 }
-function renderModes(){ $('#mYtApp').classList.toggle('on', ytInApp()); $('#mAll').classList.toggle('on', S.mode==='all'); $('#mOne').classList.toggle('on', S.mode==='one'); $('#mShuf').classList.toggle('on', S.shuffle); $('#mWake').classList.toggle('on', wakeOn); }
+function renderModes(){ $('#mYtApp').classList.toggle('on', ytInApp()); const lp=$('#mLoop'); lp.textContent = S.mode==='one' ? '🔂 חוזר על השיר' : '🔁 חוזר על הכל'; lp.classList.toggle('on', S.mode==='one'); $('#mShuf').classList.toggle('on', S.shuffle); $('#mWake').classList.toggle('on', wakeOn); }
 function renderList(){
   renderLists();
   const q = $('#q').value.trim().toLowerCase();
@@ -1074,8 +1064,7 @@ function renderList(){
   if (!IT().length){ el.innerHTML = '<div class="empty">הרשימה עוד ריקה 🎶<br>עברי ל<b>"הוספת שירים"</b> והדביקי קישור מסונו או מיוטיוב.</div>'; return; }
   if (!rows.length){ el.innerHTML = '<div class="empty">'+(view==='recent'?'עוד לא נוגנו שירים':'לא נמצא שיר בשם הזה')+'</div>'; return; }
   el.innerHTML = rows.map(({it,i}) => {
-    const mv = view==='all' && !q ? `<button class="ib" data-up="${it.id}">▲</button><button class="ib" data-down="${it.id}">▼</button>` : '';
-    return `<div class="row ${it.id===S.curId?'cur':''}"><span class="n">${i+1}</span><div class="t" data-play="${it.id}">${esc(it.title)}<small>${typeLbl(it)}</small></div>${mv}${S.lists.length > 1 ? `<button class="ib" data-mv="${it.id}" aria-label="להעביר לרשימה אחרת">⇄</button>` : ''}<button class="ib" data-del="${it.id}">✕</button></div>`;
+    return `<div class="row ${it.id===S.curId?'cur':''}"><span class="n">${i+1}</span><div class="t" data-play="${it.id}">${esc(it.title)}<small>${typeLbl(it)}</small></div><button class="ib" data-mv="${it.id}" aria-label="עוד">⋯</button><button class="ib" data-del="${it.id}">✕</button></div>`;
   }).join('');
 }
 // remove a song: ✕ or a quick swipe — no "are you sure?"
@@ -1122,7 +1111,8 @@ $('#list').addEventListener('click', e => {
   if (mv){
     const row = mv.closest('.row'), open = row.nextElementSibling && row.nextElementSibling.classList.contains('mvbar');
     document.querySelectorAll('.mvbar').forEach(x => x.remove());
-    if (!open) row.insertAdjacentHTML('afterend', '<div class="mvbar">להעביר ל: ' + S.lists.filter(l => l.id !== S.listId).map(l => `<button class="chip" data-mvto="${l.id}" data-mvid="${mv.dataset.mv}">${esc(l.name)}</button>`).join('') + '</div>');
+    const id = mv.dataset.mv, others = S.lists.filter(l => l.id !== S.listId);
+    if (!open) row.insertAdjacentHTML('afterend', '<div class="mvbar">' + (view==='all' && !$('#q').value.trim() ? `<button class="chip" data-up="${id}">▲ למעלה</button><button class="chip" data-down="${id}">▼ למטה</button>` : '') + (others.length ? '<span>להעביר ל:</span>' + others.map(l => `<button class="chip" data-mvto="${l.id}" data-mvid="${id}">${esc(l.name)}</button>`).join('') : '') + '</div>');
     return;
   }
   const b = e.target.closest('[data-play],[data-up],[data-down],[data-del]'); if (!b) return;
@@ -1132,6 +1122,7 @@ $('#list').addEventListener('click', e => {
   if (b.dataset.del){ removeSong(id); return; }
   else { const j = b.dataset.up ? i-1 : i+1; if (j<0||j>=IT().length) return; [IT()[i],IT()[j]]=[IT()[j],IT()[i]]; }
   save(); renderList(); renderPlayer();
+  const again = $(`#list [data-mv="${id}"]`); if (again) again.click();
 });
 $('#q').addEventListener('input', renderList);
 $('#vAll').onclick = ()=>{ view='all'; $('#vAll').classList.add('on'); $('#vRecent').classList.remove('on'); renderList(); };
@@ -1143,8 +1134,8 @@ $('#bNext').onclick = ()=>{ unlock(); advance(false); };
 $('#bPrev').onclick = ()=>{ unlock(); prev(); };
 $('#bFwd').onclick = ()=>seekBy(15);
 $('#bBack').onclick = ()=>seekBy(-15);
-$('#mAll').onclick = ()=>{ S.mode='all'; save(); renderModes(); };
-$('#mOne').onclick = ()=>{ S.mode = S.mode==='one'?'all':'one'; save(); renderModes(); };
+$('#mLoop').onclick = ()=>{ S.mode = S.mode==='one'?'all':'one'; save(); renderModes(); };
+$('#mMore').onclick = ()=>{ const m=$('#moreBox'); m.style.display = m.style.display==='none' ? 'flex' : 'none'; };
 $('#mShuf').onclick = ()=>{ S.shuffle=!S.shuffle; shuffleBag=[]; save(); renderModes(); toast(S.shuffle?'ערבוב פועל':'לפי הסדר'); };
 $('#mWake').onclick = ()=>setWake(!wakeOn);
 (function(){ const bar=$('#bar'); let down=false; const sk=e=>{ const r=bar.getBoundingClientRect(); const p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width)); const d = engine==='yt'&&ytReady ? yt.getDuration() : au.duration; if (d) seekTo(p*d); };
