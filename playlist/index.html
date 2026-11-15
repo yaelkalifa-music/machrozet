@@ -57,6 +57,7 @@ header .sub{color:var(--mute);font-size:13px;margin-top:2px}
 .btn.big{display:block;width:100%;text-align:center;padding:16px;font-size:18px;margin-bottom:10px}
 .btn.gold{background:var(--gold);color:#2a1620}
 .row{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid transparent;border-radius:14px;padding:10px;margin-bottom:7px;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.mvbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:-3px 0 9px;padding:8px 10px;border-radius:12px;background:#ffffff08;font-size:14px;color:var(--mute)}
 .row.cur{border-color:var(--pink);background:#3a1630}
 .row .n{width:22px;text-align:center;color:var(--mute);font-size:13px;flex:none}
 .row .t{flex:1;min-width:0;font-size:16px;line-height:1.3;cursor:pointer}
@@ -67,7 +68,7 @@ header .sub{color:var(--mute);font-size:13px;margin-top:2px}
 .note.err{background:#ff5f5f14;border-color:#ff5f5f55;color:#ffc0c0}
 .lbl2{font-size:13px;color:var(--gold);margin:16px 2px 8px;font-weight:600}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%) translateY(140px);background:#000d;color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;transition:.25s;z-index:9;max-width:90vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%) translateY(140px);background:#000d;color:#fff;padding:12px 18px;border-radius:14px;font-size:15px;transition:.25s;z-index:9;max-width:90vw;text-align:center;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 label.file{display:block;text-align:center;border:2px dashed var(--line);border-radius:16px;padding:20px 10px;color:var(--pink2);font-weight:600;font-size:16px;cursor:pointer}
 label.file input{display:none}
@@ -253,12 +254,12 @@ body.driving #ytBox.on{position:fixed;z-index:11;margin:0;border-radius:14px;poi
 const $ = s => document.querySelector(s);
 const au = $('#au');
 const API = '/api/suno?url=';
-const BUILD = '1794691039';
+const BUILD = '1794724629';
 async function checkUpdate(){
   try {
     const t = await (await fetch(location.pathname + '?u=' + Date.now(), { cache: 'no-store' })).text();
     const m = t.match(/const BUILD = '([^']+)'/);
-    if (m && m[1] !== BUILD && (typeof isPaused !== 'function' || isPaused())) location.reload();
+    if (m && m[1] !== BUILD && (typeof isPaused !== 'function' || isPaused()) && !window.__busy) location.reload();
   } catch(e){}
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
@@ -294,6 +295,7 @@ let idbP=null;
 function idb(){ if(idbP) return idbP; idbP=new Promise(r=>{ try{ const q=indexedDB.open('yk-playlist',1); q.onupgradeneeded=()=>q.result.createObjectStore('b'); q.onsuccess=()=>r(q.result); q.onerror=()=>r(null);}catch(e){r(null);} }); return idbP; }
 async function idbGet(k){ const d=await idb(); if(!d) return null; return new Promise(r=>{ try{ const q=d.transaction('b').objectStore('b').get(k); q.onsuccess=()=>r(q.result||null); q.onerror=()=>r(null);}catch(e){r(null);} }); }
 async function idbPut(k,v){ const d=await idb(); if(!d) return false; return new Promise(r=>{ try{ const t=d.transaction('b','readwrite'); t.objectStore('b').put(v,k); t.oncomplete=()=>r(true); t.onerror=()=>r(false);}catch(e){r(false);} }); }
+async function idbHas(k){ const d=await idb(); if(!d) return false; return new Promise(r=>{ try{ const q=d.transaction('b').objectStore('b').count(k); q.onsuccess=()=>r(q.result>0); q.onerror=()=>r(false);}catch(e){r(false);} }); }
 async function idbDel(k){ const d=await idb(); if(!d) return; try{ d.transaction('b','readwrite').objectStore('b').delete(k);}catch(e){} }
 
 /* link parsing */
@@ -455,11 +457,22 @@ async function audioSrc(it){
 }
 au.addEventListener('ended', () => { if (engine!=='audio') return; if (S.mode==='one'){ au.currentTime=0; au.play().catch(()=>{}); return; } advance(true); });
 au.addEventListener('timeupdate', () => { if (engine==='audio') drawTime(au.currentTime, au.duration); });
+// every Drive song that plays is also kept on the phone → next time it starts at once, even with no reception
+const dlBusy = new Set();
+async function cacheDrive(it){
+  if (!it || it.type !== 'drive' || !gTok()) return;
+  const key = 'g_' + it.ref; if (blobUrls.has(key) || dlBusy.has(key)) return;
+  dlBusy.add(key);
+  try { if (await idbHas(key)) return; const r = await gFetch(`https://www.googleapis.com/drive/v3/files/${it.ref}?alt=media&supportsAllDrives=true`); const b = await r.blob(); if (b.size > 20000 && b.size < 60e6) await idbPut(key, b); }
+  catch(e){} finally { dlBusy.delete(key); }
+}
+function peekNext(){ const L = IT(); if (S.shuffle) return L.find(x => x.id === shuffleBag[0]); const i = L.findIndex(x => x.id === S.curId); return i >= 0 && L.length > 1 ? L[(i + 1) % L.length] : null; }
+au.addEventListener('playing', () => { if (engine !== 'audio') return; const c = cur(); setTimeout(() => { cacheDrive(c).then(() => cacheDrive(peekNext())); }, 4000); });
 au.addEventListener('play', renderPlayIcon); au.addEventListener('pause', renderPlayIcon);
 au.addEventListener('error', () => {
   if (engine!=='audio' || !au.getAttribute('src')) return;
   const it = cur();
-  setStatus(it && it.type==='drive' ? 'השיר מהדרייב לא נפתח — צריך לשתף אותו "לכל מי שיש לו את הקישור". עוברת לבא' : 'השיר לא נטען — עוברת לבא', true);
+  setStatus(it && it.type==='drive' && !gTok() && localStorage.getItem('ykGon') !== '1' ? 'כדי לשמוע שירים מהדרייב מתחברים לגוגל (לשונית "הוספת שירים"). עוברת לבא' : 'השיר לא נטען — עוברת לבא', true);
   setTimeout(()=>advance(true), 2200);
 });
 
@@ -469,7 +482,8 @@ function nextId(dir){
   const L = IT(); if (!L.length) return null;
   if (S.shuffle && dir > 0){
     if (!shuffleBag.length){ shuffleBag = L.map(x=>x.id).filter(id=>id!==S.curId); for(let i=shuffleBag.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[shuffleBag[i],shuffleBag[j]]=[shuffleBag[j],shuffleBag[i]];} if(!shuffleBag.length) return L[0].id; }
-    return shuffleBag.shift();
+    while (shuffleBag.length){ const id = shuffleBag.shift(); if (L.some(x => x.id === id)) return id; }
+    return L[0].id;
   }
   if (S.shuffle && dir < 0){ const p = S.recent.find(id => id!==S.curId && L.some(x=>x.id===id)); if (p) return p; }
   let i = L.findIndex(x => x.id === S.curId); if (i<0) return L[0].id;
@@ -491,6 +505,11 @@ async function play(id, auto){
     showSunoOpen(it); setMedia(it); return;
   }
   hideSunoOpen();
+  // Drive song, sign-in expired (it lasts an hour) and not saved on the phone yet → renew quietly, then play it
+  if (it.type === 'drive' && !gTok() && localStorage.getItem('ykGon') === '1' && !blobUrls.has('g_' + it.ref) && !(await idbHas('g_' + it.ref))){
+    let noSilent = false; try { noSilent = sessionStorage.getItem('ykGnoSilent') === '1'; } catch(e){}
+    if (!noSilent && document.visibilityState === 'visible'){ stopAll(); setStatus('מתחברת מחדש לדרייב…'); gLogin(true, { play: id }); return; }
+  }
   stopAll(); renderPlayer(); renderList(); setStatus('טוען…');
   if (it.type==='yt' || it.type==='ytlist'){
     engine='yt'; $('#ytBox').classList.add('on'); au.removeAttribute('src');
@@ -542,7 +561,7 @@ function seekBy(d){ const t = engine==='yt' && ytReady ? yt.getCurrentTime() : a
 function isPaused(){ if (engine==='yt' && ytReady){ const s=yt.getPlayerState(); return s!==1 && s!==3; } return au.paused; }
 function togglePlay(){
   unlock();
-  if (!S.curId || (!engine)){ const f = (cur() || IT()[0]); if (f) play(f.id); else toast('הרשימה ריקה — לשונית "הוספת שירים"'); return; }
+  if (!S.curId || (!engine)){ const c = cur(); const f = (c && IT().includes(c) ? c : IT()[0]); if (f) play(f.id); else toast('הרשימה ריקה — לשונית "הוספת שירים"'); return; }
   if (engine==='yt' && ytReady){ isPaused() ? yt.playVideo() : yt.pauseVideo(); }
   else { au.paused ? au.play().catch(()=>{}) : au.pause(); }
   setTimeout(renderPlayIcon, 150);
@@ -613,8 +632,17 @@ let gPending = null;
 // came back after a while: refresh the sign-in quietly (nothing is playing yet at this point)
 (function gAutoRefresh(){
   let on = false, noSilent = false; try { on = localStorage.getItem('ykGon') === '1'; noSilent = sessionStorage.getItem('ykGnoSilent') === '1'; } catch(e){}
-  if (on && !gTok() && !noSilent && !/#sunofav-/.test(location.hash)) gLogin(true, null);
+  if (!on || gTok() || noSilent || /#(sunofav|move)-/.test(location.hash)) return;
+  const m = location.hash.match(/^#play=(.+)$/); let q = null; if (m){ try { q = decodeURIComponent(m[1]).trim(); } catch(e){} }
+  gLogin(true, q ? { q } : null);
 })();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  setTimeout(() => {
+    let on = false, noSilent = false; try { on = localStorage.getItem('ykGon') === '1'; noSilent = sessionStorage.getItem('ykGnoSilent') === '1'; } catch(e){}
+    if (on && !gTok() && !noSilent && !window.__busy && isPaused()) gLogin(true, null);
+  }, 1500);
+});
 async function gFetch(url){
   const t = gTok(); if (!t) throw Object.assign(new Error('need_login'), { code:'need_login' });
   const r = await fetch(url, { headers: { Authorization: 'Bearer ' + t } });
@@ -754,8 +782,10 @@ function addRemote(x){
     : x.type === 'suno'
     ? { id:gid(), type:'suno', ref:x.id, audio:x.audio, img:x.image||'', title:x.title||'שיר מסונו' }
     : { id:gid(), type:'yt', ref:x.id, title:x.title||'שיר מיוטיוב', img:`https://i.ytimg.com/vi/${x.id}/hqdefault.jpg` };
-  IT().push(it); save(); renderList();
-  return { it, l: curList() };
+  let L = curList();
+  if (L.id === 'sunofav'){ L = S.lists.find(x => x.id !== 'sunofav'); if (!L){ L = { id:'main', name:'הרשימה שלי', items:[], folders:[] }; S.lists.unshift(L); } }
+  L.items.push(it); save(); renderList();
+  return { it, l: L };
 }
 // asks out loud and listens for "כן" / "לא" (tapping the button also counts)
 function askYesNo(question){
@@ -842,6 +872,7 @@ function resumeIfNothing(){
   wasPlaying = false;
   if (engine === 'yt' && ytReady) { try { yt.playVideo(); } catch(e){} } else au.play().catch(()=>{});
 }
+const ANDROID = /Android/i.test(navigator.userAgent);
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 let tapToPlay = null;
 function needTap(kind){ tapToPlay = kind; vStat('געי במסך כדי לנגן ▶'); const l = $('#dMicLbl'); if (l) l.textContent = '▶ לנגן'; }
@@ -858,6 +889,7 @@ function micUI(on){
   $('#dYt').classList.toggle('on', ytm); $('#dYtLbl').textContent = ytm ? 'מקשיבה…' : 'חיפוש ביוטיוב';
   $('#dMic').classList.toggle('on', on && !ytAppMode); $('#dMicLbl').textContent = on && !ytAppMode ? 'מקשיבה…' : 'איזה שיר את רוצה?';
 }
+setInterval(() => { window.__busy = !!(rec || sunoOut); }, 500);
 function killRec(){ const r = rec; rec = null; if (r){ r._dead = true; try { r.onend = r.onresult = r.onerror = r.onstart = null; r.abort(); } catch(e){} } }
 function listen(src){
   unlock();
@@ -913,7 +945,7 @@ function listen(src){
     mark('err:' + e.error);
     if (r._dead) return;
     const msg = e.error === 'not-allowed' || e.error === 'service-not-allowed'
-      ? 'אין גישה למיקרופון. באייפון: הגדרות ← Safari ← מיקרופון ← לאפשר, ואז לסגור ולפתוח את האפליקציה'
+      ? (ANDROID ? 'אין גישה למיקרופון. בכרום: ⋮ ← הגדרות ← הגדרות אתר ← מיקרופון ← לאפשר לאתר' : 'אין גישה למיקרופון. באייפון: הגדרות ← Safari ← מיקרופון ← לאפשר, ואז לסגור ולפתוח את האפליקציה')
       : e.error === 'no-speech' ? 'לא שמעתי — געי שוב במסך'
       : e.error === 'audio-capture' ? 'המיקרופון תפוס (אולי בשיחה?) — נסי שוב'
       : 'המיקרופון לא עבד (' + e.error + ') — געי שוב במסך';
@@ -965,7 +997,9 @@ setInterval(placeYt, 500); addEventListener('resize', placeYt);
 function openYtApp(id, list){
   try { au.pause(); if (ytReady) yt.pauseVideo(); } catch(e){}
   const web = list ? 'https://www.youtube.com/playlist?list=' + id : 'https://www.youtube.com/watch?v=' + id;
-  const app = list ? 'youtube://www.youtube.com/playlist?list=' + id : 'youtube://www.youtube.com/watch?v=' + id;
+  const app = ANDROID
+    ? 'intent://www.youtube.com/' + (list ? 'playlist?list=' : 'watch?v=') + id + '#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=' + encodeURIComponent(web) + ';end'
+    : list ? 'youtube://www.youtube.com/playlist?list=' + id : 'youtube://www.youtube.com/watch?v=' + id;
   let left = false; const mark = () => { if (document.visibilityState === 'hidden') left = true; };
   document.addEventListener('visibilitychange', mark);
   location.href = app;                                         // the YouTube app opens and starts playing
@@ -1041,7 +1075,7 @@ function renderList(){
   if (!rows.length){ el.innerHTML = '<div class="empty">'+(view==='recent'?'עוד לא נוגנו שירים':'לא נמצא שיר בשם הזה')+'</div>'; return; }
   el.innerHTML = rows.map(({it,i}) => {
     const mv = view==='all' && !q ? `<button class="ib" data-up="${it.id}">▲</button><button class="ib" data-down="${it.id}">▼</button>` : '';
-    return `<div class="row ${it.id===S.curId?'cur':''}"><span class="n">${i+1}</span><div class="t" data-play="${it.id}">${esc(it.title)}<small>${typeLbl(it)}</small></div>${mv}<button class="ib" data-del="${it.id}">✕</button></div>`;
+    return `<div class="row ${it.id===S.curId?'cur':''}"><span class="n">${i+1}</span><div class="t" data-play="${it.id}">${esc(it.title)}<small>${typeLbl(it)}</small></div>${mv}${S.lists.length > 1 ? `<button class="ib" data-mv="${it.id}" aria-label="להעביר לרשימה אחרת">⇄</button>` : ''}<button class="ib" data-del="${it.id}">✕</button></div>`;
   }).join('');
 }
 // remove a song: ✕ or a quick swipe — no "are you sure?"
@@ -1078,6 +1112,19 @@ $('#list').addEventListener('pointerup', endSwipe);
 $('#list').addEventListener('pointercancel', endSwipe);
 $('#list').addEventListener('click', e => {
   if (swiped) return;
+  const mt = e.target.closest('[data-mvto]');
+  if (mt){
+    const i = IT().findIndex(x => x.id === mt.dataset.mvid), to = S.lists.find(l => l.id === mt.dataset.mvto);
+    if (i >= 0 && to){ const [x] = IT().splice(i, 1); if (!to.items.some(y => y.ref === x.ref && y.type === x.type)) to.items.push(x); save(); renderList(); renderPlayer(); toast('הועבר ל«' + to.name + '» ✓'); }
+    return;
+  }
+  const mv = e.target.closest('[data-mv]');
+  if (mv){
+    const row = mv.closest('.row'), open = row.nextElementSibling && row.nextElementSibling.classList.contains('mvbar');
+    document.querySelectorAll('.mvbar').forEach(x => x.remove());
+    if (!open) row.insertAdjacentHTML('afterend', '<div class="mvbar">להעביר ל: ' + S.lists.filter(l => l.id !== S.listId).map(l => `<button class="chip" data-mvto="${l.id}" data-mvid="${mv.dataset.mv}">${esc(l.name)}</button>`).join('') + '</div>');
+    return;
+  }
   const b = e.target.closest('[data-play],[data-up],[data-down],[data-del]'); if (!b) return;
   unlock();
   if (b.dataset.play){ play(b.dataset.play); return; }
@@ -1153,6 +1200,7 @@ if (S.drive !== false) setDrive(true);
   if (t) setTimeout(() => { $('#vPanel').style.display='block'; unlock(); handleVoice(t); }, 700);
 })();
 renderGoogle();
+if (gPending && gPending.play){ setTimeout(() => { const f = S.lists.flatMap(l => l.items.map(it => ({ it, l }))).find(o => o.it.id === gPending.play); if (f){ S.listId = f.l.id; renderLists(); renderList(); play(f.it.id); } }, 500); }
 if (gPending && gPending.q){ setTimeout(() => { $('#vPanel').style.display='block'; handleVoice(gPending.q + (gPending.src === 'drive' ? ' מהדרייב' : '')); }, 600); }
 (async function importSunoFav(){
   const m = location.hash.match(/^#sunofav-([\w-]+)$/); if (!m) return;
