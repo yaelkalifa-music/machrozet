@@ -209,6 +209,15 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 #playView.port .pvbody{flex-direction:column}
 #playView .pvin>.sheetview{flex:0 1 auto;max-height:38%;min-height:70px;margin-bottom:6px}
 @media (orientation:portrait){ #playView .pvin>.sheetview{max-height:27vh} }
+#playView.rot .pvin>.sheetview{max-height:30vw!important}
+#playView.short .pvbar{flex-wrap:nowrap!important;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+#playView.short .pvbar::-webkit-scrollbar{display:none}
+#playView.short .pvbar button,#playView.short .pvbar select{min-height:36px!important;padding:2px 8px!important;font-size:15px!important;flex:none}
+#playView.short .pvbar .seg{flex:none}
+#playView.short .pvin:has(.sheetview) .pvtl{display:none}
+#playView.short .pvin>.sheetview{max-height:32%!important;margin-bottom:4px}
+#playView.short .pvin>.sheetview pre{margin:2px 6px}
+#playView .pvin .kbox{min-height:110px;flex-shrink:0}
 #playView.port .keys.big{flex:1}
 #playView.port .keys.big .wk span{writing-mode:horizontal-tb}
 #playView.port #pvPedal{width:auto;height:64px;flex:none;flex-direction:row;gap:8px}
@@ -4200,7 +4209,7 @@ function chordName(root,q,sev){ return KEY_EN[mod(root+kbShift,12)]+(q==='m'?'m'
 function tapTempo(){ const now=performance.now(); tapTimes=tapTimes.filter(t=>now-t<3000); tapTimes.push(now); if(tapTimes.length>=3){ const d=[]; for(let i=1;i<tapTimes.length;i++) d.push(tapTimes[i]-tapTimes[i-1]); const avg=d.reduce((a,b)=>a+b)/d.length; const bpm=Math.round(60000/avg); if(bpm>=40&&bpm<=240){ S.bpm=bpm; $('bpm').value=bpm; render(); const el=$('pvTempo'); if(el) el.textContent='♩ '+bpm; toast('טמפו: '+bpm,1200); } } }
 $('openPlay').onclick=async()=>{ ac(); initMidi(); PV.mode='piano'; const L=Promise.all([ensureMySfx(),ensureSfx()]); L.catch(()=>{}); openPlayView(); };
 function openPlayView(){ let v=$('playView'); if(!v){ v=document.createElement('div'); v.id='playView'; document.body.appendChild(v); window.addEventListener('resize',()=>{ if(!v.hidden) layoutPV(); }); } v.hidden=false; buildPV(); }
-function layoutPV(){ const v=$('playView'); const port=innerHeight>innerWidth; v.classList.toggle('rot',port&&!!PV.rotate); v.classList.toggle('port',port&&!PV.rotate); }
+function layoutPV(){ const v=$('playView'); const port=innerHeight>innerWidth; v.classList.toggle('rot',port&&!!PV.rotate); v.classList.toggle('port',port&&!PV.rotate); const h=(port&&PV.rotate)?innerWidth:innerHeight; v.classList.toggle('short',h<540); }
 function kbNW(port){ try{ const v=+localStorage.getItem(port?'machrozet_nwp':'machrozet_nw'); if(v>=4&&v<=36) return v; }catch(_){} return port?8:(PV.nW||12); }
 function kbH(){ try{ const v=+localStorage.getItem('machrozet_kbh'); if(v>=80) return v; }catch(_){} return 0; }
 function kbHTML(lo,hi,nW,attr,wl,bl,cls){ const all=[]; for(let m=lo;m<=hi;m++) all.push(m); const white=all.filter(m=>![1,3,6,8,10].includes(m%12)); const wW=100/white.length;
@@ -4216,8 +4225,9 @@ function sheetViewSetup(v){ const sv=v.querySelector('.sheetview'); if(!sv) retu
   sv.querySelector('#svFm').onclick=()=>fs(-2); sv.querySelector('#svFp').onclick=()=>fs(2); pinchFont(sv,()=>PV.sheetFs||20,v=>{ PV.sheetFs=Math.max(12,Math.min(48,Math.round(v))); sv.style.setProperty('--sfs',PV.sheetFs+'px'); save('sheetfs',PV.sheetFs); });
   sv.querySelector('#svX').onclick=()=>{ PV.showSheet=false; save('showsheet','0'); buildPV(); };
   const ab=sv.querySelector('#svAuto'); ab.onclick=()=>{ PV.sheetAuto=!PV.sheetAuto; save('sheetauto',PV.sheetAuto?'1':'0'); ab.classList.toggle('on',PV.sheetAuto); };
-  const g=sv.querySelector('.svgrip'); let d=null; g.addEventListener('pointerdown',e=>{ e.preventDefault(); d={y:e.clientY,h:sv.offsetHeight}; try{ g.setPointerCapture(e.pointerId); }catch(_){} });
-  g.addEventListener('pointermove',e=>{ if(!d) return; const h=Math.max(70,Math.min(innerHeight*0.75,d.h+(e.clientY-d.y))); sv.style.height=h+'px'; sv.style.maxHeight=h+'px'; sv.style.flex='none'; });
+  const host=sv.parentElement; const capH=()=>Math.max(70,Math.min(host.clientHeight*(host.clientHeight<560?0.32:0.45),host.clientHeight-200)); if(sv.offsetHeight>capH()+2){ sv.style.height=capH()+'px'; sv.style.maxHeight=capH()+'px'; sv.style.flex='none'; }
+  const g=sv.querySelector('.svgrip'); let d=null; g.addEventListener('pointerdown',e=>{ e.preventDefault(); d={x:e.clientX,y:e.clientY,h:sv.offsetHeight}; try{ g.setPointerCapture(e.pointerId); }catch(_){} });
+  g.addEventListener('pointermove',e=>{ if(!d) return; const rot=$('playView').classList.contains('rot'); const dy=rot?-(e.clientX-d.x):(e.clientY-d.y); const h=Math.max(70,Math.min(host.clientHeight-200,d.h+dy)); sv.style.height=h+'px'; sv.style.maxHeight=h+'px'; sv.style.flex='none'; });
   const up=()=>{ if(!d) return; d=null; PV.sheetH=sv.offsetHeight; save('sheeth',PV.sheetH); }; g.addEventListener('pointerup',up); g.addEventListener('pointercancel',up);
   // auto-follow: scroll proportional to song position while playing
   let userT=0; sv.addEventListener('pointerdown',()=>userT=Date.now()); sv.addEventListener('wheel',()=>userT=Date.now());
