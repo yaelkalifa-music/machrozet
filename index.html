@@ -115,7 +115,7 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .sheetview .svbar button{pointer-events:auto;min-height:30px;padding:2px 8px;font-size:13px;background:#2a2133e6;color:#fff;border-radius:8px}
 .sheetview .svbar button.on{background:#d6337a}
 .sheetview .svgrip{position:sticky;bottom:-6px;height:18px;margin:0 -6px -6px;background:#e9e0cc;color:#6a5a40;text-align:center;font-size:16px;line-height:14px;cursor:ns-resize;touch-action:none;border-radius:0 0 12px 12px}
-.knwc{position:absolute;top:0;left:92px;height:34px;display:flex;align-items:center;gap:2px;z-index:6}
+.knwc{position:absolute;top:0;left:92px;height:34px;display:flex;align-items:center;gap:3px;z-index:30;background:#2a2133;border-radius:10px;padding-right:4px}
 .knwc .knw{width:38px;height:34px;min-height:0!important;padding:0!important;font-size:14px;border-radius:10px;background:#3a2a6a;border:1px solid #a98cff}
 .knwc .knwl{min-width:26px;text-align:center;font-weight:700;color:var(--gold);font-size:15px}
 #ruler{position:sticky;top:0;height:28px;background:var(--bg2);border-bottom:1px solid var(--line);z-index:5;cursor:pointer;touch-action:none}
@@ -4214,7 +4214,7 @@ function kbNW(port){ try{ const v=+localStorage.getItem(port?'machrozet_nwp':'ma
 function kbH(){ try{ const v=+localStorage.getItem('machrozet_kbh'); if(v>=80) return v; }catch(_){} return 0; }
 function kbHTML(lo,hi,nW,attr,wl,bl,cls){ const all=[]; for(let m=lo;m<=hi;m++) all.push(m); const white=all.filter(m=>![1,3,6,8,10].includes(m%12)); const wW=100/white.length;
   const strip=white.map((m,i)=>m%12===0?`<b style="left:${i*wW}%">${NOTE_HE[0]}${Math.floor(m/12)-1}</b>`:'').join('');
-  return `<div class="kbox" ${kbH()?`style="flex:none;height:${kbH()}px"`:''}><div class="kgrip" title="גוררים למעלה/למטה: גובה המקלדת · לחיצה כפולה: איפוס">↕</div><button class="kedb" title="להזיז / להגדיל / לכווץ את המקלדת">✋</button><div class="knwc"><button class="knw" data-d="2" title="יותר קלידים (קטנים יותר)">➖</button><span class="knwl">${nW}</span><button class="knw" data-d="-2" title="פחות קלידים (גדולים יותר)">➕</button></div><div class="kstrip" title="מחליקים כאן ימינה/שמאלה"><div class="kstripin" style="width:${white.length/nW*100}%">${strip}</div></div><div class="khint">⇠ החליקי כאן ⇢</div><div class="kwrap"><div class="keys big ${cls}" style="width:${white.length/nW*100}%">${white.map(m=>`<button class="wk" data-${attr}="${m}">${wl(m)}</button>`).join('')}${all.filter(m=>[1,3,6,8,10].includes(m%12)).map(m=>{ const wi=white.indexOf(m-1); return `<button class="bk" data-${attr}="${m}" style="left:${(wi+1)*wW-wW*0.32}%;width:${wW*0.64}%">${bl(m)}</button>`; }).join('')}</div></div></div>`; }
+  return `<div class="kbox" ${kbH()?`style="flex:1 1 auto;height:${kbH()}px;align-self:flex-start"`:''}><div class="kgrip" title="גוררים למעלה/למטה: גובה המקלדת · לחיצה כפולה: איפוס">↕</div><button class="kedb" title="להזיז / להגדיל / לכווץ את המקלדת">✋</button><div class="knwc"><button class="knw" data-d="2" title="יותר קלידים (קטנים יותר)">➖</button><span class="knwl">${nW}</span><button class="knw" data-d="-2" title="פחות קלידים (גדולים יותר)">➕</button></div><div class="kstrip" title="מחליקים כאן ימינה/שמאלה"><div class="kstripin" style="width:${white.length/nW*100}%">${strip}</div></div><div class="khint">⇠ החליקי כאן ⇢</div><div class="kwrap"><div class="keys big ${cls}" style="width:${white.length/nW*100}%">${white.map(m=>`<button class="wk" data-${attr}="${m}">${wl(m)}</button>`).join('')}${all.filter(m=>[1,3,6,8,10].includes(m%12)).map(m=>{ const wi=white.indexOf(m-1); return `<button class="bk" data-${attr}="${m}" style="left:${(wi+1)*wW-wW*0.32}%;width:${wW*0.64}%">${bl(m)}</button>`; }).join('')}</div></div></div>`; }
 
 
 function pinchFont(el,get,set){ let p=null; el.addEventListener('touchstart',e=>{ if(e.touches.length===2){ const [a,b]=e.touches; p={d:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)||1,f:get()}; e.preventDefault(); } },{passive:false});
@@ -4232,46 +4232,46 @@ function sheetViewSetup(v){ const sv=v.querySelector('.sheetview'); if(!sv) retu
   // auto-follow: scroll proportional to song position while playing
   let userT=0; sv.addEventListener('pointerdown',()=>userT=Date.now()); sv.addEventListener('wheel',()=>userT=Date.now());
   (function loop(){ if(!document.body.contains(sv)) return; requestAnimationFrame(loop); if(!PV.sheetAuto||!S.playing||Date.now()-userT<4000) return; const end=projEnd()||1; const max=sv.scrollHeight-sv.clientHeight; if(max<=0) return; const target=Math.max(0,Math.min(1,(S.playhead-0.5)/end))*max; sv.scrollTop+= (target-sv.scrollTop)*0.08; })(); }
-function kbSetup(v){ const wrap=v.querySelector('.kwrap'), strip=v.querySelector('.kstrip'); if(!wrap) return; const keys=wrap.querySelector('.keys'); const whites=[...keys.querySelectorAll('.wk')]; const port=innerHeight>innerWidth&&!PV.rotate; const W=()=>wrap.clientWidth/kbNW(port);
+function kbSetup(v){ const _R=()=>$('playView').classList.contains('rot'); const X=e=>_R()?e['clientY']:e['clientX'], Y=e=>_R()?-e['clientX']:e['clientY']; const wrap=v.querySelector('.kwrap'), strip=v.querySelector('.kstrip'); if(!wrap) return; const keys=wrap.querySelector('.keys'); const whites=[...keys.querySelectorAll('.wk')]; const port=innerHeight>innerWidth&&!PV.rotate; const W=()=>wrap.clientWidth/kbNW(port);
   // resize: drag the ⤡ grip (x = key width, y = height) or pinch two fingers on the strip
   const box=v.querySelector('.kbox'), grip=v.querySelector('.kgrip'); const nwKey=port?'machrozet_nwp':'machrozet_nw';
   const setNW=n=>{ n=Math.max(4,Math.min(36,Math.round(n))); try{ localStorage.setItem(nwKey,n); }catch(_){} if(!port) PV.nW=n; return n; };
   const badge=t=>{ let b=box.querySelector('.kbadge'); if(!b){ b=document.createElement('div'); b.className='kbadge'; box.appendChild(b); } b.textContent=t; };
-  if(grip){ let g=null; grip.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); g={x:e.clientX,y:e.clientY,h:box.offsetHeight,n:kbNW(port),id:e.pointerId,nn:kbNW(port)}; try{ grip.setPointerCapture(e.pointerId); }catch(_){} });
-    grip.addEventListener('pointermove',e=>{ if(!g||e.pointerId!==g.id) return; const avail=box.parentElement.clientHeight; const h=Math.max(90,Math.min(Math.max(120,avail),g.h-(e.clientY-g.y))); box.style.flex='none'; box.style.height=h+'px'; badge('גובה '+Math.round(h)); });
+  if(grip){ let g=null; grip.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); g={x:X(e),y:Y(e),h:box.offsetHeight,n:kbNW(port),id:e.pointerId,nn:kbNW(port)}; try{ grip.setPointerCapture(e.pointerId); }catch(_){} });
+    grip.addEventListener('pointermove',e=>{ if(!g||e.pointerId!==g.id) return; const avail=box.parentElement.clientHeight; const h=Math.max(90,Math.min(Math.max(120,avail),g.h-(Y(e)-g.y))); box.style.flex='1 1 auto'; box.style.alignSelf='flex-start'; box.style.height=h+'px'; badge('גובה '+Math.round(h)); });
     const end=e=>{ if(!g) return; try{ localStorage.setItem('machrozet_kbh',Math.round(box.offsetHeight)); }catch(_){} const changed=g.nn!==g.n; setNW(g.nn); g=null; const b=box.querySelector('.kbadge'); if(b) b.remove(); if(changed) buildPV(); };
     grip.addEventListener('pointerup',end); grip.addEventListener('pointercancel',end);
     grip.addEventListener('dblclick',()=>{ try{ localStorage.removeItem('machrozet_kbh'); localStorage.removeItem(nwKey); }catch(_){} buildPV(); }); }
-  { const pts=new Map(); let pz=null; strip.addEventListener('pointerdown',e=>{ pts.set(e.pointerId,e.clientX); },true);
-    strip.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,e.clientX); if(pz&&pts.size===2){ const a=[...pts.values()]; const r=(Math.abs(a[0]-a[1])||1)/pz.d; pz.nn=Math.max(4,Math.min(36,Math.round(pz.n/r))); badge(pz.nn+' מקשים'); e.stopImmediatePropagation(); } },true);
+  { const pts=new Map(); let pz=null; strip.addEventListener('pointerdown',e=>{ pts.set(e.pointerId,X(e)); },true);
+    strip.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)) return; pts.set(e.pointerId,X(e)); if(pz&&pts.size===2){ const a=[...pts.values()]; const r=(Math.abs(a[0]-a[1])||1)/pz.d; pz.nn=Math.max(4,Math.min(36,Math.round(pz.n/r))); badge(pz.nn+' מקשים'); e.stopImmediatePropagation(); } },true);
     const pe=e=>{ pts.delete(e.pointerId); if(pz&&pts.size<2){ const n=pz.nn, ch=n!==pz.n; pz=null; setNW(n); const b=box.querySelector('.kbadge'); if(b) b.remove(); if(ch) buildPV(); } }; strip.addEventListener('pointerup',pe,true); strip.addEventListener('pointercancel',pe,true); }
   box.querySelectorAll('.knw').forEach(b=>{ b.addEventListener('pointerdown',e=>e.stopPropagation()); b.onclick=e=>{ e.stopPropagation(); const n=setNW(kbNW(port)+(+b.dataset.d)); badge(n+' קלידים'); setTimeout(()=>buildPV(),120); }; });
   const attr=Object.keys(whites[0].dataset)[0]; const idxOf=m=>whites.findIndex(w=>+w.dataset[attr]>=m);
   const sync=()=>{ strip.scrollLeft=wrap.scrollLeft; };
   wrap.scrollLeft=Math.max(0,idxOf(PV._kbStart)*whites[0].offsetWidth); sync();
   const save=()=>{ const i=Math.round(wrap.scrollLeft/whites[0].offsetWidth); const w=whites[Math.min(whites.length-1,i)]; if(w) PV[PV._kbKey]=+w.dataset[attr]; };
-  let d=null; strip.addEventListener('pointerdown',e=>{ e.preventDefault(); d={x:e.clientX,sl:wrap.scrollLeft,id:e.pointerId}; try{ strip.setPointerCapture(e.pointerId); }catch(_){} });
-  strip.addEventListener('pointermove',e=>{ if(!d||e.pointerId!==d.id) return; wrap.scrollLeft=d.sl-(e.clientX-d.x)*(keys.offsetWidth/strip.querySelector('.kstripin').offsetWidth)*1.0; sync(); });
+  let d=null; strip.addEventListener('pointerdown',e=>{ e.preventDefault(); d={x:X(e),sl:wrap.scrollLeft,id:e.pointerId}; try{ strip.setPointerCapture(e.pointerId); }catch(_){} });
+  strip.addEventListener('pointermove',e=>{ if(!d||e.pointerId!==d.id) return; wrap.scrollLeft=d.sl-(X(e)-d.x)*(keys.offsetWidth/strip.querySelector('.kstripin').offsetWidth)*1.0; sync(); });
   const up=()=>{ if(!d) return; d=null; const ww=whites[0].offsetWidth; wrap.scrollTo({left:Math.round(wrap.scrollLeft/ww)*ww,behavior:'smooth'}); setTimeout(()=>{ sync(); save(); },300); };
   strip.addEventListener('pointerup',up); strip.addEventListener('pointercancel',up);
   // free move + pinch-scale of the whole keyboard (edit mode ✋)
   { const gk=port?'machrozet_kbgeo_p':'machrozet_kbgeo'; const ld=()=>{ try{ return JSON.parse(localStorage.getItem(gk)||'null'); }catch(_){ return null; } };
-    const par=box.parentElement; const apply=g=>{ if(!g){ box.style.transform=''; box.style.width=''; return; } box.style.width=g.w+'%'; box.style.alignSelf='flex-start'; if(g.h){ box.style.flex='none'; box.style.height=g.h+'px'; } box.style.transform=`translate(${g.dx}px,${g.dy}px)`; };
-    apply(ld());
+    const par=box.parentElement; const apply=g=>{ if(!g||(!g.dx&&!g.dy)){ box.style.transform=''; return; } box.style.transform=`translate(${g.dx||0}px,${g.dy||0}px)`; if(g.h&&g.live){ box.style.flex='1 1 auto'; box.style.alignSelf='flex-start'; box.style.height=g.h+'px'; } };
+    { const g0=ld(); if(g0&&g0.w!=null){ try{ localStorage.removeItem(gk); }catch(_){} apply(null); } else apply(g0); }
     const eb=box.querySelector('.kedb'); let ov=null;
     const exitEd=()=>{ if(ov){ ov.remove(); ov=null; } box.classList.remove('kediting'); eb.textContent='✋'; };
     const enterEd=()=>{ box.classList.add('kediting'); eb.textContent='✓'; ov=document.createElement('div'); ov.className='kedov'; ov.innerHTML='<div class="kedtx">✋ גוררים באצבע אחת להזזה<br>🤏 שתי אצבעות לצדדים: מקרבים = יותר קלידים, מרחיקים = קלידים גדולים<br>↕ שתי אצבעות למעלה־למטה: גובה<br><button class="kedreset">איפוס</button> <button class="keddone">✓ סיום</button></div>'; box.appendChild(ov);
       const pts=new Map(); let st=null;
       const cur=()=>{ const g=ld(); const pr=par.getBoundingClientRect(); return g||{w:100,h:box.offsetHeight,dx:0,dy:0,pw:pr.width}; };
       const save=g=>{ try{ localStorage.setItem(gk,JSON.stringify(g)); }catch(_){} };
-      const clampG=g=>{ const pr=par.getBoundingClientRect(); const bw=pr.width*g.w/100; g.dx=Math.max(-10,Math.min(pr.width-bw+10,g.dx)); g.dy=Math.max(-pr.top+50,Math.min(innerHeight-pr.top-g.h-4,g.dy)); return g; };
-      ov.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; e.preventDefault(); try{ ov.setPointerCapture(e.pointerId); }catch(_){} pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const g=cur(); const a=[...pts.values()];
+      const clampG=g=>{ if(_R()) return g; const pr=par.getBoundingClientRect(); const bw=pr.width*g.w/100; g.dx=Math.max(-10,Math.min(pr.width-bw+10,g.dx)); g.dy=Math.max(-pr.top+50,Math.min(innerHeight-pr.top-g.h-4,g.dy)); return g; };
+      ov.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; e.preventDefault(); try{ ov.setPointerCapture(e.pointerId); }catch(_){} pts.set(e.pointerId,{x:X(e),y:Y(e)}); const g=cur(); const a=[...pts.values()];
         st={g:Object.assign({},g,{h:g.h||box.offsetHeight}),a:a.map(p=>({...p})),d:a.length===2?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1:0,dx:a.length===2?Math.max(30,Math.abs(a[0].x-a[1].x)):0,dy:a.length===2?Math.max(30,Math.abs(a[0].y-a[1].y)):0,nw:kbNW(port),n:a.length}; });
-      ov.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)||!st) return; pts.set(e.pointerId,{x:e.clientX,y:e.clientY}); const a=[...pts.values()]; const g=Object.assign({},st.g);
-        if(a.length>=2&&st.n>=2){ const kx=Math.max(30,Math.abs(a[0].x-a[1].x))/st.dx, ky=Math.max(30,Math.abs(a[0].y-a[1].y))/st.dy; const nn=Math.max(4,Math.min(36,Math.round(st.nw/kx))); st.nn=nn; const pct=whites.length/nn*100; keys.style.width=pct+'%'; const si=strip.querySelector('.kstripin'); if(si) si.style.width=pct+'%'; badge(nn+' קלידים'); if(st.dy>60){ g.h=Math.max(110,Math.min(innerHeight*0.85,st.g.h*ky)); g.dy=st.g.dy-(g.h-st.g.h)/2; } }
-        else if(a.length===1&&st.n===1){ g.dx=st.g.dx+(e.clientX-st.a[0].x); g.dy=st.g.dy+(e.clientY-st.a[0].y); }
+      ov.addEventListener('pointermove',e=>{ if(!pts.has(e.pointerId)||!st) return; pts.set(e.pointerId,{x:X(e),y:Y(e)}); const a=[...pts.values()]; const g=Object.assign({},st.g);
+        if(a.length>=2&&st.n>=2){ const kx=Math.max(30,Math.abs(a[0].x-a[1].x))/st.dx, ky=Math.max(30,Math.abs(a[0].y-a[1].y))/st.dy; const nn=Math.max(4,Math.min(36,Math.round(st.nw/kx))); st.nn=nn; const pct=whites.length/nn*100; keys.style.width=pct+'%'; const si=strip.querySelector('.kstripin'); if(si) si.style.width=pct+'%'; badge(nn+' קלידים'); if(st.dy>60){ g.h=Math.max(110,Math.min(innerHeight*0.85,st.g.h*ky)); g.live=1; } }
+        else if(a.length===1&&st.n===1){ g.dx=st.g.dx+(X(e)-st.a[0].x); g.dy=st.g.dy+(Y(e)-st.a[0].y); }
         else return; clampG(g); apply(g); st.live=g; });
-      const up=e=>{ pts.delete(e.pointerId); if(st&&st.nn){ setNW(st.nn); } if(st&&st.live){ save(st.live); } if(pts.size){ const g=cur(); const a=[...pts.values()]; st={g:Object.assign({},g),a:a.map(p=>({...p})),d:0,n:a.length}; } else st=null; };
+      const up=e=>{ pts.delete(e.pointerId); if(st&&st.nn){ setNW(st.nn); } if(st&&st.live){ const L=st.live; if(L.live&&L.h){ try{ localStorage.setItem('machrozet_kbh',Math.round(L.h)); }catch(_){} } save({dx:L.dx||0,dy:L.dy||0}); } if(pts.size){ const g=cur(); const a=[...pts.values()]; st={g:Object.assign({},g),a:a.map(p=>({...p})),d:0,n:a.length}; } else st=null; };
       ov.addEventListener('pointerup',up); ov.addEventListener('pointercancel',up);
       ov.querySelector('.keddone').onclick=()=>{ exitEd(); buildPV(); };
       ov.querySelector('.kedreset').onclick=()=>{ try{ localStorage.removeItem(gk); localStorage.removeItem('machrozet_kbh'); }catch(_){} exitEd(); buildPV(); }; };
