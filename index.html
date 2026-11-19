@@ -4853,6 +4853,19 @@ function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!
   if(mk&&FM.sm){ g.save(); g.translate((W-w*z)/2,(H-h*z)/2); drawMakeup(g,w*z,h*z,FM.sm,M); g.restore(); }
   if(F.leak>0){ g.save(); g.globalCompositeOperation='screen'; const a=tt*0.35; for(const [cx,cy,col,k] of [[0.15+0.25*Math.sin(a),0.2+0.1*Math.cos(a*1.3),'255,140,60',1],[0.85+0.15*Math.cos(a*0.8),0.75+0.15*Math.sin(a*1.1),'255,80,150',0.8]]){ const R=Math.max(W,H)*0.6; const gr=g.createRadialGradient(cx*W,cy*H,0,cx*W,cy*H,R); gr.addColorStop(0,`rgba(${col},${0.5*F.leak*k})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(0,0,W,H); } g.restore(); }
   if(F.spark>0){ g.save(); g.globalCompositeOperation='lighter'; const N=Math.round(26*F.spark); for(let i=0;i<N;i++){ const sd=i*12.9898; const px=((Math.sin(sd)*43758.5453)%1+1)%1, sp=0.04+(((Math.sin(sd*1.7)*24634.6345)%1+1)%1)*0.08; const py=1-((tt*sp+((Math.sin(sd*2.3)*9137.31)%1+1)%1)%1); const tw=0.5+0.5*Math.sin(tt*4+i*1.3); const s=(2+((i*7)%5))*Math.min(W,H)/400*(0.6+tw*0.6); const X=px*W, Y=py*H; const gr=g.createRadialGradient(X,Y,0,X,Y,s*4); gr.addColorStop(0,`rgba(255,240,200,${0.9*tw})`); gr.addColorStop(1,'rgba(255,200,120,0)'); g.fillStyle=gr; g.fillRect(X-s*4,Y-s*4,s*8,s*8); g.strokeStyle=`rgba(255,250,230,${0.8*tw})`; g.lineWidth=Math.max(1,s/3); g.beginPath(); g.moveTo(X-s*3,Y); g.lineTo(X+s*3,Y); g.moveTo(X,Y-s*3); g.lineTo(X,Y+s*3); g.stroke(); } g.restore(); } }
+async function vfxDiag(){ const out=[]; const add=x=>{ out.push(x); const el=$('vfxDiagOut'); if(el) el.textContent=out.join('\n'); };
+  try{ const G=vglInit(); if(!G){ add('GL: none'); return; } const gl=G.gl; const dbg=gl.getExtension('WEBGL_debug_renderer_info'); add('GPU: '+(dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)));
+    const hp=gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT); add('highp: '+(hp?hp.precision:'-')+' lost:'+VGLlost+' err:'+(window.__vfxErr||'-'));
+    const test=async(label)=>{ const a=videoAt(S.playhead)||(()=>{ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); return vc?videoAt(vc.c.start+0.1):null; })(); const v=a&&VPOOL[a.key]; if(!v||!v.videoWidth){ add(label+': no video'); return; }
+      const W=180,H=Math.round(180*v.videoHeight/v.videoWidth); const c1=document.createElement('canvas'); c1.width=W; c1.height=H; const g1=c1.getContext('2d'); g1.drawImage(v,0,0,W,H); const d1=g1.getImageData(0,0,W,H).data;
+      const keep=S.vidfx; S.vidfx={look:'none',adj:{br:0.0001}}; const c2=document.createElement('canvas'); c2.width=W; c2.height=H; const g2=c2.getContext('2d'); drawFit(g2,v,W,H,S.playhead,true); S.vidfx=keep; const d2=g2.getImageData(0,0,W,H).data;
+      let sum=0,mx=0; for(let i=0;i<d1.length;i+=4){ const e=Math.abs(d1[i]-d2[i])+Math.abs(d1[i+1]-d2[i+1])+Math.abs(d1[i+2]-d2[i+2]); sum+=e; if(e>mx) mx=e; } const n=d1.length/4; const m=i=>`${d1[i]},${d1[i+1]},${d1[i+2]}→${d2[i]},${d2[i+1]},${d2[i+2]}`; const ci=((H>>1)*W+(W>>1))*4;
+      add(label+': diff avg '+(sum/n/3).toFixed(1)+' max '+mx+' center '+m(ci)+' lost:'+VGLlost+' err:'+(window.__vfxErr||'-')); };
+    await test('A no-face');
+    add('loading face…'); try{ await fmLoad(); add('face: ok'); }catch(e){ add('face: FAIL '+e.message); }
+    const a=videoAt(S.playhead); const v=a&&VPOOL[a.key]; if(v&&v.videoWidth&&FM.st===2){ await fmDetectNow(fmDetCan(v)); add('landmarks: '+(FM.lm?FM.lm.length:0)); }
+    await new Promise(r=>setTimeout(r,300)); await test('B after-face');
+  }catch(e){ add('ERR '+e.message); } }
 function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({},VPRESETS.none))); delete cur.n; let tab=window._vfxTab||'ready';
   const looks=()=>{ try{ return JSON.parse(localStorage.getItem('machrozet_looks')||'[]'); }catch(_){ return []; } }, saveLooks=a=>{ try{ localStorage.setItem('machrozet_looks',JSON.stringify(a)); }catch(_){} };
   const sl=(grp,k,lb,min)=>{ const v=Math.round((grp==='adj'?((cur.adj||{})[k]||0):grp==='mk'?((cur.mk||{})[k]||0):(cur[k]||0))*100); return `<div class="vrow"><span>${lb}</span><input type="range" min="${min||0}" max="100" value="${v}" data-g="${grp}" data-k="${k}"><b>${v}</b></div>`; };
@@ -4869,7 +4882,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
   <div class="vpane" data-p="color"><div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(VLOOKS).map(([k,l])=>`<button data-l="${k}">${l.n}</button>`).join('')}</div>
     ${VADJ.slice(0,5).map(([k,lb])=>sl('adj',k,lb,-100)).join('')}<details><summary class="hint" style="cursor:pointer;margin:6px 0">▾ עוד כיוונים</summary>${VADJ.slice(5).map(([k,lb])=>sl('adj',k,lb,-100)).join('')}</details></div>
   <div class="vpane" data-p="deco">${sl('fx','spark','✨ נצנוצים')}${sl('fx','leak','🔆 אור חם')}${sl('fx','glow','🌟 זוהר')}${sl('fx','vig','⚫ מסגרת כהה')}${sl('fx','grain','📽 גרעיניות פילם')}${sl('fx','zoom','💓 זום לקצב')}${sl('fx','flash','⚡ הבזק לקצב')}</div>
-  <div class="row" style="margin-top:10px"><button id="vfxReset">↺ לאפס הכל</button></div>`,()=>{
+  <div class="row" style="margin-top:10px"><button id="vfxReset">↺ לאפס הכל</button><button id="vfxDiag">🩺 בדיקה</button></div><pre id="vfxDiagOut" data-notr style="white-space:pre-wrap;font-size:11px;direction:ltr;text-align:left"></pre>`,()=>{
     const box=$('sheetBox'); const pc=$('vfxPrev'), pg=pc.getContext('2d'); const t0=performance.now();
     const ploop=()=>{ if(!document.body.contains(pc)||$('sheet').hidden) return; requestAnimationFrame(ploop); let a=videoAt(S.playhead); if(!a){ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); if(vc) a=videoAt(vc.c.start+0.1); } const v=a&&VPOOL[a.key];
       if(v&&v.videoWidth){ const k=Math.min(640/v.videoWidth,640/v.videoHeight); const nw=Math.round(v.videoWidth*k), nh=Math.round(v.videoHeight*k); if(pc.width!==nw||pc.height!==nh){ pc.width=nw; pc.height=nh; } if(!S.playing&&Math.abs(v.currentTime-a.vt)>0.05&&!v.seeking) try{ v.currentTime=a.vt; }catch(_){} }
@@ -4895,6 +4908,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     box.querySelectorAll('[data-mkp]').forEach(b=>b.onclick=()=>{ const p={soft:{lip:.45,blush:.35,eyes:.35},glam:{lip:.8,blush:.6,eyes:.5},off:{lip:0,blush:0,eyes:0}}[b.dataset.mkp]; cur.mk=Object.assign({lc:'rose'},cur.mk||{},p); if(b.dataset.mkp!=='off'&&!(cur.beauty>0)) cur.beauty=.35; apply(); refresh(); });
     box.querySelectorAll('[data-lc]').forEach(b=>b.onclick=()=>{ cur.mk=Object.assign({lip:.45},cur.mk||{}); cur.mk.lc=b.dataset.lc; if(!(cur.mk.lip>0)) cur.mk.lip=.45; apply(); refresh(); });
     $('vfxSave').onclick=()=>{ if(empty(cur)){ toast('עוד לא בחרת אפקטים'); return; } const a=looks(); const nm=prompt('שם למראה:','המראה שלי '+(a.length+1)); if(!nm) return; a.push({name:nm.trim().slice(0,30),fx:JSON.parse(JSON.stringify(cur))}); saveLooks(a); refresh(); toast('⭐ נשמר: '+nm); };
+    $('vfxDiag').onclick=()=>vfxDiag();
     $('vfxReset').onclick=()=>{ cur=JSON.parse(JSON.stringify(VPRESETS.none)); apply(); refresh(); toast('↺ בלי אפקטים'); };
     refresh(); }); }
 // floating preview
