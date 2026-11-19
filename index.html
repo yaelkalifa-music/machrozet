@@ -120,6 +120,8 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .knwc .knwl{min-width:26px;text-align:center;font-weight:700;color:var(--gold);font-size:15px}
 #camPrev{position:fixed;left:10px;bottom:72px;width:110px;height:auto;border-radius:12px;border:2px solid #ff4d6d;z-index:70;transform:scaleX(-1);background:#000;box-shadow:0 6px 20px #000a}
 #camPrev[hidden]{display:none}
+#camSrc{position:fixed;left:-9999px;top:0;width:4px;height:4px;opacity:0;pointer-events:none}
+#camSrc.camShow{left:10px;top:auto;bottom:72px;width:110px;height:auto;opacity:1;border-radius:12px;border:2px solid #ff4d6d;z-index:70;transform:scaleX(-1);background:#000;box-shadow:0 6px 20px #000a}
 #ruler{position:sticky;top:0;height:28px;background:var(--bg2);border-bottom:1px solid var(--line);z-index:5;cursor:pointer;touch-action:none}
 #ruler .rl{position:absolute;top:0;height:100%;border-left:1px solid #5a4a66;padding-left:3px;font-size:11px;color:var(--dim);line-height:28px;pointer-events:none}
 #ruler .rcorner{position:sticky;left:0;width:var(--hdr);height:100%;background:var(--bg2);z-index:2;font-size:11px;color:var(--dim);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line)}
@@ -4477,16 +4479,21 @@ async function camOpen(){ let st; try{ st=await navigator.mediaDevices.getUserMe
   return st; }
 /* the camera frame is drawn into a portrait canvas (whatever the camera gives), and the canvas is what gets recorded */
 function camCrop(w,h){ if(h>=w) return {sx:0,sy:0,sw:w,sh:h}; const sw=Math.round(h*3/4); return {sx:Math.round((w-sw)/2),sy:0,sw,sh:h}; }
-async function camPreview(st){ let v=$('camSrc'); if(!v){ v=document.createElement('video'); v.id='camSrc'; v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.autoplay=true; v.style.cssText='position:fixed;left:-9999px;top:0;width:4px;height:4px;opacity:0;pointer-events:none'; document.body.appendChild(v); }
-  v.srcObject=st; await v.play().catch(()=>{}); await new Promise(res=>{ if(v.videoWidth) return res(); const t0=Date.now(); const k=()=>{ if(v.videoWidth||Date.now()-t0>4000) res(); else setTimeout(k,50); }; k(); });
+async function camPreview(st){ let v=$('camSrc'); if(!v){ v=document.createElement('video'); v.id='camSrc'; v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.autoplay=true; document.body.appendChild(v); }
+  v.className=''; v.srcObject=st; await v.play().catch(()=>{}); await new Promise(res=>{ if(v.videoWidth) return res(); const t0=Date.now(); const k=()=>{ if(v.videoWidth||Date.now()-t0>4000) res(); else setTimeout(k,50); }; k(); });
+  const D={on:true,v,direct:!v.videoWidth||v.videoHeight>=v.videoWidth};
+  if(D.direct){ v.className='camShow'; return D; } /* camera already portrait: record it as is, full quality */
   let cv=$('camPrev'); if(!cv){ cv=document.createElement('canvas'); cv.id='camPrev'; document.body.appendChild(cv); }
-  const c0=camCrop(v.videoWidth||720,v.videoHeight||1280); const sc=Math.min(1,1280/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false;
-  const g=cv.getContext('2d'); const D={on:true,v,cv};
-  const draw=()=>{ if(!D.on) return; if(v.videoWidth){ const c=camCrop(v.videoWidth,v.videoHeight); g.fillStyle='#000'; g.fillRect(0,0,cv.width,cv.height); const r=Math.min(cv.width/c.sw,cv.height/c.sh), w=c.sw*r, h=c.sh*r; try{ g.drawImage(v,c.sx,c.sy,c.sw,c.sh,(cv.width-w)/2,(cv.height-h)/2,w,h); }catch(_){} } };
-  D.timer=setInterval(draw,1000/30); draw(); return D; }
-function camPreviewOff(D){ if(D){ D.on=false; clearInterval(D.timer); } const cv=$('camPrev'); if(cv) cv.hidden=true; const v=$('camSrc'); if(v) v.srcObject=null; }
-function camRecorder(st,D){ const types=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']; const mt=types.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(_){ return false; } })||''; const cs=D.cv.captureStream(30); const vmr=new MediaRecorder(cs,mt?{mimeType:mt,videoBitsPerSecond:5000000}:{}); const chunks=[]; vmr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); }; return {vmr,chunks,stream:st,cs,D}; }
-async function camFinish(r,lat){ const V=r.vid; if(!V) return; await new Promise(res=>{ if(V.vmr.state==='inactive') return res(); V.vmr.onstop=res; try{ V.vmr.stop(); }catch(_){ res(); } }); V.stream.getTracks().forEach(t=>t.stop()); try{ V.cs.getTracks().forEach(t=>t.stop()); }catch(_){} camPreviewOff(V.D);
+  const c0=camCrop(v.videoWidth,v.videoHeight); const sc=Math.min(1,1920/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false; D.cv=cv;
+  const g=cv.getContext('2d',{alpha:false}); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+  const draw=()=>{ if(!D.on) return; if(v.videoWidth){ const c=camCrop(v.videoWidth,v.videoHeight); try{ g.drawImage(v,c.sx,c.sy,c.sw,c.sh,0,0,cv.width,cv.height); }catch(_){} if(D.track&&D.track.requestFrame) D.track.requestFrame(); } };
+  D.draw=draw; if(v.requestVideoFrameCallback){ const loop=()=>{ if(!D.on) return; draw(); v.requestVideoFrameCallback(loop); }; v.requestVideoFrameCallback(loop); } else { D.timer=setInterval(draw,1000/30); }
+  draw(); return D; }
+function camPreviewOff(D){ if(D){ D.on=false; clearInterval(D.timer); } const cv=$('camPrev'); if(cv) cv.hidden=true; const v=$('camSrc'); if(v){ v.srcObject=null; v.className=''; } }
+function camRecorder(st,D){ const types=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']; const mt=types.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(_){ return false; } })||'';
+  let cs=st; if(!D.direct){ const rf=!!(window.CanvasCaptureMediaStreamTrack&&CanvasCaptureMediaStreamTrack.prototype.requestFrame); cs=D.cv.captureStream(rf?0:30); D.track=cs.getVideoTracks()[0]; }
+  const vmr=new MediaRecorder(cs,mt?{mimeType:mt,videoBitsPerSecond:12000000}:{videoBitsPerSecond:12000000}); const chunks=[]; vmr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); }; return {vmr,chunks,stream:st,cs:D.direct?null:cs,D}; }
+async function camFinish(r,lat){ const V=r.vid; if(!V) return; await new Promise(res=>{ if(V.vmr.state==='inactive') return res(); V.vmr.onstop=res; try{ V.vmr.stop(); }catch(_){ res(); } }); V.stream.getTracks().forEach(t=>t.stop()); try{ if(V.cs) V.cs.getTracks().forEach(t=>t.stop()); }catch(_){} camPreviewOff(V.D);
   const type=(V.vmr.mimeType||'video/webm').split(';')[0]; const blob=new Blob(V.chunks,{type}); if(!blob.size){ toast('הווידאו לא נשמר'); return; }
   const bytes=await blob.arrayBuffer(); const info=await videoInfo(new File([blob],'cam.'+(type.includes('mp4')?'mp4':'webm'),{type})); let dur=info&&isFinite(info.dur)&&info.dur>0?info.dur:(Date.now()-r.started)/1000;
   const id=nid(); const buf=ac().createBuffer(1,Math.max(1,Math.ceil(dur*44100)),44100); const n=1+allClips().filter(x=>{ const b=bufs[x.c.buf]; return b&&b.vtype&&/צילום/.test(b.name||''); }).length;
