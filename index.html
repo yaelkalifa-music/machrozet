@@ -4822,12 +4822,17 @@ void main(){ vec2 q=(v-rc.xy)/rc.zw; if(q.x<0.||q.y<0.||q.x>1.||q.y>1.){gl_FragC
   return VGL={c,gl,U}; }catch(e){ console.warn('vgl',e); return VGL=false; } }
 /* ---- natural makeup: face landmarks (MediaPipe Face Mesh, loaded only when makeup is on) ---- */
 const FM={st:0,fm:null,busy:false,lm:null,lmT:-1,sm:null};
-function fmLoad(){ if(FM.st) return FM.p; FM.st=1; FM.p=new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='mp/face_mesh.js'; sc.onload=async()=>{ try{ const fm=new FaceMesh({locateFile:f=>'mp/'+f}); fm.setOptions({maxNumFaces:1,refineLandmarks:false,minDetectionConfidence:.5,minTrackingConfidence:.5}); fm.onResults(r=>{ const L=r.multiFaceLandmarks&&r.multiFaceLandmarks[0]; FM.raw=L?[L.length,+L[1].x,+L[1].y,+L[1].z,+L[454].x,+L[454].y]:['none']; let ok=L&&L.length>=468; const cp=ok?new Array(L.length):null; let mx=0,my=0; if(ok) for(let i=0;i<L.length;i++){ const x=+L[i].x, y=+L[i].y; if(!isFinite(x)||!isFinite(y)){ ok=false; break; } cp[i]={x,y}; mx=Math.max(mx,Math.abs(x)); my=Math.max(my,Math.abs(y)); }
+function fmSet(L){  FM.raw=L?[L.length,+L[1].x,+L[1].y,+L[1].z,+L[454].x,+L[454].y]:['none']; let ok=!!(L&&L.length>=468); const cp=ok?new Array(L.length):null; let mx=0,my=0; if(ok) for(let i=0;i<L.length;i++){ const x=+L[i].x, y=+L[i].y; if(!isFinite(x)||!isFinite(y)){ ok=false; break; } cp[i]={x,y}; mx=Math.max(mx,Math.abs(x)); my=Math.max(my,Math.abs(y)); }
     if(ok&&(mx>1.5||my>1.5)){ const dw=FM.dw||1, dh=FM.dh||1; for(const p of cp){ p.x/=dw; p.y/=dh; } FM.scaled=1; }
-    if(ok){ for(const p of cp){ if(p.x<-0.5||p.x>1.5||p.y<-0.5||p.y>1.5){ ok=false; break; } } } FM.lm=ok?cp:null; FM.busy=false; FM.got&&FM.got(); }); await fm.initialize(); FM.fm=fm; FM.st=2; res(fm); }catch(e){ FM.st=3; rej(e); } }; sc.onerror=()=>{ FM.st=3; rej(new Error('load')); }; document.head.appendChild(sc); }); return FM.p; }
+    if(ok){ for(const p of cp){ if(p.x<-0.5||p.x>1.5||p.y<-0.5||p.y>1.5){ ok=false; break; } } } FM.lm=ok?cp:null; }
+const FM_MODEL='https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+function fmLoad(){ if(FM.st) return FM.p; FM.st=1; FM.p=(async()=>{ try{ const mod=await import(new URL('mp2/vision_bundle.mjs',location.href).href); const fs=await mod.FilesetResolver.forVisionTasks(new URL('mp2/wasm',location.href).href);
+    FM.tv=await mod.FaceLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:FM_MODEL,delegate:'CPU'},runningMode:'VIDEO',numFaces:1,minFaceDetectionConfidence:.4,minTrackingConfidence:.4}); FM.kind='tasks-cpu'; FM.st=2; return FM.tv; }
+  catch(e){ FM.err=String(e&&e.message||e).slice(0,120); FM.st=3; throw e; } })(); return FM.p; }
+function fmRun(src){ FM.ts=Math.max((FM.ts||0)+1,Math.round(performance.now())); try{ const r=FM.tv.detectForVideo(src,FM.ts); fmSet(r&&r.faceLandmarks&&r.faceLandmarks[0]); }catch(e){ FM.err=String(e&&e.message||e).slice(0,120); } }
 function fmDetCan(src){ const sw=src.videoWidth||src.width, sh=src.videoHeight||src.height; const k=Math.min(1,480/Math.max(sw,sh)); const d=vfxCan('fmdet',Math.round(sw*k),Math.round(sh*k)); FM.dw=d.width; FM.dh=d.height; d.getContext('2d').drawImage(src,0,0,d.width,d.height); return d; }
-function fmDetect(src){ if(FM.st!==2) return; if(FM.busy&&performance.now()-(FM.bt||0)<1500) return; FM.busy=true; FM.bt=performance.now(); FM.fm.send({image:src}).catch(()=>{ FM.busy=false; }); }
-async function fmDetectNow(src){ if(FM.st!==2) return; await new Promise(res=>{ FM.got=()=>{ FM.got=null; res(); }; FM.busy=true; FM.fm.send({image:src}).catch(()=>{ FM.got=null; FM.busy=false; res(); }); }); FM.sm=FM.lm?FM.lm.map(p=>({x:p.x,y:p.y})):null; }
+function fmDetect(src){ if(FM.st!==2) return; const n=performance.now(); if(n-(FM.lastRun||0)<70) return; FM.lastRun=n; fmRun(src); }
+async function fmDetectNow(src){ if(FM.st!==2) return; fmRun(src); FM.sm=FM.lm?FM.lm.map(p=>({x:p.x,y:p.y})):null; }
 function fmSmooth(){ const L=FM.lm; if(!L){ FM.miss=(FM.miss||0)+1; if(FM.miss>6) FM.sm=null; return FM.sm; } FM.miss=0; if(!FM.sm||FM.sm.length!==L.length) FM.sm=L.map(p=>({x:p.x,y:p.y})); else for(let i=0;i<L.length;i++){ const d=Math.hypot(L[i].x-FM.sm[i].x,L[i].y-FM.sm[i].y); const a=d>0.02?1:0.55; FM.sm[i].x+=(L[i].x-FM.sm[i].x)*a; FM.sm[i].y+=(L[i].y-FM.sm[i].y)*a; } return FM.sm; }
 const LIPO=[61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146], LIPI=[78,191,80,81,82,13,312,311,310,415,308,324,318,402,317,14,87,178,88,95];
 function drawMakeup(g,W,H,L,M){ if(!L||L.length<468) return; const P=i=>[L[i].x*W,L[i].y*H]; const fw=Math.hypot(P(234)[0]-P(454)[0],P(234)[1]-P(454)[1]); if(!isFinite(fw)||fw<20||fw>Math.max(W,H)*1.2) return;
@@ -4869,8 +4874,8 @@ async function vfxDiag(){ const out=[]; const add=x=>{ out.push(x); const el=$('
       add(label+': diff avg '+(sum/n/3).toFixed(1)+' max '+mx+' center '+m(ci)+' lost:'+VGLlost+' err:'+(window.__vfxErr||'-')); };
     await test('A no-face');
     for(const [nm,fx] of [['beauty',{look:'none',beauty:.5}],['glow',{look:'none',glow:.5}],['sharp',{look:'none',adj:{sp:.5}}],['vivid',{look:'vivid'}],['warm',{look:'warm'}],['grain',{look:'none',grain:.5}],['vig',{look:'none',vig:.5}]]){ const keep=S.vidfx; TESTFX=fx; await test('fx '+nm); TESTFX=null; S.vidfx=keep; }
-    add('loading face…'); try{ await fmLoad(); add('face: ok'); }catch(e){ add('face: FAIL '+e.message); }
-    const a=videoAt(S.playhead); const v=a&&VPOOL[a.key]; if(v&&v.videoWidth&&FM.st===2){ await fmDetectNow(fmDetCan(v)); add('landmarks: '+(FM.lm?FM.lm.length:0)+' raw '+JSON.stringify((FM.raw||[]).map(x=>typeof x==='number'?+x.toFixed(3):x))+' det '+FM.dw+'x'+FM.dh+(FM.scaled?' scaled':'')); }
+    add('loading face…'); try{ await fmLoad(); add('face: ok'); }catch(e){ add('face: FAIL '+(FM.err||e.message)); }
+    const a=videoAt(S.playhead); const v=a&&VPOOL[a.key]; if(v&&v.videoWidth&&FM.st===2){ await fmDetectNow(fmDetCan(v)); add('landmarks: '+(FM.lm?FM.lm.length:0)+' raw '+JSON.stringify((FM.raw||[]).map(x=>typeof x==='number'?+x.toFixed(3):x))+' det '+FM.dw+'x'+FM.dh+(FM.scaled?' scaled':'')+' '+(FM.kind||'')+' '+(FM.err||'')); }
     await new Promise(r=>setTimeout(r,300)); await test('B after-face');
   }catch(e){ add('ERR '+e.message); } }
 function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({},VPRESETS.none))); delete cur.n; let tab=window._vfxTab||'ready';
