@@ -148,12 +148,12 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .knwc .knwl{min-width:26px;text-align:center;font-weight:700;color:var(--gold);font-size:15px}
 #camPrev{position:fixed;left:50%;top:58px;height:min(64vh,calc(100vh - 150px));width:auto;max-width:92vw;transform:translateX(-50%) scaleX(-1);border-radius:16px;border:3px solid #ff4d6d;z-index:70;background:#000;box-shadow:0 8px 30px #000c;touch-action:none}
 #camPrev[hidden]{display:none}
- #prompter{position:fixed;left:0;right:0;top:0;height:40vh;z-index:80;background:linear-gradient(#000e,#000c 85%,#0008);display:flex;flex-direction:column;color:#fff}
+ #prompter{position:fixed;left:0;right:0;top:0;height:42vh;z-index:80;background:transparent;display:flex;flex-direction:column;color:#fff;pointer-events:none}#prompter .prView,#prompter .prBar{pointer-events:auto}
 #prompter[hidden]{display:none}#prompter .prView{flex:1;overflow:hidden;position:relative;touch-action:none;padding:0 16px}
-#prompter .prText{white-space:pre-wrap;text-align:center;direction:rtl;font-weight:700;line-height:1.45;padding-top:9vh;padding-bottom:30vh;text-shadow:0 2px 6px #000;will-change:transform}
-#prompter .prLine{position:absolute;left:0;right:0;top:9vh;height:2px;background:#ff4d6d88;pointer-events:none}
-#prompter .prBar{display:flex;gap:4px;align-items:center;justify-content:center;padding:4px;background:#0009;flex-wrap:wrap}#prompter .prBar button{min-height:0;padding:4px 10px}#prompter .prSp{min-width:28px;text-align:center}
-body.prompting #camSrc.camShow:not(.small),body.prompting #camPrev:not(.small){top:calc(var(--prTop,0px) + 40vh + 6px);height:min(46vh,calc(100vh - 40vh - var(--prTop,0px) - 80px))}
+#prompter .prText{white-space:pre-wrap;text-align:center;direction:rtl;font-weight:800;line-height:1.45;padding-top:9vh;padding-bottom:30vh;color:#fff;opacity:.92;text-shadow:0 0 3px #000,0 0 3px #000,0 2px 8px #000c;-webkit-text-stroke:.6px #0008;will-change:transform}
+#prompter .prLine{position:absolute;left:0;right:0;top:9vh;height:2px;background:#ff4d6d66;pointer-events:none}
+#prompter .prBar{display:flex;gap:4px;align-items:center;justify-content:center;padding:4px;background:transparent;flex-wrap:wrap}#prompter .prBar button{background:#0006;backdrop-filter:blur(2px)}#prompter .prBar button{min-height:0;padding:4px 10px}#prompter .prSp{min-width:28px;text-align:center}
+body.prompting #camSrc.camShow:not(.small),body.prompting #camPrev:not(.small){top:calc(var(--prTop,0px) + 6px);height:min(78vh,calc(100vh - var(--prTop,0px) - 90px))}
 #prompter .prStop{background:#ff4d6d;color:#fff}
 .vfxTop{position:sticky;top:0;z-index:2;background:var(--bg2,#1b1626);padding:4px 0;text-align:center}.vfxTop canvas{height:30vh;width:auto;max-width:100%;border-radius:12px;background:#000}
 .vrow{display:flex;align-items:center;gap:8px;margin:4px 0}.vrow span{min-width:118px}.vrow input{flex:1;direction:ltr}.vrow b{min-width:40px;text-align:center;direction:ltr}
