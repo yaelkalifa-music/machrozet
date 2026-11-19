@@ -4786,8 +4786,8 @@ const VAUTO={vi:.3,sh:.25,hi:-.15,ct:.1,sp:.25,br:.05};
 const MKLIP={rose:['💗 ורוד טבעי',[214,96,120]],nude:['🤎 נוד',[190,110,100]],red:['❤ אדום עדין',[200,40,60]],coral:['🧡 אלמוגי',[235,110,90]],berry:['💜 פטל',[160,50,95]]};
 function vfxCan(k,w,h){ window.VFXC=window.VFXC||{}; let c=VFXC[k]; if(!c){ c=VFXC[k]=document.createElement('canvas'); } if(c.width!==w||c.height!==h){ c.width=w; c.height=h; } return c; }
 function vadjOn(A){ return A&&VADJ.some(([k])=>Math.abs(A[k]||0)>0.005); }
-let VGL=null;
-function vglInit(){ if(VGL!==null) return VGL; try{ const c=document.createElement('canvas'); const gl=c.getContext('webgl',{premultipliedAlpha:false,preserveDrawingBuffer:true,antialias:false}); if(!gl) return VGL=false;
+let VGL=null, VGLlost=0;
+function vglInit(){ if(VGL!==null) return VGL; try{ const c=document.createElement('canvas'); c.addEventListener('webglcontextlost',e=>{ e.preventDefault(); VGL=null; VGLlost=(window.VGLlost||0)+1; window.VGLlost=VGLlost; }); const gl=c.getContext('webgl',{premultipliedAlpha:false,preserveDrawingBuffer:true,antialias:false}); if(!gl) return VGL=false;
   const vs='attribute vec2 p;varying vec2 v;void main(){v=p*.5+.5;gl_Position=vec4(p,0.,1.);}';
   const fs=`precision highp float;uniform sampler2D u;uniform vec2 px;uniform vec4 rc;uniform float br,ct,sa,vi,wa,ti,hi,sh,fa,sp,bty,glw,vig,grn,fls,tm;uniform vec4 shT,hiT;varying vec2 v;
 vec3 T(vec2 q){return texture2D(u,q).rgb;}
@@ -4821,6 +4821,7 @@ void main(){ vec2 q=(v-rc.xy)/rc.zw; if(q.x<0.||q.y<0.||q.x>1.||q.y>1.){gl_FragC
 /* ---- natural makeup: face landmarks (MediaPipe Face Mesh, loaded only when makeup is on) ---- */
 const FM={st:0,fm:null,busy:false,lm:null,lmT:-1,sm:null};
 function fmLoad(){ if(FM.st) return FM.p; FM.st=1; FM.p=new Promise((res,rej)=>{ const sc=document.createElement('script'); sc.src='mp/face_mesh.js'; sc.onload=async()=>{ try{ const fm=new FaceMesh({locateFile:f=>'mp/'+f}); fm.setOptions({maxNumFaces:1,refineLandmarks:false,minDetectionConfidence:.5,minTrackingConfidence:.5}); fm.onResults(r=>{ const L=r.multiFaceLandmarks&&r.multiFaceLandmarks[0]; FM.lm=L||null; FM.busy=false; FM.got&&FM.got(); }); await fm.initialize(); FM.fm=fm; FM.st=2; res(fm); }catch(e){ FM.st=3; rej(e); } }; sc.onerror=()=>{ FM.st=3; rej(new Error('load')); }; document.head.appendChild(sc); }); return FM.p; }
+function fmDetCan(src){ const k=Math.min(1,480/Math.max(src.width,src.height)); const d=vfxCan('fmdet',Math.round(src.width*k),Math.round(src.height*k)); d.getContext('2d').drawImage(src,0,0,d.width,d.height); return d; }
 function fmDetect(src){ if(FM.st!==2) return; if(FM.busy&&performance.now()-(FM.bt||0)<1500) return; FM.busy=true; FM.bt=performance.now(); FM.fm.send({image:src}).catch(()=>{ FM.busy=false; }); }
 async function fmDetectNow(src){ if(FM.st!==2) return; await new Promise(res=>{ FM.got=()=>{ FM.got=null; res(); }; FM.busy=true; FM.fm.send({image:src}).catch(()=>{ FM.got=null; FM.busy=false; res(); }); }); FM.sm=FM.lm?FM.lm.map(p=>({x:p.x,y:p.y})):null; }
 function fmSmooth(){ const L=FM.lm; if(!L){ FM.sm=null; return null; } if(!FM.sm||FM.sm.length!==L.length) FM.sm=L.map(p=>({x:p.x,y:p.y})); else for(let i=0;i<L.length;i++){ const d=Math.hypot(L[i].x-FM.sm[i].x,L[i].y-FM.sm[i].y); const a=d>0.02?1:0.55; FM.sm[i].x+=(L[i].x-FM.sm[i].x)*a; FM.sm[i].y+=(L[i].y-FM.sm[i].y)*a; } return FM.sm; }
@@ -4830,24 +4831,25 @@ function drawMakeup(g,W,H,L,M){ if(!L) return; const P=i=>[L[i].x*W,L[i].y*H]; c
     g.save(); g.imageSmoothingQuality='high'; g.globalCompositeOperation='multiply'; g.globalAlpha=M.lip*0.3; g.drawImage(mc,0,0,W,H); g.globalCompositeOperation='color'; g.globalAlpha=M.lip*0.45; g.drawImage(mc,0,0,W,H); g.globalCompositeOperation='soft-light'; g.globalAlpha=Math.min(1,M.lip); g.drawImage(mc,0,0,W,H); g.restore(); }
   if(M.blush>0){ const col=(MKLIP[M.lc]||MKLIP.rose)[1]; g.save(); g.globalCompositeOperation='soft-light'; for(const [ci,oi] of [[50,234],[280,454]]){ const c=P(ci), o=P(oi); const cx=c[0]*.75+o[0]*.25, cy=c[1]-fw*.02; const R=fw*.17; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(${col},${.8*M.blush})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); }
   if(M.eyes>0){ g.save(); g.globalCompositeOperation='soft-light'; for(const i of [145,374]){ const c=P(i); const cx=c[0], cy=c[1]+fw*.035; const R=fw*.09; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(255,240,225,${.6*M.eyes})`); gr.addColorStop(1,'rgba(255,240,225,0)'); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); } }
-async function vfxPrep(v){ const M=S.vidfx&&S.vidfx.mk; if(!mkOn(M)||!v.videoWidth) return; try{ await fmLoad(); }catch(_){ return; } const sc=vfxCan('mksrc',v.videoWidth>1920?1920:v.videoWidth,Math.round((v.videoWidth>1920?1920/v.videoWidth:1)*v.videoHeight)); sc.getContext('2d').drawImage(v,0,0,sc.width,sc.height); await fmDetectNow(sc); }
+async function vfxPrep(v){ const M=S.vidfx&&S.vidfx.mk; if(!mkOn(M)||!v.videoWidth) return; try{ await fmLoad(); }catch(_){ return; } const sc=vfxCan('mksrc',v.videoWidth>1920?1920:v.videoWidth,Math.round((v.videoWidth>1920?1920/v.videoWidth:1)*v.videoHeight)); sc.getContext('2d').drawImage(v,0,0,sc.width,sc.height); await fmDetectNow(fmDetCan(sc)); }
 function mkOn(M){ return M&&((M.lip||0)>0||(M.blush||0)>0||(M.eyes||0)>0); }
-function drawFit(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!v||!v.videoWidth) return; const F=S.vidfx; const r=Math.min(W/v.videoWidth,H/v.videoHeight); let w=v.videoWidth*r, h=v.videoHeight*r;
+function drawFit(g,v,W,H,t,exp){ try{ drawFitFx(g,v,W,H,t,exp); window.__vfxErr=null; }catch(e){ window.__vfxErr=(e&&e.message)||String(e); try{ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(v&&v.videoWidth){ const r=Math.min(W/v.videoWidth,H/v.videoHeight); g.drawImage(v,(W-v.videoWidth*r)/2,(H-v.videoHeight*r)/2,v.videoWidth*r,v.videoHeight*r); } }catch(_){} } }
+function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!v||!v.videoWidth) return; const F=S.vidfx; const r=Math.min(W/v.videoWidth,H/v.videoHeight); let w=v.videoWidth*r, h=v.videoHeight*r;
   if(!F){ try{ g.drawImage(v,(W-w)/2,(H-h)/2,w,h); }catch(_){} return; }
   const tt=t==null?S.playhead:t; let z=1, fl=0;
   if(F.zoom>0||F.flash>0){ try{ const b=timeToBeat(tt), ph=b-Math.floor(b), bar=BPB(); z=1+0.06*F.zoom*Math.exp(-ph*7); const pb=(b/bar)-Math.floor(b/bar); fl=F.flash*0.55*Math.exp(-pb*bar*6); }catch(_){} }
   const L=VLOOKS[F.look]||VLOOKS.none; const A={}; VADJ.forEach(([k])=>A[k]=(L.a[k]||0)+((F.adj||{})[k]||0));
   let src=v; const M=F.mk;
   if(mkOn(M)){ if(FM.st===0) fmLoad().catch(()=>{}); const sc=vfxCan('mksrc',v.videoWidth>1920?1920:v.videoWidth,Math.round((v.videoWidth>1920?1920/v.videoWidth:1)*v.videoHeight)); const sx=sc.getContext('2d'); sx.drawImage(v,0,0,sc.width,sc.height);
-    if(!exp){ fmDetect(sc); fmSmooth(); } drawMakeup(sx,sc.width,sc.height,FM.sm,M); src=sc; }
-  const G=vglInit();
-  if(G){ const {c,gl,U}=G; if(c.width!==W||c.height!==H){ c.width=W; c.height=H; } gl.viewport(0,0,W,H);
+    if(!exp){ fmDetect(fmDetCan(sc)); fmSmooth(); } drawMakeup(sx,sc.width,sc.height,FM.sm,M); src=sc; }
+  const G=(VGLlost>3)?false:vglInit();
+  if(G&&!G.gl.isContextLost()){ const {c,gl,U}=G; if(c.width!==W||c.height!==H){ c.width=W; c.height=H; } gl.viewport(0,0,W,H);
     try{ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src); }catch(_){ try{ g.drawImage(v,(W-w)/2,(H-h)/2,w,h); }catch(__){} return; }
     const sw=src.width||src.videoWidth, shh=src.height||src.videoHeight; gl.uniform1i(U.u,0); gl.uniform2f(U.px,1/sw,1/shh);
     const ww=w*z/W, hh=h*z/H; gl.uniform4f(U.rc,(1-ww)/2,(1-hh)/2,ww,hh);
     VADJ.forEach(([k])=>gl.uniform1f(U[k],A[k])); gl.uniform1f(U.bty,F.beauty||0); gl.uniform1f(U.glw,F.glow||0); gl.uniform1f(U.vig,F.vig||0); gl.uniform1f(U.grn,F.grain||0); gl.uniform1f(U.fls,fl); gl.uniform1f(U.tm,(tt*24|0)%997/97);
     gl.uniform4fv(U.shT,L.shT||[.5,.5,.5,0]); gl.uniform4fv(U.hiT,L.hiT||[.5,.5,.5,0]);
-    gl.drawArrays(gl.TRIANGLE_STRIP,0,4); g.drawImage(c,0,0,W,H);
+    gl.drawArrays(gl.TRIANGLE_STRIP,0,4); const ge=gl.getError(); if(ge&&ge!==gl.NO_ERROR){ window.__vfxErr='gl '+ge; } g.drawImage(c,0,0,W,H);
   } else { try{ g.drawImage(src,(W-w*z)/2,(H-h*z)/2,w*z,h*z); }catch(_){} }
   if(F.leak>0){ g.save(); g.globalCompositeOperation='screen'; const a=tt*0.35; for(const [cx,cy,col,k] of [[0.15+0.25*Math.sin(a),0.2+0.1*Math.cos(a*1.3),'255,140,60',1],[0.85+0.15*Math.cos(a*0.8),0.75+0.15*Math.sin(a*1.1),'255,80,150',0.8]]){ const R=Math.max(W,H)*0.6; const gr=g.createRadialGradient(cx*W,cy*H,0,cx*W,cy*H,R); gr.addColorStop(0,`rgba(${col},${0.5*F.leak*k})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(0,0,W,H); } g.restore(); }
   if(F.spark>0){ g.save(); g.globalCompositeOperation='lighter'; const N=Math.round(26*F.spark); for(let i=0;i<N;i++){ const sd=i*12.9898; const px=((Math.sin(sd)*43758.5453)%1+1)%1, sp=0.04+(((Math.sin(sd*1.7)*24634.6345)%1+1)%1)*0.08; const py=1-((tt*sp+((Math.sin(sd*2.3)*9137.31)%1+1)%1)%1); const tw=0.5+0.5*Math.sin(tt*4+i*1.3); const s=(2+((i*7)%5))*Math.min(W,H)/400*(0.6+tw*0.6); const X=px*W, Y=py*H; const gr=g.createRadialGradient(X,Y,0,X,Y,s*4); gr.addColorStop(0,`rgba(255,240,200,${0.9*tw})`); gr.addColorStop(1,'rgba(255,200,120,0)'); g.fillStyle=gr; g.fillRect(X-s*4,Y-s*4,s*8,s*8); g.strokeStyle=`rgba(255,250,230,${0.8*tw})`; g.lineWidth=Math.max(1,s/3); g.beginPath(); g.moveTo(X-s*3,Y); g.lineTo(X+s*3,Y); g.moveTo(X,Y-s*3); g.lineTo(X,Y+s*3); g.stroke(); } g.restore(); } }
@@ -4872,7 +4874,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     const ploop=()=>{ if(!document.body.contains(pc)||$('sheet').hidden) return; requestAnimationFrame(ploop); let a=videoAt(S.playhead); if(!a){ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); if(vc) a=videoAt(vc.c.start+0.1); } const v=a&&VPOOL[a.key];
       if(v&&v.videoWidth){ const k=Math.min(640/v.videoWidth,640/v.videoHeight); const nw=Math.round(v.videoWidth*k), nh=Math.round(v.videoHeight*k); if(pc.width!==nw||pc.height!==nh){ pc.width=nw; pc.height=nh; } if(!S.playing&&Math.abs(v.currentTime-a.vt)>0.05&&!v.seeking) try{ v.currentTime=a.vt; }catch(_){} }
       drawFit(pg,v||null,pc.width,pc.height,S.playing?S.playhead:S.playhead+((performance.now()-t0)/1000)%8);
-      const st=$('mkStat'); if(st&&mkOn(cur.mk)) st.textContent=FM.st===1?'⏳ טוענת זיהוי פנים (פעם אחת)…':FM.st===3?'❌ זיהוי הפנים לא נטען במכשיר הזה':FM.st===2?(FM.lm?'👤 הפנים זוהו ✓':'🔎 מחפשת פנים… (צריך שהפנים ייראו בסרטון)'):''; };
+      const st=$('mkStat'); if(st&&window.__vfxErr) st.textContent='⚠ '+window.__vfxErr; else if(st&&mkOn(cur.mk)) st.textContent=FM.st===1?'⏳ טוענת זיהוי פנים (פעם אחת)…':FM.st===3?'❌ זיהוי הפנים לא נטען במכשיר הזה':FM.st===2?(FM.lm?'👤 הפנים זוהו ✓':'🔎 מחפשת פנים… (צריך שהפנים ייראו בסרטון)'):''; };
     { const a0=videoAt(S.playhead)||(()=>{ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); return vc?videoAt(vc.c.start+0.1):null; })(); if(a0){ const u=vurl(a0.b); if(u) vEl(a0.key,u); else vurlAsync(a0.b).then(()=>{ const u2=vurl(a0.b); if(u2) vEl(a0.key,u2); }); } }
     requestAnimationFrame(ploop);
     const empty=nf=>nf.look==='none'&&!vadjOn(nf.adj)&&!mkOn(nf.mk)&&!['beauty','glow','spark','leak','vig','grain','zoom','flash'].some(k=>nf[k]>0);
