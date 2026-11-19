@@ -3191,7 +3191,7 @@ $('allTools').onclick=()=>openSheet(`<h3>🎛 כל המחרוזת</h3>
 const lanesEl=$('lanes'), rulerEl=$('ruler'), contentEl=$('content'), scroller=$('scroller');
 function contentWidth(){ return HEADER + (Math.max(projEnd(),60)+40)*S.pps; }
 let gridHtml='';
-function render(){
+function render(){ try{ linkSync(false); }catch(e){ console.warn('link',e); }
   const W=contentWidth(); contentEl.style.width=W+'px';
   // grid + ruler (tempo-map aware)
   lanesEl.style.backgroundImage='none';
@@ -3370,7 +3370,7 @@ window.addEventListener('pointermove',e=>{
   if(!drag.moved && Math.hypot(dxp,dyp)<6) return;
   drag.moved=true; const f=findClip(drag.id); if(!f) return; const c=f.c, o=drag.o, b=bufs[c.buf], dx=dxp/S.pps;
   if(drag.mode==='mmv'){ let s=S.snap?snapStart(c,o.start+dx):o.start+dx; let d=s-o.start; const mn=Math.min(...drag.grp.map(g=>g.o)); if(mn+d<0) d=-mn; const tis=drag.grp.map(g=>g.ti); let dt=Math.round(dyp/LANE_H); dt=clamp(dt,-Math.min(...tis),S.tracks.length-1-Math.max(...tis)); drag.dTi=dt;
-    drag.grp.forEach(g=>{ const gf=findClip(g.id); if(!gf) return; gf.c.start=g.o+d; if(g.el){ layoutClip(g.el,gf.c,false); g.el.style.transform=`translateY(${dt*LANE_H}px)`; } }); return; }
+    drag.grp.forEach(g=>{ const gf=findClip(g.id); if(!gf) return; gf.c.start=g.o+d; if(g.el){ layoutClip(g.el,gf.c,false); g.el.style.transform=`translateY(${dt*LANE_H}px)`; } }); try{ linkSync(true); }catch(_){} return; }
   if(drag.mode==='mv'){
     let s=snapStart(c,o.start+dx); if(s<0) s=snapStart(c,0)<0?snapStart(c,0)+S.snap*beatSec():snapStart(c,0); if(!S.snap) s=Math.max(0,o.start+dx); c.start=Math.max(0,s);
     const nt=clamp(drag.ti+Math.round(dyp/LANE_H),0,S.tracks.length-1); drag.newTi=nt; drag.el.style.transform=`translateY(${(nt-drag.ti)*LANE_H}px)`;
@@ -3384,7 +3384,7 @@ window.addEventListener('pointermove',e=>{
     let ne=o.start+o.dur+dx; if(S.snap) ne=snapTime(ne); c.dur=clamp(ne-c.start,0.05,b.buffer.duration-c.offset); c.fo=Math.min(o.fo,c.dur-c.fi);
   } else if(drag.mode==='fi'){ c.fi=clamp(o.fi+dx,0,c.dur-c.fo); }
   else if(drag.mode==='fo'){ c.fo=clamp(o.fo-dx,0,c.dur-c.fi); }
-  layoutClip(drag.el,c,drag.mode==='tl'||drag.mode==='tr'); updPanel();
+  layoutClip(drag.el,c,drag.mode==='tl'||drag.mode==='tr'); try{ if(c.link) linkSync(true); }catch(_){} updPanel();
 });
 function endDrag(e){
   if(!drag||(e&&e.pointerId!==drag.pid)) return; const d=drag; drag=null;
@@ -4560,7 +4560,26 @@ function promptClose(){ PR.on=false; PR.run=false; clearTimeout(PR.st); const el
 function promptEdit(thenOpen){ const cur=promptText(); openSheet(`<h3>📜 מילים לפרומפטר</h3><p class="hint">מדביקים או כותבים את המילים. הן יגללו לאט על המסך בזמן ההקלטה והצילום (לא נכנסות לסרטון).</p><textarea id="prTa" style="width:100%;min-height:45vh;font-size:18px;direction:rtl">${esc(cur)}</textarea><div class="row"><button class="pri" id="prOk">✓ שמירה</button>${S.sheet&&S.sheet.text?'<button id="prFromSheet">📝 לקחת מדף האקורדים</button>':''}</div>`,()=>{
   $('prOk').onclick=()=>{ S.prompt=$('prTa').value; S._dirty=true; updDirty(); scheduleSave(); closeSheet(); toast('📜 נשמר'); if(thenOpen||PR.on) promptOpen(); };
   const fs=$('prFromSheet'); if(fs) fs.onclick=()=>{ const keep=S.prompt; S.prompt=''; $('prTa').value=promptText(); S.prompt=keep; }; }); }
-async function camFinish(r,lat){ const V=r.vid; if(!V) return; await new Promise(res=>{ if(V.vmr.state==='inactive') return res(); V.vmr.onstop=res; try{ V.vmr.stop(); }catch(_){ res(); } }); V.stream.getTracks().forEach(t=>t.stop()); try{ if(V.cs) V.cs.getTracks().forEach(t=>t.stop()); }catch(_){} camPreviewOff(V.D);
+/* ===== linked clips: a vocal take and the video filmed with it move/trim/cut/delete together ===== */
+const LINKSIG={};
+function linkGroups(){ const G={}; S.tracks.forEach(t=>t.clips.forEach(c=>{ if(!c.link) return; const b=bufs[c.buf]; const g=G[c.link]||(G[c.link]={a:[],v:[]}); (b&&b.vtype?g.v:g.a).push({t,c}); })); for(const k in G){ G[k].a.sort((x,y)=>x.c.start-y.c.start); G[k].v.sort((x,y)=>x.c.start-y.c.start); } return G; }
+function linkK(g){ const v=g.v.find(x=>x.c.lk!=null); return v?v.c.lk:0; }
+function linkSig(list,k){ return list.map(x=>[x.c.start.toFixed(4),x.c.dur.toFixed(4),(x.c.offset+k).toFixed(4)].join(',')).join('|'); }
+function linkMirror(L,F,k,toVideo){ const want=L.map(x=>({start:x.c.start,dur:x.c.dur,offset:x.c.offset+(toVideo?-k:k)})); const tpl=F[0]; if(!tpl) return [];
+  const out=[]; want.forEach((w,i)=>{ let f=F[i]; if(!f){ const nc=Object.assign({},tpl.c,{id:nid()}); tpl.t.clips.push(nc); f={t:tpl.t,c:nc}; }
+    const bd=(bufs[f.c.buf]&&bufs[f.c.buf].buffer)?bufs[f.c.buf].buffer.duration:1e9; let st=w.start, off=w.offset, du=w.dur; if(off<0){ st-=off; du+=off; off=0; } du=Math.max(0.05,Math.min(du,bd-off)); f.c.start=st; f.c.offset=off; f.c.dur=du; out.push(f); });
+  for(let i=want.length;i<F.length;i++){ const f=F[i]; const ix=f.t.clips.indexOf(f.c); if(ix>=0) f.t.clips.splice(ix,1); } return out; }
+function linkSync(live){ if(!live) linkAuto(); const G=linkGroups(); for(const id in G){ const g=G[id], k=linkK(g), last=LINKSIG[id];
+    const sa=linkSig(g.a,0), sv=linkSig(g.v,k);
+    if(!g.a.length&&!g.v.length){ delete LINKSIG[id]; continue; }
+    if(!g.v.length){ g.a.forEach(x=>delete x.c.link); delete LINKSIG[id]; continue; }
+    if(!g.a.length){ if(last&&last.a){ g.v.forEach(x=>{ const ix=x.t.clips.indexOf(x.c); if(ix>=0) x.t.clips.splice(ix,1); }); } else g.v.forEach(x=>{ delete x.c.link; delete x.c.lk; }); delete LINKSIG[id]; continue; }
+    let lead='a'; if(last&&sa===last.a&&sv!==last.v) lead='v'; if(last&&sa===last.a&&sv===last.v) continue;
+    const out=lead==='a'?linkMirror(g.a,g.v,k,true):linkMirror(g.v,g.a,k,false);
+    if(live) out.forEach(f=>{ const el=document.querySelector('.clip[data-id="'+f.c.id+'"]'); if(el) layoutClip(el,f.c,true); });
+    const G2=linkGroups()[id]; if(G2) LINKSIG[id]={a:linkSig(G2.a,0),v:linkSig(G2.v,k)}; } }
+function linkAuto(){ /* link older pairs filmed together: same start, similar length */ S.tracks.forEach(t=>t.clips.forEach(vc=>{ const b=bufs[vc.buf]; if(!b||!b.vtype||vc.link||!/צילום/.test(b.name||'')) return; let best=null; S.tracks.forEach(t2=>{ if(t2===t) return; t2.clips.forEach(ac=>{ const ab=bufs[ac.buf]; if(!ab||ab.vtype||ac.link) return; if(Math.abs(ac.start-vc.start)<0.03&&Math.abs(ac.dur-vc.dur)<0.6) best=ac; }); }); if(best){ const id='L'+nid(); best.link=id; vc.link=id; vc.lk=best.offset-vc.offset; } })); }
+async function camFinish(r,lat,acl){ const V=r.vid; if(!V) return; await new Promise(res=>{ if(V.vmr.state==='inactive') return res(); V.vmr.onstop=res; try{ V.vmr.stop(); }catch(_){ res(); } }); V.stream.getTracks().forEach(t=>t.stop()); try{ if(V.cs) V.cs.getTracks().forEach(t=>t.stop()); }catch(_){} camPreviewOff(V.D);
   const type=(V.vmr.mimeType||'video/webm').split(';')[0]; const blob=new Blob(V.chunks,{type}); if(!blob.size){ toast('הווידאו לא נשמר'); return; }
   const bytes=await blob.arrayBuffer(); const info=await videoInfo(new File([blob],'cam.'+(type.includes('mp4')?'mp4':'webm'),{type})); let dur=info&&isFinite(info.dur)&&info.dur>0?info.dur:(Date.now()-r.started)/1000;
   const id=nid(); const buf=ac().createBuffer(1,Math.max(1,Math.ceil(dur*44100)),44100); const n=1+allClips().filter(x=>{ const b=bufs[x.c.buf]; return b&&b.vtype&&/צילום/.test(b.name||''); }).length;
@@ -4568,7 +4587,8 @@ async function camFinish(r,lat){ const V=r.vid; if(!V) return; await new Promise
   let t=S.tracks.find(x=>x.name==='🎬 וידאו'); if(!t) t=newTrack('🎬 וידאו');
   const cl=mkClip(b,r.t0); cl.offset=Math.max(0,Math.min(lat-V.dt,dur-0.1)); cl.dur=dur-cl.offset;
   const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch) cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start));
-  t.clips.push(cl); render(); scheduleSave(); toast('🎥 הצילום נוסף לערוץ "🎬 וידאו" ✓',3000); }
+  if(acl&&Math.abs(acl.start-cl.start)<0.05){ const lid='L'+nid(); acl.link=lid; cl.link=lid; cl.lk=acl.offset-cl.offset; cl.start=acl.start; cl.dur=Math.min(cl.dur,acl.dur); }
+  t.clips.push(cl); render(); scheduleSave(); toast('🎥 הצילום נוסף לערוץ "🎬 וידאו" ✓ — מחובר לשירה 🔗',3000); }
 /* ---------- live waveform while recording ---------- */
 let LW=null;
 function startLiveWave(tid,t0){ LW={tid,t0,tiles:[],last:-1}; }
@@ -4614,7 +4634,7 @@ async function stopRec(){ const r=rec; rec=null; if(!r) return; promptClose(); L
   const lat=(r.base-r.recCtxStart)+(c.outputLatency||0)+(c.baseLatency||0)+0.01;
   const id=nid(); const n=1+allClips().filter(x=>bufs[x.c.buf].kind==='vocal').length; const b={id,name:'הקלטה '+n,buffer,kind:'vocal',color:'#c58cff',snapAt:0,bpm:0,beat:beatSec(),first:0,down:0}; b.peaks=computePeaks(buffer); bufs[id]=b; dbPutFile(id,raw,b);
   pushHist(); let t=S.tracks.find(x=>x.id===r.tid)||targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!t){ t=newTrack('שירה'); t.vocal=true; } const cl=mkClip(b,r.t0); cl.offset=Math.min(Math.max(0,lat),buffer.duration-0.1); cl.dur=buffer.duration-cl.offset;
-  { const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch){ cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start)); cl.fi=Math.max(cl.fi||0,0.01); cl.fo=Math.max(cl.fo||0,0.015); } } t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if(r.vid) camFinish(r,lat); if($('rcGo')) $('rcGo').textContent='🔴 הקלטה'; if($('rcClean')&&$('rcClean').checked) setTimeout(()=>cleanClip(cl,true),600); }
+  { const L=r.punch?r.punch.l:r.tStart; if(cl.start<L){ const cut=Math.min(L-cl.start,cl.dur-0.05); cl.start+=cut; cl.offset+=cut; cl.dur-=cut; } if(r.punch){ cl.dur=Math.max(0.05,Math.min(cl.dur,r.punch.r-cl.start)); cl.fi=Math.max(cl.fi||0,0.01); cl.fo=Math.max(cl.fo||0,0.015); } } t.clips.push(cl); S.sel=cl.id; render(); toast('ההקלטה נוספה לערוץ "'+t.name+'" ✓',3000); if(r.vid) camFinish(r,lat,cl); if($('rcGo')) $('rcGo').textContent='🔴 הקלטה'; if($('rcClean')&&$('rcClean').checked) setTimeout(()=>cleanClip(cl,true),600); }
 
 /* ---------- range (locators) ---------- */
 function setRange(l,r){ if(l==null){ S.range=null; } else { if(r<l){ const t=l; l=r; r=t; } if(r-l<0.05){ S.range=null; } else S.range={l,r}; } render(); updRangeBar(); }
@@ -5126,7 +5146,7 @@ async function applyProject(p,getRaw){
   p.tracks.forEach((t,ti)=>{ t.clips=t.clips.filter(c=>{ if(bufs[c.buf]) return true; const d=(p.derived||[]).find(x=>x.id===c.buf); const src=d?d.src.id:c.buf; S._missing.push({ti,tid:t.id,c,src,name:((p.metas||{})[src]||{}).name||'קטע',why:why[c.buf]||why[src]||'לא נטען'}); return false; }); });
   setTimeout(()=>{ if(S._missing.length) showMissing(); releaseUnusedBases(); updMem(); },300);
   if(p.notes&&p.notes.trim()&&!NOTES.includes(p.notes.trim())){ NOTES=NOTES.trim()?NOTES.trim()+'\n\n— מהפרויקט —\n'+p.notes:p.notes; saveNotes(); }
-  S.tracks=p.tracks; S.tracks.forEach(t=>{ if(t.fx&&t.fx.tune) t.fx.tune.on=false; }); S.yt=p.yt||null; S.vidfx=p.vidfx||null; S.prompt=p.prompt||''; S.bpb=p.bpb||4; snapOpts(); S.bpm=p.bpm||S.bpm; S.tmap=p.tmap||[]; S.marks=p.marks||[]; S.xf=p.xf; S.sheet=p.sheet||null; $('bpm').value=fmtBpm(S.bpm); S.playhead=p.playhead||0;
+  S.tracks=p.tracks; S.tracks.forEach(t=>{ if(t.fx&&t.fx.tune) t.fx.tune.on=false; }); setTimeout(()=>{ if(S.snap){ lastSnap=S.snap; S.snap=0; try{ $('snap').value='0'; updSnapQ(); }catch(_){} } },0); S.yt=p.yt||null; S.vidfx=p.vidfx||null; S.prompt=p.prompt||''; S.bpb=p.bpb||4; snapOpts(); S.bpm=p.bpm||S.bpm; S.tmap=p.tmap||[]; S.marks=p.marks||[]; S.xf=p.xf; S.sheet=p.sheet||null; $('bpm').value=fmtBpm(S.bpm); S.playhead=p.playhead||0;
   render(); toast(S._missing&&S._missing.length?'⚠️ הפרויקט נטען חלקית':'הפרויקט נטען ✓',2500);
 }
 /* ---------- missing clips: warn, keep, let her fix ---------- */
