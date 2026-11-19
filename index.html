@@ -4504,15 +4504,18 @@ async function cleanClip(c,auto){ if(IN_ART||!window.__HOSTED){ toast('הניק�
   finally{ cleaning=false; } }
 
 /* ---------- 🎥 film while recording (portrait, no zoom) ---------- */
-async function camOpen(){ let st; try{ st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:1920},height:{ideal:1920},frameRate:{ideal:30},resizeMode:'none'}}); }catch(_){ st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user'}}); }
+async function camOpen(){ let st=null; const base={facingMode:'user',frameRate:{ideal:30}};
+  for(const v of [{width:{ideal:1920},height:{ideal:1080},aspectRatio:{ideal:16/9},resizeMode:'none'},{width:{ideal:1920},height:{ideal:1080}},{}]){ try{ st=await navigator.mediaDevices.getUserMedia({audio:false,video:Object.assign({},base,v)}); break; }catch(_){} }
+  if(!st) st=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
   const tr=st.getVideoTracks()[0]; try{ const cap=tr.getCapabilities?tr.getCapabilities():{}; if(cap.zoom) await tr.applyConstraints({advanced:[{zoom:cap.zoom.min}]}); }catch(_){}
   try{ await tr.applyConstraints({frameRate:{min:24,ideal:30}}); }catch(_){}
   return st; }
 /* the camera frame is drawn into a portrait canvas (whatever the camera gives), and the canvas is what gets recorded */
-function camCrop(w,h){ if(h>=w) return {sx:0,sy:0,sw:w,sh:h}; const sw=Math.round(h*3/4); return {sx:Math.round((w-sw)/2),sy:0,sw,sh:h}; }
+/* always a 9:16 story frame (like a normal selfie story) */
+function camCrop(w,h){ const R=9/16; if(w/h>R){ const sw=Math.round(h*R); return {sx:Math.round((w-sw)/2),sy:0,sw,sh:h}; } const sh=Math.round(w/R); return {sx:0,sy:Math.round((h-sh)/2),sw:w,sh}; }
 async function camPreview(st){ let v=$('camSrc'); if(!v){ v=document.createElement('video'); v.id='camSrc'; v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.autoplay=true; document.body.appendChild(v); }
   v.className=''; v.srcObject=st; await v.play().catch(()=>{}); await new Promise(res=>{ if(v.videoWidth) return res(); const t0=Date.now(); const k=()=>{ if(v.videoWidth||Date.now()-t0>4000) res(); else setTimeout(k,50); }; k(); });
-  const D={on:true,v,direct:!v.videoWidth||v.videoHeight>=v.videoWidth};
+  const D={on:true,v,direct:!v.videoWidth||Math.abs(v.videoWidth/v.videoHeight-9/16)<0.02};
   if(D.direct){ v.className='camShow'+(camSmall()?' small':''); camTapSize(v); toast('👆 נגיעה בתמונה = קטן / גדול',2500); return D; } /* camera already portrait: record it as is, full quality */
   let cv=$('camPrev'); if(!cv){ cv=document.createElement('canvas'); cv.id='camPrev'; document.body.appendChild(cv); }
   const c0=camCrop(v.videoWidth,v.videoHeight); const sc=Math.min(1,1920/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false; D.cv=cv; cv.classList.toggle('small',camSmall()); camTapSize(cv); toast('👆 נגיעה בתמונה = קטן / גדול',2500);
