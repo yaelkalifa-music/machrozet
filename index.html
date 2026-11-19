@@ -4791,16 +4791,18 @@ function vglInit(){ if(VGL!==null) return VGL; try{ const c=document.createEleme
   const vs='attribute vec2 p;varying vec2 v;void main(){v=p*.5+.5;gl_Position=vec4(p,0.,1.);}';
   const fs=`precision highp float;uniform sampler2D u;uniform vec2 px;uniform vec4 rc;uniform float br,ct,sa,vi,wa,ti,hi,sh,fa,sp,bty,glw,vig,grn,fls,tm;uniform vec4 shT,hiT;varying vec2 v;
 vec3 T(vec2 q){return texture2D(u,q).rgb;}
-float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+float hash(vec2 p){p=fract(p*vec2(.1031,.1030));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}
 void main(){ vec2 q=(v-rc.xy)/rc.zw; if(q.x<0.||q.y<0.||q.x>1.||q.y>1.){gl_FragColor=vec4(0.,0.,0.,1.);return;}
  vec3 c=T(q);
  if(bty>0.){ float Y=dot(c,vec3(.299,.587,.114)); float cb=(c.b-Y)*.564+.5, cr=(c.r-Y)*.713+.5;
    float skin=smoothstep(.0,.06,cr-.52)*(1.-smoothstep(.0,.08,cr-.68))*smoothstep(.0,.06,.53-cb)*(1.-smoothstep(.0,.06,.33-cb))*smoothstep(.12,.25,Y);
-   if(skin>.01){ vec2 r=px*(1.5+bty*3.5); vec3 acc=c; float ws=1.;
-     for(int i=0;i<12;i++){ float a=float(i)*.5236; vec2 d=vec2(cos(a),sin(a)); for(int k=1;k<=2;k++){ vec3 s=T(q+d*r*float(k)); vec3 e=s-c; float w=exp(-dot(e,e)*90.); acc+=s*w; ws+=w; } }
-     vec3 sm=acc/ws; c=mix(c,sm,clamp(bty*skin*1.1,0.,.92)); c+=skin*bty*.025; } }
+   if(skin>.01){ vec2 r=px*(1.5+bty*3.5); vec3 acc=c; float ws=1.; vec3 s; vec3 e; float w;
+     #define TAP(dx,dy) s=T(q+vec2(dx,dy)*r); e=s-c; w=clamp(1.-dot(e,e)*14.,0.,1.); acc+=s*w; ws+=w;
+     TAP(1.,0.) TAP(-1.,0.) TAP(0.,1.) TAP(0.,-1.) TAP(.7,.7) TAP(-.7,.7) TAP(.7,-.7) TAP(-.7,-.7)
+     TAP(2.,0.) TAP(-2.,0.) TAP(0.,2.) TAP(0.,-2.) TAP(1.4,1.4) TAP(-1.4,1.4) TAP(1.4,-1.4) TAP(-1.4,-1.4)
+     vec3 sm=clamp(acc/max(ws,1.),0.,1.); c=mix(c,sm,clamp(bty*skin*1.1,0.,.92)); c+=skin*bty*.025; } }
  if(sp>0.){ vec3 b=(T(q+vec2(px.x,0.))+T(q-vec2(px.x,0.))+T(q+vec2(0.,px.y))+T(q-vec2(0.,px.y)))*.25; c+=(c-b)*sp*2.2; }
- if(glw>0.){ vec3 h=vec3(0.); for(int i=0;i<8;i++){ float a=float(i)*.7854; h+=max(T(q+vec2(cos(a),sin(a))*px*14.)-.62,0.); } h/=8.; c=1.-(1.-c)*(1.-h*glw*2.4); }
+ if(glw>0.){ vec2 g=px*14.; vec3 h=max(T(q+vec2(g.x,0.))-.62,0.)+max(T(q-vec2(g.x,0.))-.62,0.)+max(T(q+vec2(0.,g.y))-.62,0.)+max(T(q-vec2(0.,g.y))-.62,0.)+max(T(q+g*.7)-.62,0.)+max(T(q-g*.7)-.62,0.)+max(T(q+vec2(g.x,-g.y)*.7)-.62,0.)+max(T(q+vec2(-g.x,g.y)*.7)-.62,0.); h/=8.; c=1.-(1.-clamp(c,0.,1.))*(1.-clamp(h*glw*2.4,0.,1.)); }
  c+=br*.22; c=(c-.5)*(1.+ct*.9)+.5;
  float l=dot(c,vec3(.299,.587,.114)); c+=sh*.28*(1.-smoothstep(0.,.55,l)); c+=hi*.28*smoothstep(.45,1.,l);
  l=dot(c,vec3(.299,.587,.114)); c=mix(vec3(l),c,1.+sa);
@@ -4809,7 +4811,7 @@ void main(){ vec2 q=(v-rc.xy)/rc.zw; if(q.x<0.||q.y<0.||q.x>1.||q.y>1.){gl_FragC
  l=clamp(dot(c,vec3(.299,.587,.114)),0.,1.); c=mix(c,c+(shT.rgb-.5)*.6,shT.a*(1.-l)*1.6); c=mix(c,c+(hiT.rgb-.5)*.6,hiT.a*l*1.6);
  c=c*(1.-fa*.22)+fa*.13;
  if(vig>0.){ vec2 d=v-.5; c*=1.-vig*.8*smoothstep(.3,.75,length(d*vec2(1.,1.15))); }
- if(grn>0.){ c+=(hash(v*vec2(1031.,1777.)+tm)-.5)*grn*.14; }
+ if(grn>0.){ c+=(hash(gl_FragCoord.xy+tm*37.)-.5)*grn*.14; }
  if(fls>0.){ c=1.-(1.-c)*(1.-fls); }
  gl_FragColor=vec4(clamp(c,0.,1.),1.);}`;
   const shd=(t,src)=>{ const o=gl.createShader(t); gl.shaderSource(o,src); gl.compileShader(o); if(!gl.getShaderParameter(o,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
@@ -4853,15 +4855,17 @@ function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!
   if(mk&&FM.sm){ g.save(); g.translate((W-w*z)/2,(H-h*z)/2); drawMakeup(g,w*z,h*z,FM.sm,M); g.restore(); }
   if(F.leak>0){ g.save(); g.globalCompositeOperation='screen'; const a=tt*0.35; for(const [cx,cy,col,k] of [[0.15+0.25*Math.sin(a),0.2+0.1*Math.cos(a*1.3),'255,140,60',1],[0.85+0.15*Math.cos(a*0.8),0.75+0.15*Math.sin(a*1.1),'255,80,150',0.8]]){ const R=Math.max(W,H)*0.6; const gr=g.createRadialGradient(cx*W,cy*H,0,cx*W,cy*H,R); gr.addColorStop(0,`rgba(${col},${0.5*F.leak*k})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(0,0,W,H); } g.restore(); }
   if(F.spark>0){ g.save(); g.globalCompositeOperation='lighter'; const N=Math.round(26*F.spark); for(let i=0;i<N;i++){ const sd=i*12.9898; const px=((Math.sin(sd)*43758.5453)%1+1)%1, sp=0.04+(((Math.sin(sd*1.7)*24634.6345)%1+1)%1)*0.08; const py=1-((tt*sp+((Math.sin(sd*2.3)*9137.31)%1+1)%1)%1); const tw=0.5+0.5*Math.sin(tt*4+i*1.3); const s=(2+((i*7)%5))*Math.min(W,H)/400*(0.6+tw*0.6); const X=px*W, Y=py*H; const gr=g.createRadialGradient(X,Y,0,X,Y,s*4); gr.addColorStop(0,`rgba(255,240,200,${0.9*tw})`); gr.addColorStop(1,'rgba(255,200,120,0)'); g.fillStyle=gr; g.fillRect(X-s*4,Y-s*4,s*8,s*8); g.strokeStyle=`rgba(255,250,230,${0.8*tw})`; g.lineWidth=Math.max(1,s/3); g.beginPath(); g.moveTo(X-s*3,Y); g.lineTo(X+s*3,Y); g.moveTo(X,Y-s*3); g.lineTo(X,Y+s*3); g.stroke(); } g.restore(); } }
+let TESTFX=null;
 async function vfxDiag(){ const out=[]; const add=x=>{ out.push(x); const el=$('vfxDiagOut'); if(el) el.textContent=out.join('\n'); };
   try{ const G=vglInit(); if(!G){ add('GL: none'); return; } const gl=G.gl; const dbg=gl.getExtension('WEBGL_debug_renderer_info'); add('GPU: '+(dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)));
     const hp=gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT); add('highp: '+(hp?hp.precision:'-')+' lost:'+VGLlost+' err:'+(window.__vfxErr||'-'));
     const test=async(label)=>{ const a=videoAt(S.playhead)||(()=>{ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); return vc?videoAt(vc.c.start+0.1):null; })(); const v=a&&VPOOL[a.key]; if(!v||!v.videoWidth){ add(label+': no video'); return; }
       const W=180,H=Math.round(180*v.videoHeight/v.videoWidth); const c1=document.createElement('canvas'); c1.width=W; c1.height=H; const g1=c1.getContext('2d'); g1.drawImage(v,0,0,W,H); const d1=g1.getImageData(0,0,W,H).data;
-      const keep=S.vidfx; S.vidfx={look:'none',adj:{br:0.0001}}; const c2=document.createElement('canvas'); c2.width=W; c2.height=H; const g2=c2.getContext('2d'); drawFit(g2,v,W,H,S.playhead,true); S.vidfx=keep; const d2=g2.getImageData(0,0,W,H).data;
+      const keep=S.vidfx; S.vidfx=TESTFX||{look:'none',adj:{br:0.0001}}; const c2=document.createElement('canvas'); c2.width=W; c2.height=H; const g2=c2.getContext('2d'); drawFit(g2,v,W,H,S.playhead,true); S.vidfx=keep; const d2=g2.getImageData(0,0,W,H).data;
       let sum=0,mx=0; for(let i=0;i<d1.length;i+=4){ const e=Math.abs(d1[i]-d2[i])+Math.abs(d1[i+1]-d2[i+1])+Math.abs(d1[i+2]-d2[i+2]); sum+=e; if(e>mx) mx=e; } const n=d1.length/4; const m=i=>`${d1[i]},${d1[i+1]},${d1[i+2]}→${d2[i]},${d2[i+1]},${d2[i+2]}`; const ci=((H>>1)*W+(W>>1))*4;
       add(label+': diff avg '+(sum/n/3).toFixed(1)+' max '+mx+' center '+m(ci)+' lost:'+VGLlost+' err:'+(window.__vfxErr||'-')); };
     await test('A no-face');
+    for(const [nm,fx] of [['beauty',{look:'none',beauty:.5}],['glow',{look:'none',glow:.5}],['sharp',{look:'none',adj:{sp:.5}}],['vivid',{look:'vivid'}],['warm',{look:'warm'}],['grain',{look:'none',grain:.5}],['vig',{look:'none',vig:.5}]]){ const keep=S.vidfx; TESTFX=fx; await test('fx '+nm); TESTFX=null; S.vidfx=keep; }
     add('loading face…'); try{ await fmLoad(); add('face: ok'); }catch(e){ add('face: FAIL '+e.message); }
     const a=videoAt(S.playhead); const v=a&&VPOOL[a.key]; if(v&&v.videoWidth&&FM.st===2){ await fmDetectNow(fmDetCan(v)); add('landmarks: '+(FM.lm?FM.lm.length:0)); }
     await new Promise(r=>setTimeout(r,300)); await test('B after-face');
