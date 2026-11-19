@@ -118,10 +118,11 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .knwc{position:absolute;top:0;left:92px;height:34px;display:flex;align-items:center;gap:3px;z-index:30;background:#2a2133;border-radius:10px;padding-right:4px}
 .knwc .knw{width:38px;height:34px;min-height:0!important;padding:0!important;font-size:14px;border-radius:10px;background:#3a2a6a;border:1px solid #a98cff}
 .knwc .knwl{min-width:26px;text-align:center;font-weight:700;color:var(--gold);font-size:15px}
-#camPrev{position:fixed;left:10px;bottom:72px;width:110px;height:auto;border-radius:12px;border:2px solid #ff4d6d;z-index:70;transform:scaleX(-1);background:#000;box-shadow:0 6px 20px #000a}
+#camPrev{position:fixed;left:50%;top:58px;height:min(64vh,calc(100vh - 150px));width:auto;max-width:92vw;transform:translateX(-50%) scaleX(-1);border-radius:16px;border:3px solid #ff4d6d;z-index:70;background:#000;box-shadow:0 8px 30px #000c;touch-action:none}
 #camPrev[hidden]{display:none}
 #camSrc{position:fixed;left:-9999px;top:0;width:4px;height:4px;opacity:0;pointer-events:none}
-#camSrc.camShow{left:10px;top:auto;bottom:72px;width:110px;height:auto;opacity:1;border-radius:12px;border:2px solid #ff4d6d;z-index:70;transform:scaleX(-1);background:#000;box-shadow:0 6px 20px #000a}
+#camSrc.camShow{left:50%;top:58px;height:min(64vh,calc(100vh - 150px));width:auto;max-width:92vw;opacity:1;pointer-events:auto;transform:translateX(-50%) scaleX(-1);border-radius:16px;border:3px solid #ff4d6d;z-index:70;background:#000;box-shadow:0 8px 30px #000c;object-fit:contain}
+#camPrev.small,#camSrc.camShow.small{left:10px;top:auto;bottom:72px;height:auto;width:110px;transform:scaleX(-1)}
 #ruler{position:sticky;top:0;height:28px;background:var(--bg2);border-bottom:1px solid var(--line);z-index:5;cursor:pointer;touch-action:none}
 #ruler .rl{position:absolute;top:0;height:100%;border-left:1px solid #5a4a66;padding-left:3px;font-size:11px;color:var(--dim);line-height:28px;pointer-events:none}
 #ruler .rcorner{position:sticky;left:0;width:var(--hdr);height:100%;background:var(--bg2);z-index:2;font-size:11px;color:var(--dim);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--line)}
@@ -4476,19 +4477,22 @@ async function cleanClip(c,auto){ if(IN_ART||!window.__HOSTED){ toast('הניק�
 /* ---------- 🎥 film while recording (portrait, no zoom) ---------- */
 async function camOpen(){ let st; try{ st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:1920},height:{ideal:1920},frameRate:{ideal:30},resizeMode:'none'}}); }catch(_){ st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user'}}); }
   const tr=st.getVideoTracks()[0]; try{ const cap=tr.getCapabilities?tr.getCapabilities():{}; if(cap.zoom) await tr.applyConstraints({advanced:[{zoom:cap.zoom.min}]}); }catch(_){}
+  try{ await tr.applyConstraints({frameRate:{min:24,ideal:30}}); }catch(_){}
   return st; }
 /* the camera frame is drawn into a portrait canvas (whatever the camera gives), and the canvas is what gets recorded */
 function camCrop(w,h){ if(h>=w) return {sx:0,sy:0,sw:w,sh:h}; const sw=Math.round(h*3/4); return {sx:Math.round((w-sw)/2),sy:0,sw,sh:h}; }
 async function camPreview(st){ let v=$('camSrc'); if(!v){ v=document.createElement('video'); v.id='camSrc'; v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.autoplay=true; document.body.appendChild(v); }
   v.className=''; v.srcObject=st; await v.play().catch(()=>{}); await new Promise(res=>{ if(v.videoWidth) return res(); const t0=Date.now(); const k=()=>{ if(v.videoWidth||Date.now()-t0>4000) res(); else setTimeout(k,50); }; k(); });
   const D={on:true,v,direct:!v.videoWidth||v.videoHeight>=v.videoWidth};
-  if(D.direct){ v.className='camShow'; return D; } /* camera already portrait: record it as is, full quality */
+  if(D.direct){ v.className='camShow'+(camSmall()?' small':''); camTapSize(v); toast('👆 נגיעה בתמונה = קטן / גדול',2500); return D; } /* camera already portrait: record it as is, full quality */
   let cv=$('camPrev'); if(!cv){ cv=document.createElement('canvas'); cv.id='camPrev'; document.body.appendChild(cv); }
-  const c0=camCrop(v.videoWidth,v.videoHeight); const sc=Math.min(1,1920/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false; D.cv=cv;
+  const c0=camCrop(v.videoWidth,v.videoHeight); const sc=Math.min(1,1920/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false; D.cv=cv; cv.classList.toggle('small',camSmall()); camTapSize(cv); toast('👆 נגיעה בתמונה = קטן / גדול',2500);
   const g=cv.getContext('2d',{alpha:false}); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
   const draw=()=>{ if(!D.on) return; if(v.videoWidth){ const c=camCrop(v.videoWidth,v.videoHeight); try{ g.drawImage(v,c.sx,c.sy,c.sw,c.sh,0,0,cv.width,cv.height); }catch(_){} if(D.track&&D.track.requestFrame) D.track.requestFrame(); } };
   D.draw=draw; if(v.requestVideoFrameCallback){ const loop=()=>{ if(!D.on) return; draw(); v.requestVideoFrameCallback(loop); }; v.requestVideoFrameCallback(loop); } else { D.timer=setInterval(draw,1000/30); }
   draw(); return D; }
+function camTapSize(el){ if(el._tap) return; el._tap=1; el.addEventListener('click',()=>{ const sm=!el.classList.contains('small'); el.classList.toggle('small',sm); try{ localStorage.setItem('machrozet_camsmall',sm?'1':'0'); }catch(_){} }); }
+function camSmall(){ try{ return localStorage.getItem('machrozet_camsmall')==='1'; }catch(_){ return false; } }
 function camPreviewOff(D){ if(D){ D.on=false; clearInterval(D.timer); } const cv=$('camPrev'); if(cv) cv.hidden=true; const v=$('camSrc'); if(v){ v.srcObject=null; v.className=''; } }
 function camRecorder(st,D){ const types=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']; const mt=types.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(_){ return false; } })||'';
   let cs=st; if(!D.direct){ const rf=!!(window.CanvasCaptureMediaStreamTrack&&CanvasCaptureMediaStreamTrack.prototype.requestFrame); cs=D.cv.captureStream(rf?0:30); D.track=cs.getVideoTracks()[0]; }
@@ -4713,7 +4717,11 @@ function hasVideo(){ return allClips().some(x=>{ const b=bufs[x.c.buf]; return b
 function videoAt(t){ let best=null; S.tracks.forEach((tr,ti)=>{ const anySolo=S.tracks.some(q=>q.solo); if(tr.mute||(anySolo&&!tr.solo)) return; tr.clips.forEach(c=>{ const b=bufs[c.buf]; if(!b||!baseOf(b)||!baseOf(b).vtype) return; if(t<c.start||t>=c.start+c.dur) return; best={c,b,vt:(c.offset+(t-c.start))*(b.src?b.src.tempo||1:1),rate:b.src?b.src.tempo||1:1,key:baseOf(b).id}; }); }); return best; }
 const VPOOL={};
 function vEl(key,url){ let v=VPOOL[key]; if(!v){ v=document.createElement('video'); v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto'; v.src=url; VPOOL[key]=v; } return v; }
-function syncV(v,want,playing,rate){ if(!v) return; try{ if(v.readyState<1) return; if(Math.abs(v.currentTime-want)>(playing?0.3:0.04)) v.currentTime=Math.min(want,(v.duration||want)-0.01); v.playbackRate=rate; if(playing&&v.paused) v.play().catch(()=>{}); if(!playing&&!v.paused) v.pause(); }catch(_){} }
+function syncV(v,want,playing,rate){ if(!v) return; try{ if(v.readyState<1||v.seeking) return; const dur=v.duration||want; const d=v.currentTime-want;
+  if(!playing){ if(Math.abs(d)>0.04) v.currentTime=Math.min(want,dur-0.01); if(v.playbackRate!==rate) v.playbackRate=rate; if(!v.paused) v.pause(); return; }
+  const now=performance.now(); if(Math.abs(d)>0.6&&(!v._sk||now-v._sk>1200)){ v._sk=now; v.currentTime=Math.min(want+0.08,dur-0.01); v.playbackRate=rate; }
+  else { const adj=Math.abs(d)<0.04?1:Math.max(0.92,Math.min(1.08,1-d*0.4)); const pr=rate*adj; if(Math.abs(v.playbackRate-pr)>0.01) v.playbackRate=pr; }
+  if(v.paused) v.play().catch(()=>{}); }catch(_){} }
 function drawFit(g,v,W,H){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!v||!v.videoWidth) return; const r=Math.min(W/v.videoWidth,H/v.videoHeight), w=v.videoWidth*r, h=v.videoHeight*r; try{ g.drawImage(v,(W-w)/2,(H-h)/2,w,h); }catch(_){} }
 // floating preview
 (function(){ const box=document.createElement('div'); box.id='vidBox'; box.innerHTML='<div class="vbar"><span>🎬 וידאו · לגרור מכאן</span><button id="vBig" title="גדול/קטן">⤢</button><button id="vClose" title="סגירה">✕</button></div><canvas id="vCan" width="640" height="360"></canvas>'; document.body.appendChild(box);
