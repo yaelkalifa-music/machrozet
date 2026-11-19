@@ -118,7 +118,7 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .knwc{position:absolute;top:0;left:92px;height:34px;display:flex;align-items:center;gap:3px;z-index:30;background:#2a2133;border-radius:10px;padding-right:4px}
 .knwc .knw{width:38px;height:34px;min-height:0!important;padding:0!important;font-size:14px;border-radius:10px;background:#3a2a6a;border:1px solid #a98cff}
 .knwc .knwl{min-width:26px;text-align:center;font-weight:700;color:var(--gold);font-size:15px}
-#camPrev{position:fixed;left:10px;bottom:72px;width:110px;aspect-ratio:9/16;object-fit:cover;border-radius:12px;border:2px solid #ff4d6d;z-index:70;transform:scaleX(-1);background:#000;box-shadow:0 6px 20px #000a}
+#camPrev{position:fixed;left:10px;bottom:72px;width:110px;height:auto;border-radius:12px;border:2px solid #ff4d6d;z-index:70;transform:scaleX(-1);background:#000;box-shadow:0 6px 20px #000a}
 #camPrev[hidden]{display:none}
 #ruler{position:sticky;top:0;height:28px;background:var(--bg2);border-bottom:1px solid var(--line);z-index:5;cursor:pointer;touch-action:none}
 #ruler .rl{position:absolute;top:0;height:100%;border-left:1px solid #5a4a66;padding-left:3px;font-size:11px;color:var(--dim);line-height:28px;pointer-events:none}
@@ -4472,13 +4472,21 @@ async function cleanClip(c,auto){ if(IN_ART||!window.__HOSTED){ toast('הניק�
   finally{ cleaning=false; } }
 
 /* ---------- 🎥 film while recording (portrait, no zoom) ---------- */
-async function camOpen(){ const st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:720},height:{ideal:1280},aspectRatio:{ideal:9/16},frameRate:{ideal:30}}});
+async function camOpen(){ let st; try{ st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:1920},height:{ideal:1920},frameRate:{ideal:30},resizeMode:'none'}}); }catch(_){ st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user'}}); }
   const tr=st.getVideoTracks()[0]; try{ const cap=tr.getCapabilities?tr.getCapabilities():{}; if(cap.zoom) await tr.applyConstraints({advanced:[{zoom:cap.zoom.min}]}); }catch(_){}
   return st; }
-function camPreview(st){ let v=$('camPrev'); if(!v){ v=document.createElement('video'); v.id='camPrev'; v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.autoplay=true; document.body.appendChild(v); } v.srcObject=st; v.hidden=false; v.play().catch(()=>{}); }
-function camPreviewOff(){ const v=$('camPrev'); if(v){ v.srcObject=null; v.hidden=true; } }
-function camRecorder(st){ const types=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']; const mt=types.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(_){ return false; } })||''; const vmr=new MediaRecorder(st,mt?{mimeType:mt,videoBitsPerSecond:5000000}:{}); const chunks=[]; vmr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); }; return {vmr,chunks,stream:st}; }
-async function camFinish(r,lat){ const V=r.vid; if(!V) return; await new Promise(res=>{ if(V.vmr.state==='inactive') return res(); V.vmr.onstop=res; try{ V.vmr.stop(); }catch(_){ res(); } }); V.stream.getTracks().forEach(t=>t.stop()); camPreviewOff();
+/* the camera frame is drawn into a portrait canvas (whatever the camera gives), and the canvas is what gets recorded */
+function camCrop(w,h){ if(h>=w) return {sx:0,sy:0,sw:w,sh:h}; const sw=Math.round(h*3/4); return {sx:Math.round((w-sw)/2),sy:0,sw,sh:h}; }
+async function camPreview(st){ let v=$('camSrc'); if(!v){ v=document.createElement('video'); v.id='camSrc'; v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.autoplay=true; v.style.cssText='position:fixed;left:-9999px;top:0;width:4px;height:4px;opacity:0;pointer-events:none'; document.body.appendChild(v); }
+  v.srcObject=st; await v.play().catch(()=>{}); await new Promise(res=>{ if(v.videoWidth) return res(); const t0=Date.now(); const k=()=>{ if(v.videoWidth||Date.now()-t0>4000) res(); else setTimeout(k,50); }; k(); });
+  let cv=$('camPrev'); if(!cv){ cv=document.createElement('canvas'); cv.id='camPrev'; document.body.appendChild(cv); }
+  const c0=camCrop(v.videoWidth||720,v.videoHeight||1280); const sc=Math.min(1,1280/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false;
+  const g=cv.getContext('2d'); const D={on:true,v,cv};
+  const draw=()=>{ if(!D.on) return; if(v.videoWidth){ const c=camCrop(v.videoWidth,v.videoHeight); g.fillStyle='#000'; g.fillRect(0,0,cv.width,cv.height); const r=Math.min(cv.width/c.sw,cv.height/c.sh), w=c.sw*r, h=c.sh*r; try{ g.drawImage(v,c.sx,c.sy,c.sw,c.sh,(cv.width-w)/2,(cv.height-h)/2,w,h); }catch(_){} } };
+  D.timer=setInterval(draw,1000/30); draw(); return D; }
+function camPreviewOff(D){ if(D){ D.on=false; clearInterval(D.timer); } const cv=$('camPrev'); if(cv) cv.hidden=true; const v=$('camSrc'); if(v) v.srcObject=null; }
+function camRecorder(st,D){ const types=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm']; const mt=types.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(_){ return false; } })||''; const cs=D.cv.captureStream(30); const vmr=new MediaRecorder(cs,mt?{mimeType:mt,videoBitsPerSecond:5000000}:{}); const chunks=[]; vmr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); }; return {vmr,chunks,stream:st,cs,D}; }
+async function camFinish(r,lat){ const V=r.vid; if(!V) return; await new Promise(res=>{ if(V.vmr.state==='inactive') return res(); V.vmr.onstop=res; try{ V.vmr.stop(); }catch(_){ res(); } }); V.stream.getTracks().forEach(t=>t.stop()); try{ V.cs.getTracks().forEach(t=>t.stop()); }catch(_){} camPreviewOff(V.D);
   const type=(V.vmr.mimeType||'video/webm').split(';')[0]; const blob=new Blob(V.chunks,{type}); if(!blob.size){ toast('הווידאו לא נשמר'); return; }
   const bytes=await blob.arrayBuffer(); const info=await videoInfo(new File([blob],'cam.'+(type.includes('mp4')?'mp4':'webm'),{type})); let dur=info&&isFinite(info.dur)&&info.dur>0?info.dur:(Date.now()-r.started)/1000;
   const id=nid(); const buf=ac().createBuffer(1,Math.max(1,Math.ceil(dur*44100)),44100); const n=1+allClips().filter(x=>{ const b=bufs[x.c.buf]; return b&&b.vtype&&/צילום/.test(b.name||''); }).length;
@@ -4519,7 +4527,7 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   const mr=new MediaRecorder(stream,mime?{mimeType:mime}:undefined); const chunks=[]; mr.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
   const count=$('rcCount')&&$('rcCount').checked; const punch=!!($('rcPunch')&&$('rcPunch').checked&&S.range); if(punch) S.playhead=S.range.l; const t0=S.playhead; let from=t0;
   let rt=targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!rt){ pushHist(); rt=newTrack('שירה'); rt.vocal=true; render(); } window.__recMute=rt.id;
-  let V=null; if($('rcVid')&&$('rcVid').checked){ try{ const cst=await camOpen(); camPreview(cst); V=camRecorder(cst); }catch(e){ console.error(e); toast('לא הצלחתי לפתוח את המצלמה — מקליטה רק קול',4000); } }
+  let V=null; if($('rcVid')&&$('rcVid').checked){ try{ const cst=await camOpen(); const D=await camPreview(cst); V=camRecorder(cst,D); }catch(e){ console.error(e); toast('לא הצלחתי לפתוח את המצלמה — מקליטה רק קול',4000); } }
   if(count){ from=Math.max(0,t0-barSec(t0)); } stopPlay(); S.playhead=from; const wasMetro=S.metro; if(count) S.metro=true;
   const aP=performance.now(); mr.start(); if(V){ V.vmr.start(1000); V.dt=(performance.now()-aP)/1000; } const recCtxStart=c.currentTime; startPlay(); if(count){ setTimeout(()=>{ if(rec&&!wasMetro){ S.metro=false; metroStop(); } },(t0-from)*1000+200); }
   rec={vid:V,stream,mr,chunks,t0:from,tStart:t0,tid:rt.id,punch:punch?{l:S.range.l,r:S.range.r}:null,recCtxStart,base:play.base,mon,src,an,started:Date.now()};
