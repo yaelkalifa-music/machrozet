@@ -4641,6 +4641,73 @@ function vaApply(x, sr, A, notes) {
 }
 if (typeof module !== 'undefined') module.exports = { vaAnalyze, vaNotes, vaShiftCurve, vaRender, vaApply };
 
+/* movMux — tiny QuickTime (.mov) writer: H.264 video (from WebCodecs, avcC) + 16-bit PCM 'sowt' audio.
+   Used on iPhone/iPad: no audio encoder needed, so the sound can't get lost. */
+function movMux(o){ // o={W,H,avcC:Uint8Array, vs:[{data:Uint8Array,ts:us,key:bool}], L:Float32Array, R:Float32Array, sr, fps}
+  const W=o.W,H=o.H,sr=o.sr,fps=o.fps||30, vs=o.vs, NA=o.L.length;
+  const enc=new TextEncoder();
+  function cat(arr){ let n=0; for(const a of arr) n+=a.length; const u=new Uint8Array(n); let p=0; for(const a of arr){ u.set(a,p); p+=a.length; } return u; }
+  function u32(v){ return new Uint8Array([(v>>>24)&255,(v>>>16)&255,(v>>>8)&255,v&255]); }
+  function u16(v){ return new Uint8Array([(v>>>8)&255,v&255]); }
+  function z(n){ return new Uint8Array(n); }
+  function s4(s){ return enc.encode(s); }
+  function box(t,...p){ const b=cat(p); return cat([u32(b.length+8),s4(t),b]); }
+  function full(t,vf,...p){ return box(t,u32(vf),...p); }
+  const MAT=cat([u32(0x10000),u32(0),u32(0),u32(0),u32(0x10000),u32(0),u32(0),u32(0),u32(0x40000000)]);
+  function pstr(s,len){ const b=enc.encode(s); const u=new Uint8Array(len||b.length+1); u[0]=b.length; u.set(b,1); return u; }
+  // ---- video timing (decode order as given; handle reordering with ctts) ----
+  const vts=vs.map(x=>x.ts); const sorted=vts.slice().sort((a,b)=>a-b);
+  const VTS=1000000; const frameDur=Math.round(VTS/fps);
+  const dts=sorted.slice(); let D=0; for(let i=0;i<vs.length;i++) D=Math.max(D,dts[i]-vts[i]);
+  const reorder=vts.some((t,i)=>t!==sorted[i]);
+  const vdur=(sorted.length?sorted[sorted.length-1]-sorted[0]:0)+frameDur;
+  // ---- mdat layout: interleave per frame ----
+  const A=Math.round(sr/fps); const parts=[]; let off=0;
+  const vOff=[], aOff=[], aCnt=[]; let ai=0;
+  const pcmChunk=(s,n)=>{ const b=new Uint8Array(n*4); const dv=new DataView(b.buffer); for(let k=0;k<n;k++){ let l=o.L[s+k], r=o.R[s+k]; l=l>1?1:l<-1?-1:l; r=r>1?1:r<-1?-1:r; dv.setInt16(k*4,l*32767|0,true); dv.setInt16(k*4+2,r*32767|0,true); } return b; };
+  const t0=sorted.length?sorted[0]:0;
+  for(let i=0;i<vs.length;i++){
+    vOff.push(off); parts.push(vs[i].data); off+=vs[i].data.length;
+    const tEnd=(dts[i]-t0)/VTS+1/fps; // audio up to the end of this frame (decode time)
+    while(ai<NA && ai/sr < tEnd){ const n=Math.min(A,NA-ai); aOff.push(off); aCnt.push(n); const c=pcmChunk(ai,n); parts.push(c); off+=c.length; ai+=n; }
+  }
+  while(ai<NA){ const n=Math.min(A,NA-ai); aOff.push(off); aCnt.push(n); const c=pcmChunk(ai,n); parts.push(c); off+=c.length; ai+=n; }
+  const mdatLen=off;
+  const MTS=1000, vDurM=Math.round(vdur/VTS*MTS), aDurM=Math.round(NA/sr*MTS), movDur=Math.max(vDurM,aDurM);
+  function build(base){
+    const mvhd=full('mvhd',0,u32(0),u32(0),u32(MTS),u32(movDur),u32(0x10000),u16(0x100),z(10),MAT,z(24),u32(3));
+    const dinf=box('dinf',full('dref',0,u32(1),full('url ',1)));
+    // video trak
+    const avc1=box('avc1',z(6),u16(1),u16(0),u16(0),u32(0),u32(0),u32(0x200),u16(W),u16(H),u32(0x480000),u32(0x480000),u32(0),u16(1),pstr('',32),u16(0x18),u16(0xffff),box('avcC',o.avcC));
+    const sttsE=[]; for(let i=0;i<dts.length;i++){ const d=i+1<dts.length?dts[i+1]-dts[i]:frameDur; if(sttsE.length&&sttsE[sttsE.length-1][1]===d) sttsE[sttsE.length-1][0]++; else sttsE.push([1,d]); }
+    const stts=full('stts',0,u32(sttsE.length),...sttsE.map(e=>cat([u32(e[0]),u32(e[1])])));
+    const keys=[]; vs.forEach((x,i)=>{ if(x.key) keys.push(i+1); });
+    const stss=full('stss',0,u32(keys.length),...keys.map(u32));
+    const vstbl=[full('stsd',0,u32(1),avc1),stts];
+    if(reorder){ const ce=[]; for(let i=0;i<vs.length;i++){ const c=vts[i]-dts[i]+D; if(ce.length&&ce[ce.length-1][1]===c) ce[ce.length-1][0]++; else ce.push([1,c]); } vstbl.push(full('ctts',0,u32(ce.length),...ce.map(e=>cat([u32(e[0]),u32(e[1])])))); }
+    vstbl.push(stss, full('stsc',0,u32(1),u32(1),u32(1),u32(1)), full('stsz',0,u32(0),u32(vs.length),...vs.map(x=>u32(x.data.length))), full('stco',0,u32(vOff.length),...vOff.map(x=>u32(x+base))));
+    const vtrak=box('trak',
+      full('tkhd',3,u32(0),u32(0),u32(1),u32(0),u32(vDurM),z(8),u16(0),u16(0),u16(0),u16(0),MAT,u32(W<<16),u32(H<<16)),
+      ...(reorder?[box('edts',full('elst',0,u32(1),u32(vDurM),u32(D),u32(0x10000)))]:[]),
+      box('mdia',full('mdhd',0,u32(0),u32(0),u32(VTS),u32(vdur),u16(0x7fff),u16(0)),
+        full('hdlr',0,s4('mhlr'),s4('vide'),u32(0),u32(0),u32(0),pstr('VideoHandler')),
+        box('minf',full('vmhd',1,z(8)),full('hdlr',0,s4('dhlr'),s4('url '),u32(0),u32(0),u32(0),pstr('DataHandler')),dinf,box('stbl',...vstbl))));
+    // audio trak
+    const sowt=box('sowt',z(6),u16(1),u16(0),u16(0),u32(0),u16(2),u16(16),u16(0),u16(0),u32((sr*65536)>>>0),full('chan',0,u32(0x00650002),u32(0),u32(0)));
+    const sc=[]; aCnt.forEach((n,i)=>{ if(!sc.length||sc[sc.length-1][1]!==n) sc.push([i+1,n]); });
+    const astbl=[full('stsd',0,u32(1),sowt),full('stts',0,u32(1),u32(NA),u32(1)),full('stsc',0,u32(sc.length),...sc.map(e=>cat([u32(e[0]),u32(e[1]),u32(1)]))),full('stsz',0,u32(4),u32(NA)),full('stco',0,u32(aOff.length),...aOff.map(x=>u32(x+base)))];
+    const atrak=box('trak',
+      full('tkhd',3,u32(0),u32(0),u32(2),u32(0),u32(aDurM),z(8),u16(0),u16(1),u16(0x100),u16(0),MAT,u32(0),u32(0)),
+      box('mdia',full('mdhd',0,u32(0),u32(0),u32(sr),u32(NA),u16(0x7fff),u16(0)),
+        full('hdlr',0,s4('mhlr'),s4('soun'),u32(0),u32(0),u32(0),pstr('SoundHandler')),
+        box('minf',full('smhd',0,z(4)),full('hdlr',0,s4('dhlr'),s4('url '),u32(0),u32(0),u32(0),pstr('DataHandler')),dinf,box('stbl',...astbl))));
+    return box('moov',mvhd,vtrak,atrak);
+  }
+  const ftyp=box('ftyp',s4('qt  '),u32(0x200),s4('qt  '));
+  const m0=build(0); const base=ftyp.length+m0.length+8; const moov=build(base);
+  return new Blob([ftyp,moov,u32(mdatLen+8),s4('mdat'),...parts],{type:'video/quicktime'});
+}
+
 const VA={};
 function vaMono(B,a,b){ const C=B.numberOfChannels, n=b-a, X=new Float32Array(n); for(let ch=0;ch<C;ch++){ const d=B.getChannelData(ch); for(let i=0;i<n;i++) X[i]+=d[a+i]/C; } return X; }
 async function vaOpen(){ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c, b=bufs[c.buf]; if(!b||!b.buffer||b.vtype){ toast('אפשר לערוך תווים רק בקטע שירה'); return; }
@@ -5228,8 +5295,11 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
 let VJOB=null;
 function jobPill(txt){ let el=$('bgJob'); if(!el){ el=document.createElement('div'); el.id='bgJob'; el.innerHTML='<span></span><button title="עצירה">✕</button>'; document.body.appendChild(el); el.querySelector('button').onclick=()=>{ if(VJOB) VJOB.stop=true; }; } if(txt==null){ el.remove(); return; } el.querySelector('span').textContent=txt; }
 const IS_APPLE_WEBKIT=/iPhone|iPad|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1)||(/Safari/.test(navigator.userAgent)&&!/Chrome|Chromium|Edg|Firefox/.test(navigator.userAgent));
-async function wcSupport(W,H){ if(!window.VideoEncoder||!window.VideoFrame||!window.AudioEncoder||!window.AudioData||!window.Mp4Muxer) return null;
+const USE_MOV=IS_APPLE_WEBKIT||/[?&]mov=1/.test(location.search);
+async function wcSupport(W,H){ if(!window.VideoEncoder||!window.VideoFrame) return null;
   let vc=null; for(const c of ['avc1.640028','avc1.4d0028','avc1.42001f']){ try{ const r=await VideoEncoder.isConfigSupported({codec:c,width:W,height:H,bitrate:9e6,framerate:30}); if(r&&r.supported){ vc=c; break; } }catch(_){} } if(!vc) return null;
+  if(USE_MOV) return {vc,ac:{codec:'pcm',mux:'pcm',sr:48000}}; /* iPhone: sound written as plain PCM inside .mov — no audio encoder, nothing to lose */
+  if(!window.AudioEncoder||!window.AudioData||!window.Mp4Muxer) return null;
   let ac2=null; try{ const r=await AudioEncoder.isConfigSupported({codec:'mp4a.40.2',sampleRate:44100,numberOfChannels:2,bitrate:192000}); if(r&&r.supported) ac2={codec:'mp4a.40.2',mux:'aac',sr:44100}; }catch(_){}
   if(!ac2&&!IS_APPLE_WEBKIT){ try{ const r=await AudioEncoder.isConfigSupported({codec:'opus',sampleRate:48000,numberOfChannels:2,bitrate:192000}); if(r&&r.supported) ac2={codec:'opus',mux:'opus',sr:48000}; }catch(_){} } /* iPhone can't play Opus inside MP4 — there we use the real-time path (Safari records MP4 with AAC) */
   return ac2?{vc,ac:ac2}:null; }
@@ -5252,6 +5322,26 @@ async function doExportVideo(){
   const job=VJOB={stop:false}; prog.innerHTML='✓ הייצוא רץ ברקע — אפשר לסגור את החלון ולהמשיך לעבוד. ההתקדמות מופיעה למטה.'; jobPill('🎬 וידאו: מרנדרת סאונד…');
   try{
     const sr=sup.ac.sr; const oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr); await prepTune(only); schedule(oc,limiter(oc,oc.destination),from,0,only); const out=await oc.startRendering();
+    if(sup.ac.mux==='pcm'){
+      let encErr=null; const vch=[]; let avcC=null; const toU8=d=>d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));
+      const ve=new VideoEncoder({output:(c,m)=>{ if(m&&m.decoderConfig&&m.decoderConfig.description&&!avcC) avcC=toU8(m.decoderConfig.description); const b=new Uint8Array(c.byteLength); c.copyTo(b); vch.push({data:b,ts:c.timestamp,key:c.type==='key'}); },error:e=>encErr=e});
+      { const vcfg={codec:sup.vc,width:W,height:H,bitrate:6e6,framerate:30,avc:{format:'avc'}}; try{ ve.configure(Object.assign({latencyMode:'realtime'},vcfg)); }catch(_){ ve.configure(vcfg); } }
+      const cv=document.createElement('canvas'); cv.width=W; cv.height=H; const g=cv.getContext('2d');
+      const fps=30, NF=Math.ceil(len*fps); let lastPct=-1;
+      for(let i=0;i<NF;i++){ if(job.stop) break; if(encErr) throw encErr;
+        const t=from+i/fps; const a=videoAt(t); const v=a&&EP[a.key];
+        if(v){ await seekEl(v,Math.min(a.vt,(v.duration||a.vt)-0.02)); await vfxPrep(v); drawFit(g,v,W,H,t,true); } else drawFit(g,null,W,H,t);
+        const fr=new VideoFrame(cv,{timestamp:Math.round(i*1e6/fps),duration:Math.round(1e6/fps)}); ve.encode(fr,{keyFrame:i%60===0}); fr.close();
+        while(ve.encodeQueueSize>8) await yieldNow();
+        const pct=Math.floor(i/NF*100); if(pct!==lastPct){ lastPct=pct; jobPill('🎬 מייצאת וידאו '+pct+'%'); await yieldNow(); } }
+      if(job.stop){ try{ ve.close(); }catch(_){} jobPill(null); toast('ייצוא הוידאו בוטל'); return; }
+      await ve.flush(); ve.close(); if(encErr) throw encErr; if(!avcC||!vch.length) throw {message:'הוידאו לא נבנה (avcC)'};
+      const blob=movMux({W,H,avcC,vs:vch,L:out.getChannelData(0),R:out.getChannelData(1),sr,fps}); window.__lastVideo=blob;
+      jobPill(null); const base=(useRange?'video-part-':'video-')+stamp(); let ok;
+      if(window.__HOSTED&&!IN_ART) ok=await saveFile(base+'.mov',blob); else { const zip=zipStore(base+'.mov',new Uint8Array(await blob.arrayBuffer())); ok=await saveFile(base+'.zip',zip); }
+      if(ok) toast('✓ הוידאו מוכן עם שמע ('+(blob.size/1048576).toFixed(1)+'MB · MOV) — בתיקיית ההורדות',6000);
+      return;
+    }
     const muxer=new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(),video:{codec:'avc',width:W,height:H},audio:{codec:sup.ac.mux,numberOfChannels:2,sampleRate:sr},fastStart:'in-memory',firstTimestampBehavior:'offset'});
     let encErr=null;
     let aN=0; const asc=sr===48000?new Uint8Array([0x11,0x90]):new Uint8Array([0x12,0x10]);
