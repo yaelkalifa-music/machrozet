@@ -5330,7 +5330,12 @@ async function vurlAsync(b){ let u=vurl(b); if(u) return u; const bb=baseOf(b); 
 function hasVideo(){ return allClips().some(x=>{ const b=bufs[x.c.buf]; return b&&baseOf(b)&&baseOf(b).vtype; }); }
 function videoAt(t){ let best=null; S.tracks.forEach((tr,ti)=>{ const anySolo=S.tracks.some(q=>q.solo); if(tr.mute||(anySolo&&!tr.solo)) return; tr.clips.forEach(c=>{ const b=bufs[c.buf]; if(!b||!baseOf(b)||!baseOf(b).vtype) return; if(t<c.start||t>=c.start+c.dur) return; best={c,b,vt:(c.offset+(t-c.start))*(b.src?b.src.tempo||1:1),rate:b.src?b.src.tempo||1:1,key:baseOf(b).id}; }); }); return best; }
 const VPOOL={};
-function vEl(key,url){ let v=VPOOL[key]; if(v&&v.error&&!v._retry){ v._retry=1; try{ v.src=url; v.load(); }catch(_){} } if(!v){ v=document.createElement('video'); v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto'; v.src=url; VPOOL[key]=v; } return v; }
+function vEl(key,url){ let v=VPOOL[key]; if(v&&v.error&&!v._retry){ v._retry=1; try{ v.src=url; v.load(); }catch(_){} } if(!v){ v=document.createElement('video'); v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.setAttribute('muted',''); v.preload='auto'; v.src=url; VPOOL[key]=v; v._born=performance.now();
+    }
+  else if(v.readyState<2&&!v._kick&&performance.now()-(v._born||0)>1500){ v._kick=1; try{ const t=v.currentTime; v.load(); v.currentTime=t; }catch(_){} }
+  return v; }
+// iPhone sometimes won't decode video frames until a touch: on any touch, wake videos that have no picture yet
+document.addEventListener('pointerdown',()=>{ Object.values(VPOOL).forEach(v=>{ if(v.readyState<2){ try{ const p=v.play(); if(p&&p.then) p.then(()=>{ if(!S.playing) v.pause(); }).catch(()=>{}); }catch(_){} } }); },true);
 function syncV(v,want,playing,rate){ if(!v) return; try{ if(v.readyState<1||v.seeking) return; const dur=v.duration||want; const d=v.currentTime-want;
   if(!playing){ if(Math.abs(d)>0.04) v.currentTime=Math.min(want,dur-0.01); if(v.playbackRate!==rate) v.playbackRate=rate; if(!v.paused) v.pause(); return; }
   const now=performance.now(); if(Math.abs(d)>0.6&&(!v._sk||now-v._sk>1200)){ v._sk=now; v.currentTime=Math.min(want+0.08,dur-0.01); v.playbackRate=rate; }
@@ -5444,7 +5449,7 @@ function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!
 let TESTFX=null;
 async function vfxDiag(){ const out=[]; const add=x=>{ out.push(x); const el=$('vfxDiagOut'); if(el) el.textContent=out.join('\n'); };
   try{ const a=videoAt(S.playhead); const vc=allClips().filter(x=>bufs[x.c.buf]&&baseOf(bufs[x.c.buf])&&baseOf(bufs[x.c.buf]).vtype); add('ver '+(window.__BUILD||'?')+' · playhead '+S.playhead.toFixed(2)+' · video clips '+vc.length+(vc[0]?' ['+vc[0].c.start.toFixed(2)+'–'+(vc[0].c.start+vc[0].c.dur).toFixed(2)+']':'')+' · at playhead '+(a?'yes':'no')+' · lyr '+(S.lyr?S.lyr.lines.length:'-')+' lyrErr '+(window.__lyrErr||'-'));
-    Object.keys(VPOOL).forEach(k=>{ const v=VPOOL[k]; add('v '+k.slice(0,6)+': rs'+v.readyState+' '+v.videoWidth+'x'+v.videoHeight+' t'+(+v.currentTime).toFixed(2)+' err'+(v.error?v.error.code:'-')+' src'+(v.src?v.src.slice(0,5):'none')); }); const b=$('vidBox'); add('box '+(b?b.style.display+' '+b.offsetWidth+'x'+b.offsetHeight:'none')); }catch(e){ add('diag0 '+e.message); }
+    Object.keys(VPOOL).forEach(k=>{ const v=VPOOL[k]; add('v '+k.slice(0,6)+': rs'+v.readyState+' '+v.videoWidth+'x'+v.videoHeight+' t'+(+v.currentTime).toFixed(2)+' err'+(v.error?v.error.code:'-')+' sk'+(v.seeking?1:0)+' p'+(v.paused?1:0)+' net'+v.networkState+' dom'+(v.isConnected?1:0)+' src'+(v.src?v.src.slice(0,5):'none')); }); const b=$('vidBox'); add('box '+(b?b.style.display+' '+b.offsetWidth+'x'+b.offsetHeight:'none')); }catch(e){ add('diag0 '+e.message); }
   try{ const G=vglInit(); if(!G){ add('GL: none'); return; } const gl=G.gl; const dbg=gl.getExtension('WEBGL_debug_renderer_info'); add('GPU: '+(dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)));
     const hp=gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT); add('highp: '+(hp?hp.precision:'-')+' lost:'+VGLlost+' err:'+(window.__vfxErr||'-'));
     const test=async(label)=>{ const a=videoAt(S.playhead)||(()=>{ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); return vc?videoAt(vc.c.start+0.1):null; })(); const v=a&&VPOOL[a.key]; if(!v||!v.videoWidth){ add(label+': no video'); return; }
@@ -5520,7 +5525,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     const t=S.playhead, a=videoAt(t); if(cur&&(!a||a.key!==cur)){ const ov=VPOOL[cur]; if(ov&&!ov.paused) ov.pause(); }
     if(!a){ cur=null; drawFit(g,null,cv.width,cv.height); return; }
     const u=vurl(a.b); if(!u){ if(!pending[a.key]){ pending[a.key]=1; vurlAsync(a.b).then(()=>delete pending[a.key]); } return; }
-    const v=vEl(a.key,u); cur=a.key; syncV(v,a.vt,S.playing,a.rate); if(v.videoWidth){ const k=Math.min(640/v.videoWidth,640/v.videoHeight); const nw=Math.round(v.videoWidth*k), nh=Math.round(v.videoHeight*k); if(cv.width!==nw||cv.height!==nh){ cv.width=nw; cv.height=nh; } } drawFit(g,v,cv.width,cv.height,t); }
+    const v=vEl(a.key,u); cur=a.key; syncV(v,a.vt,S.playing,a.rate); if(v.videoWidth){ const k=Math.min(640/v.videoWidth,640/v.videoHeight); const nw=Math.round(v.videoWidth*k), nh=Math.round(v.videoHeight*k); if(cv.width!==nw||cv.height!==nh){ cv.width=nw; cv.height=nh; } } drawFit(g,v,cv.width,cv.height,t); if(v.readyState<2){ g.save(); g.fillStyle='rgba(0,0,0,.55)'; g.fillRect(0,cv.height/2-34,cv.width,68); g.fillStyle='#fff'; g.font='bold '+Math.round(cv.width/16)+'px Heebo, system-ui'; g.textAlign='center'; g.textBaseline='middle'; g.fillText('⏳ הוידאו נטען… אפשר לגעת במסך',cv.width/2,cv.height/2); g.restore(); } }
   requestAnimationFrame(loop); })();
 
 let VJOB=null;
@@ -5755,6 +5760,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1121-1940"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
