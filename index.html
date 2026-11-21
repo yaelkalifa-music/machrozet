@@ -4883,7 +4883,8 @@ function lyrFitLines(rows,segs){ if(!segs.length) return [];
     for(let i=1;i<=N;i++) for(let j=1;j<=M;j++){ const s=lyrSim(lw[i-1].w,hw[j-1].w); const d=sc[I(i-1,j-1)]+(s>=0.5?s*2:-0.6), u=sc[I(i-1,j)]+G, l=sc[I(i,j-1)]+G; if(d>=u&&d>=l){ sc[I(i,j)]=d; bt[I(i,j)]=0; } else if(u>=l){ sc[I(i,j)]=u; bt[I(i,j)]=1; } else { sc[I(i,j)]=l; bt[I(i,j)]=2; } }
     let i=N,j=M; while(i>0&&j>0){ const b=bt[I(i,j)]; if(b===0){ if(lyrSim(lw[i-1].w,hw[j-1].w)>=0.5) tm[i-1]=[hw[j-1].t,hw[j-1].e]; i--; j--; } else if(b===1) i--; else j--; } }
   const anchors=tm.filter(Boolean).length;
-  if(anchors<Math.max(2,lw.length*0.15)){ // not enough matches: spread rows over the heard voice time by length
+  if(anchors<Math.max(2,lw.length*0.3)) return lyrFitBySegs(rows,segs);
+  if(false){ // not enough matches: spread rows over the heard voice time by length
     const tot=segs.reduce((q,s)=>q+(s.e-s.t),0); const lens=rows.map(r=>r.length+3); const sum=lens.reduce((a,b)=>a+b,0); let need=0; const out=[]; let si=0, used=0;
     const at=x=>{ let acc=0; for(const s of segs){ const d=s.e-s.t; if(acc+d>=x) return s.t+(x-acc); acc+=d; } return segs[segs.length-1].e; };
     rows.forEach((r,k)=>{ const a=at(need/sum*tot); need+=lens[k]; const b=at(need/sum*tot); out.push({id:nid(),t:a,d:Math.max(0.6,b-a),text:r}); }); return out; }
@@ -4894,9 +4895,17 @@ function lyrFitLines(rows,segs){ if(!segs.length) return [];
   const out=rows.map((r,ri)=>{ const ws=lw.map((x,i)=>x.ri===ri?i:-1).filter(i=>i>=0); if(!ws.length) return null; return {id:nid(),t:tm[ws[0]][0],e:tm[ws[ws.length-1]][1],text:r}; }).filter(Boolean);
   for(let k=0;k<out.length;k++){ const nx=out[k+1]; let e=Math.max(out[k].e,out[k].t+0.7); if(nx) e=Math.min(e+0.25,nx.t-0.02); out[k].d=Math.max(0.4,e-out[k].t); delete out[k].e; }
   return out; }
+// lyrics rows -> voice phrases, by matching row length to phrase length (no recognition needed)
+function lyrFitBySegs(rows,segs){ let sg=segs.map(s=>({t:s.t,e:s.e})); const R=rows.length; if(!R||!sg.length) return [];
+  while(sg.length<R){ let bi=0; sg.forEach((s,i)=>{ if(s.e-s.t>sg[bi].e-sg[bi].t) bi=i; }); const s=sg[bi], m=(s.t+s.e)/2; sg.splice(bi,1,{t:s.t,e:m-0.05},{t:m+0.05,e:s.e}); }
+  const S=sg.length, cd=[0]; sg.forEach(s=>cd.push(cd[cd.length-1]+(s.e-s.t))); const TD=cd[S]; const lens=rows.map(r=>Math.max(2,r.replace(/\s+/g,'').length)); const TL=lens.reduce((a,b)=>a+b,0);
+  const INF=1e18, D=Array.from({length:R+1},()=>new Float64Array(S+1).fill(INF)), B=Array.from({length:R+1},()=>new Int32Array(S+1)); D[0][0]=0;
+  for(let i=1;i<=R;i++) for(let j=i;j<=S-(R-i);j++) for(let k=i-1;k<j;k++){ if(D[i-1][k]>=INF) continue; const c=D[i-1][k]+Math.pow((cd[j]-cd[k])/TD-lens[i-1]/TL,2); if(c<D[i][j]){ D[i][j]=c; B[i][j]=k; } }
+  const out=[]; let j=S; for(let i=R;i>=1;i--){ const k=B[i][j]; out.unshift({id:nid(),t:sg[k].t,d:Math.max(0.5,sg[j-1].e-sg[k].t+0.25),text:rows[i-1]}); j=k; }
+  for(let i=0;i<out.length-1;i++) out[i].d=Math.max(0.4,Math.min(out[i].d,out[i+1].t-out[i].t-0.02)); return out; }
 function lyrAutoSheet(){ const vt=S.tracks.find(t=>t.clips.some(c=>bufs[c.buf]&&bufs[c.buf].kind==='vocal'))||S.tracks.find(t=>t.clips.some(c=>bufs[c.buf]&&baseOf(bufs[c.buf])&&baseOf(bufs[c.buf]).vtype))||S.tracks[0];
   if(!vt){ toast('אין עדיין שירה או דיבור בפרויקט'); return; }
-  openSheet(`<h3>✨ כתיבת מילים אוטומטית</h3><p class="hint">אני מקשיבה לערוץ, מוצאת איפה שרים/מדברים, וכותבת את המילים בזמנים הנכונים.</p>
+  openSheet(`<h3>✨ כתיבת מילים אוטומטית</h3><p class="hint">אני מקשיבה לערוץ ומוצאת בדיוק איפה שרים או מדברים.<br>📋 <b>עם הטקסט שלך</b> — מהיר ומדויק: כל שורה נכנסת בזמן שלה.<br>🤖 <b>בלי טקסט</b> — אני כותבת לבד ממה שאני שומעת. הכי טוב לדיבור; בשירה ייתכנו טעויות שאפשר לתקן. בפעם הראשונה יורד מנוע זיהוי (~160MB, פעם אחת).</p>
   <h4 style="margin:8px 0 4px">🎙 לאיזה ערוץ להקשיב?</h4><div class="row" style="flex-wrap:wrap;gap:6px">${S.tracks.map(t=>`<label class="hint" style="font-size:15px"><input type="radio" name="lyT" value="${t.id}" ${t===vt?'checked':''}> ${esc(t.name)}</label>`).join('')}</div>
   <h4 style="margin:10px 0 4px">📋 יש לך את הטקסט? (לא חובה)</h4><textarea id="lyTx" dir="auto" placeholder="מדביקים כאן את מילות השיר, כל שורה בשורה נפרדת — ואני אשבץ כל שורה בדיוק כשהיא נשמעת. אם משאירים ריק — אני כותבת לבד ממה שאני שומעת." style="width:100%;min-height:22vh;font-size:17px;border-radius:10px;padding:8px"></textarea>
   ${S.lyr&&S.lyr.lines.length?'<p class="hint">⚠ השורות הקיימות יוחלפו (אפשר לבטל עם ↶).</p>':''}
@@ -4911,12 +4920,18 @@ async function lyrAuto(tid,rows,pr){ const t=S.tracks.find(x=>x.id===tid); if(!t
   const cl=t.clips.filter(c=>bufs[c.buf]); if(!cl.length) throw new Error('הערוץ ריק'); const from=Math.min(...cl.map(c=>c.start)), to=Math.max(...cl.map(c=>c.start+c.dur));
   pr('מקשיבה לערוץ…'); const sr=16000; const oc=new OfflineAudioContext(1,Math.ceil((to-from+0.2)*sr),sr); await prepTune(new Set([tid])); schedule(oc,oc.destination,from,0,new Set([tid])); const out=await oc.startRendering(); const x=out.getChannelData(0);
   const segs=lyrSegments(x,sr); if(!segs.length) throw new Error('לא שמעתי קול בערוץ הזה');
-  let heard=segs.map(s=>({t:s.t,e:s.e,text:''})); let asrOk=true;
-  try{ await asrInit(pr); }catch(e){ asrOk=false; console.warn('asr',e); if(!rows.length) throw new Error('מנוע הזיהוי לא נטען: '+(e&&e.message||e)); }
-  if(asrOk){ for(let k=0;k<segs.length;k++){ pr('כותבת… שורה '+(k+1)+' מתוך '+segs.length); const s=segs[k]; const a=Math.max(0,Math.floor((s.t-0.15)*sr)), b=Math.min(x.length,Math.ceil((s.e+0.15)*sr)); const seg=x.slice(a,b); let pk=0; for(let i=0;i<seg.length;i++) pk=Math.max(pk,Math.abs(seg[i])); if(pk>0) for(let i=0;i<seg.length;i++) seg[i]*=0.9/pk;
-      try{ heard[k].text=(await ASR.run(seg)).trim(); }catch(e){ console.warn(e); } } }
+  let heard=segs.map(s=>({t:s.t,e:s.e,text:''}));
+  if(!rows.length){ try{ await asrInit(pr); }catch(e){ console.warn('asr',e); throw new Error('מנוע הזיהוי לא נטען: '+(e&&e.message||e)); }
+    // group phrases into windows of up to ~25 s (one recognition call each), then share the words between the phrases
+    const groups=[]; segs.forEach((s,i)=>{ const g=groups[groups.length-1]; if(g&&(s.e-segs[g[0]].t)<=25) g.push(i); else groups.push([i]); });
+    for(let gi=0;gi<groups.length;gi++){ const g=groups[gi]; pr('כותבת… חלק '+(gi+1)+' מתוך '+groups.length); const gap=Math.round(0.4*sr); let n=0; g.forEach(i=>n+=Math.ceil((segs[i].e-segs[i].t+0.3)*sr)+gap); const buf=new Float32Array(n); let o=0;
+      g.forEach(i=>{ const s=segs[i]; const a=Math.max(0,Math.floor((s.t-0.15)*sr)), b=Math.min(x.length,a+Math.ceil((s.e-s.t+0.3)*sr)); buf.set(x.subarray(a,b),o); o+=(b-a)+gap; });
+      let pk=0; for(let i=0;i<o;i++) pk=Math.max(pk,Math.abs(buf[i])); if(pk>0) for(let i=0;i<o;i++) buf[i]*=0.9/pk;
+      let txt=''; try{ txt=(await ASR.run(buf.subarray(0,o).slice())).trim(); }catch(e){ console.warn(e); }
+      const ws=txt.split(/\s+/).filter(Boolean); const durs=g.map(i=>segs[i].e-segs[i].t); const tot=durs.reduce((a,b)=>a+b,0)||1; let wi=0, acc=0;
+      g.forEach((i,k)=>{ acc+=durs[k]; const upto=k===g.length-1?ws.length:Math.round(ws.length*acc/tot); heard[i].text=ws.slice(wi,upto).join(' '); wi=upto; }); } }
   heard=heard.map(h=>({t:h.t+from,e:h.e+from,text:h.text}));
-  let lines; if(rows.length) lines=lyrFitLines(rows,heard); else lines=heard.filter(h=>h.text&&h.text.replace(/[\s.,…]/g,'').length).map(h=>({id:nid(),t:h.t,d:Math.max(0.5,h.e-h.t+0.2),text:h.text}));
+  let lines; if(rows.length) lines=lyrFitBySegs(rows,heard); else lines=heard.filter(h=>h.text&&h.text.replace(/[\s.,…]/g,'').length).map(h=>({id:nid(),t:h.t,d:Math.max(0.5,h.e-h.t+0.2),text:h.text}));
   if(!lines.length) throw new Error('לא הצלחתי לזהות מילים — אפשר להדביק את הטקסט ואני אשבץ אותו');
   pushHist(); const vc=cl.find(c=>bufs[c.buf].kind==='vocal')||cl[0]; S.lyr=Object.assign(lyrDef(),S.lyr||{},{lines,clip:vc.id,at:vc.start}); lyrSelId=null; }
 
