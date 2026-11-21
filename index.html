@@ -105,7 +105,8 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 #toolPop hr{width:100%;border:0;border-top:1px solid var(--line);margin:2px 0}
 #vidBox{position:fixed;right:10px;top:110px;width:240px;z-index:55;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:none;box-shadow:0 6px 24px #0009}
 #vidBox.big{width:min(92vw,640px)}
-#vidBox canvas{width:100%;height:auto;display:block}
+#vidBox canvas{width:100%;height:auto;display:block}#vidBox #vCan{max-height:58vh;width:auto;max-width:100%;margin:0 auto}
+#vidBox .vtl{background:var(--bg2);padding:4px 5px 5px;direction:ltr}#vidBox .vtl .vtr{display:flex;align-items:center;gap:4px}#vidBox .vtl button{padding:2px 6px;min-width:0;font-size:15px;line-height:1.2}#vidBox .vtl .vtt{flex:1;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:#ffd84d}#vidBox #vScrub{width:100%;height:30px;display:block;margin-top:4px;touch-action:none;border-radius:6px;cursor:pointer}
 #vidBox .vbar{cursor:move;touch-action:none;display:flex;gap:4px;align-items:center;padding:2px 4px;background:var(--bg2);font-size:12px}
 #vidBox .vbar span{flex:1}
 #vidBox .vbar button{padding:2px 8px;min-height:0}
@@ -5597,10 +5598,26 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     $('vfxReset').onclick=()=>{ cur=JSON.parse(JSON.stringify(VPRESETS.none)); apply(); refresh(); toast('↺ בלי אפקטים'); };
     refresh(); }); }
 // floating preview
-(function(){ const box=document.createElement('div'); box.id='vidBox'; box.innerHTML='<div class="vbar"><span>🎬 וידאו · לגרור מכאן</span><button id="vFx" title="אפקטים לוידאו">✨</button><button id="vBig" title="גדול/קטן">⤢</button><button id="vClose" title="סגירה">✕</button></div><canvas id="vCan" width="640" height="360"></canvas>'; document.body.appendChild(box);
+(function(){ const box=document.createElement('div'); box.id='vidBox'; box.innerHTML='<div class="vbar"><span>🎬 וידאו · לגרור מכאן</span><button id="vFx" title="אפקטים לוידאו">✨</button><button id="vBig" title="גדול/קטן">⤢</button><button id="vClose" title="סגירה">✕</button></div><canvas id="vCan" width="640" height="360"></canvas><div class="vtl" data-notr><div class="vtr"><button id="vtB5" title="5 שניות אחורה">«5</button><button id="vtB1" title="שנייה אחורה">‹1</button><button id="vtPl" title="ניגון/עצירה">▶</button><button id="vtF1" title="שנייה קדימה">1›</button><button id="vtF5" title="5 שניות קדימה">5»</button><span class="vtt" id="vtTime">0:00</span></div><canvas id="vScrub" width="600" height="60"></canvas></div>'; document.body.appendChild(box);
   const cv=box.querySelector('canvas'), g=cv.getContext('2d'); let shown=false, userClosed=false, cur=null;
   $('vClose').onclick=()=>{ userClosed=true; box.style.display='none'; shown=false; };
   $('vBig').onclick=()=>box.classList.toggle('big'); $('vFx').onclick=()=>openVidFx();
+  const seekTo=t=>{ S.playhead=clamp(t,0,Math.max(projEnd(),0.1)); placePlayhead(); if(S.playing) restartPlay(); };
+  $('vtB5').onclick=()=>seekTo(S.playhead-5); $('vtB1').onclick=()=>seekTo(S.playhead-1); $('vtF1').onclick=()=>seekTo(S.playhead+1); $('vtF5').onclick=()=>seekTo(S.playhead+5);
+  $('vtPl').onclick=()=>{ if(S.playing) stopPlay(); else startPlay(); };
+  const sc=$('vScrub'), sg=sc.getContext('2d'); let scr=false;
+  const scrubAt=e=>{ const r=sc.getBoundingClientRect(); const f=clamp((e.clientX-r.left)/r.width,0,1); seekTo(f*Math.max(projEnd(),0.1)); };
+  sc.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); scr=true; try{ sc.setPointerCapture(e.pointerId); }catch(_){} scrubAt(e); });
+  sc.addEventListener('pointermove',e=>{ if(scr) scrubAt(e); }); sc.addEventListener('pointerup',()=>{ scr=false; }); sc.addEventListener('pointercancel',()=>{ scr=false; });
+  let lastDraw='';
+  const drawScrub=()=>{ const W=Math.round(sc.clientWidth*(devicePixelRatio||1))||600, H=Math.round(30*(devicePixelRatio||1)); if(sc.width!==W||sc.height!==H){ sc.width=W; sc.height=H; }
+    const end=Math.max(projEnd(),0.1); const key=[W,S.playhead.toFixed(2),end.toFixed(2),allClips().length,S.lyr?S.lyr.lines.length:0,S.playing].join(); if(key===lastDraw) return; lastDraw=key;
+    const X=t=>t/end*W; sg.clearRect(0,0,W,H); sg.fillStyle='#1c1726'; sg.fillRect(0,0,W,H);
+    allClips().forEach(x=>{ const b=bufs[x.c.buf]; if(!b) return; const v=baseOf(b)&&baseOf(b).vtype; sg.fillStyle=v?'#8f6bff':(b.kind==='song'?'rgba(255,111,170,.55)':'rgba(197,140,255,.75)'); const y=v?H*0.08:(b.kind==='song'?H*0.38:H*0.55); sg.fillRect(X(x.c.start),y,Math.max(2,X(x.c.dur)),H*0.2); });
+    if(S.lyr&&!S.lyr.hide) S.lyr.lines.forEach(l=>{ sg.fillStyle='#ffd84d'; sg.fillRect(X(l.t),H*0.8,Math.max(2,X(l.d)-1),H*0.14); });
+    (S.marks||[]).forEach(m=>{ sg.fillStyle='#f2b84b'; sg.fillRect(X(m.t),0,1,H); });
+    const px=X(S.playhead); sg.fillStyle='#fff'; sg.fillRect(px-1.5,0,3,H); sg.beginPath(); sg.moveTo(px-6,0); sg.lineTo(px+6,0); sg.lineTo(px,7); sg.fill();
+    $('vtTime').textContent=fmtTime(S.playhead).replace(/\.\d+$/,'')+' / '+fmtTime(end).replace(/\.\d+$/,''); $('vtPl').textContent=S.playing?'❚❚':'▶'; };
   try{ const sp=JSON.parse(localStorage.getItem('machrozet_vpos')||'null'); if(sp){ box.style.left=sp[0]+'px'; box.style.top=sp[1]+'px'; box.style.right='auto'; } }catch(_){}
   const bar=box.querySelector('.vbar'); let dg=null;
   bar.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; const r=box.getBoundingClientRect(); dg={dx:e.clientX-r.left,dy:e.clientY-r.top}; try{bar.setPointerCapture(e.pointerId);}catch(_){} e.preventDefault(); });
@@ -5609,7 +5626,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
   $('vidBtn').onclick=()=>{ if(shown){ userClosed=true; box.style.display='none'; shown=false; } else { userClosed=false; box.style.display='block'; shown=true; } };
   let pending={};
   function loop(){ requestAnimationFrame(loop); const hv=hasVideo(); $('vidBtn').style.display=hv?'':'none'; if(!hv){ if(shown){ box.style.display='none'; shown=false; } return; }
-    if(!shown&&!userClosed){ box.style.display='block'; shown=true; } if(!shown) return;
+    if(!shown&&!userClosed){ box.style.display='block'; shown=true; } if(!shown) return; try{ drawScrub(); }catch(_){}
     const t=S.playhead, a=videoAt(t); if(cur&&(!a||a.key!==cur)){ const ov=VPOOL[cur]; if(ov&&!ov.paused) ov.pause(); }
     if(!a){ cur=null; drawFit(g,null,cv.width,cv.height); return; }
     const u=vurl(a.b); if(!u){ if(!pending[a.key]){ pending[a.key]=1; vurlAsync(a.b).then(()=>delete pending[a.key]); } return; }
@@ -5848,6 +5865,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1121-2015"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1121-2020"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
