@@ -580,6 +580,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
     <div class="row">
       <button id="cVa" class="gold" hidden>🎯 עריכת תווים</button>
       <button id="cLink" hidden></button>
+      <button id="cTie" hidden></button>
       <button id="cDup">⧉ שכפול</button>
       <button id="cTrans" class="gold">✨ מעבר לשיר הבא</button>
       <button id="cStraight">📏 יישור ביט</button>
@@ -3221,7 +3222,7 @@ $('allTools').onclick=()=>openSheet(`<h3>🎛 כל המחרוזת</h3>
 const lanesEl=$('lanes'), rulerEl=$('ruler'), contentEl=$('content'), scroller=$('scroller');
 function contentWidth(){ return HEADER + (Math.max(projEnd(),60)+40)*S.pps; }
 let gridHtml='';
-function render(){ try{ linkSync(false); }catch(e){ console.warn('link',e); } try{ lyrFollowClip(); }catch(_){}
+function render(){ try{ linkSync(false); }catch(e){ console.warn('link',e); } try{ tieSync(); }catch(e){ console.warn('tie',e); } try{ lyrFollowClip(); }catch(_){}
   const W=contentWidth(); contentEl.style.width=W+'px';
   // grid + ruler (tempo-map aware)
   lanesEl.style.backgroundImage='none';
@@ -3316,6 +3317,7 @@ function updPanel(){ setTimeout(updKeyTag,0);
   const f=S.sel&&findClip(S.sel); $('panelMain').hidden=!!f; $('panelClip').hidden=!f; if(!f) return;
   const c=f.c,b=bufs[c.buf];
   { const vb=$('cVa'); vb.hidden=!(b&&b.kind==='vocal'&&!b.vtype); }
+  { const tb=$('cTie'); const isV=!!(b&&baseOf(b)&&baseOf(b).vtype); tb.hidden=!(c.tie||isV); tb.textContent=c.tie?'📎 זזים יחד — לנתק':'📎 להזיז יחד עם השירה והמילים'; tb.classList.toggle('gold',!!c.tie); }
   { const lb=$('cLink'); lb.hidden=!(c.link||c.unl); lb.textContent=c.link?'🔗 מחובר לוידאו — לנתק':'⛓ לחבר שוב לוידאו'; lb.classList.toggle('gold',!!c.link); }
   $('cName').textContent=b.name; $('cBpm').textContent=b.kind==='song'?('♩ '+fmtBpm(b.bpm)):b.kind==='vocal'?'🎤 שירה':b.kind==='notes'?'🎹 תווים':'אפקט';
   $('cGain').value=Math.round(c.gain*100); $('cGainV').textContent=Math.round(c.gain*100)+'%';
@@ -3349,6 +3351,7 @@ $('cExp').onclick=()=>{ const f=clipRange(); if(!f) return; openExport('range');
 $('cCopy').onclick=()=>{ const f=findClip(S.sel); if(!f) return; clipboard={len:f.c.dur,items:[{ti:f.ti,c:Object.assign({},f.c,{start:0})}]}; toast('הקטע הועתק · מזיזים את הסמן ולוחצים 📋 הדבקה'); };
 $('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם ⧉ העתקה של קטע'); return; } pushHist(); const n=pasteAt(snapTime(S.playhead)); render(); toast(n?'הודבק בסמן ✓':'לא הודבק'); };
 $('cLink').onclick=()=>linkToggle();
+$('cTie').onclick=()=>tieToggle();
 $('cVa').onclick=()=>vaOpen();
 $('cDel').onclick=()=>{ const f=findClip(S.sel); if(!f) return; pushHist(); f.t.clips.splice(f.i,1); S.tmap=(S.tmap||[]).filter(x=>x.cn!==f.c.id); S.sel=null; render(); };
 $('cStraight').onclick=()=>{ if(S.sel) openStraighten(S.sel); };
@@ -5180,6 +5183,19 @@ function linkToggle(){ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.
   if(c.link){ const id=c.link; S.tracks.forEach(t=>t.clips.forEach(x=>{ if(x.link===id){ x.unl=id; delete x.link; x.nolink=true; } })); delete LINKSIG[id]; toast('⛓ נותק — עכשיו השירה והוידאו זזים כל אחד לבד'); }
   else if(c.unl){ const id=c.unl; S.tracks.forEach(t=>t.clips.forEach(x=>{ if(x.unl===id){ x.link=id; delete x.unl; delete x.nolink; } })); LINKSIG[id]={a:'',v:''}; toast('🔗 מחובר שוב — זזים ביחד'); }
   render(); updPanel(); }
+/* 📎 tie: clips that move together (video + its singing + the words). Moving one shifts the rest by the same amount. */
+function tieMembers(id){ const a=[]; S.tracks.forEach(t=>t.clips.forEach(c=>{ if(c.tie===id) a.push(c); })); return a; }
+function tieSync(){ const groups={}; S.tracks.forEach(t=>t.clips.forEach(c=>{ if(c.tie) (groups[c.tie]=groups[c.tie]||[]).push(c); }));
+  for(const id in groups){ const g=groups[id]; if(g.length<2&&!(S.lyr&&S.lyr.clip&&g.some(c=>c.id===S.lyr.clip))){ g.forEach(c=>{ delete c.tie; delete c.ta; delete c.to; }); continue; }
+    let d=null; for(const c of g){ if(c.ta==null){ continue; } if(Math.abs(c.start-c.ta)>1e-6&&Math.abs(c.offset-(c.to||0))<1e-6){ d=c.start-c.ta; break; } }
+    if(d!=null){ g.forEach(c=>{ if(c.ta!=null&&Math.abs(c.start-c.ta)<1e-6) c.start=Math.max(0,c.start+d); }); }
+    g.forEach(c=>{ c.ta=c.start; c.to=c.offset; }); } }
+function tieToggle(){ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist();
+  if(c.tie){ const id=c.tie; const m=tieMembers(id); m.forEach(x=>{ delete x.tie; delete x.ta; delete x.to; }); if(S.lyr&&m.some(x=>x.id===S.lyr.clip)){ S.lyr.clip=null; S.lyr.at=null; } render(); toast('📎 נותק — כל אחד זז לבד'); return; }
+  const id='T'+nid(); const e=c.start+c.dur; const mates=[]; S.tracks.forEach(t=>t.clips.forEach(x=>{ if(x===c) return; const xb=bufs[x.buf]; if(!xb||(baseOf(xb)&&baseOf(xb).vtype)||xb.kind==='song') return; if(x.start<e-0.05&&x.start+x.dur>c.start+0.05) mates.push(x); }));
+  [c,...mates].forEach(x=>{ x.tie=id; x.ta=x.start; x.to=x.offset; });
+  let ly=false; if(S.lyr&&S.lyr.lines.length){ S.lyr.clip=c.id; S.lyr.at=c.start; ly=true; }
+  render(); toast('📎 מחובר: הוידאו'+(mates.length?' + '+mates.length+' הקלטות':'')+(ly?' + המילים':'')+' — זזים יחד',3500); }
 function linkAuto(){ /* link older pairs filmed together: same start, similar length */ S.tracks.forEach(t=>t.clips.forEach(vc=>{ const b=bufs[vc.buf]; if(!b||!b.vtype||vc.link||vc.nolink||vc.unl||!/צילום/.test(b.name||'')) return; let best=null; S.tracks.forEach(t2=>{ if(t2===t) return; t2.clips.forEach(ac=>{ const ab=bufs[ac.buf]; if(!ab||ab.vtype||ac.link||ac.unl) return; if(Math.abs(ac.start-vc.start)<0.03&&Math.abs(ac.dur-vc.dur)<0.6) best=ac; }); }); if(best){ const id='L'+nid(); best.link=id; vc.link=id; vc.lk=best.offset-vc.offset; } })); }
 async function camFinish(r,lat,acl){ const V=r.vid; if(!V) return; await new Promise(res=>{ if(V.vmr.state==='inactive') return res(); V.vmr.onstop=res; try{ V.vmr.stop(); }catch(_){ res(); } }); V.stream.getTracks().forEach(t=>t.stop()); try{ if(V.cs) V.cs.getTracks().forEach(t=>t.stop()); }catch(_){} camPreviewOff(V.D);
   const type=(V.vmr.mimeType||'video/webm').split(';')[0]; const blob=new Blob(V.chunks,{type}); if(!blob.size){ toast('הווידאו לא נשמר'); return; }
@@ -5832,6 +5848,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1121-2003"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1121-2015"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
