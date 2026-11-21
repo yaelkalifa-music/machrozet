@@ -106,7 +106,8 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 #vidBox{position:fixed;right:10px;top:110px;width:240px;z-index:55;background:#000;border:1px solid var(--line);border-radius:10px;overflow:hidden;display:none;box-shadow:0 6px 24px #0009}
 #vidBox.big{width:min(92vw,640px)}
 #vidBox canvas{width:100%;height:auto;display:block}#vidBox #vCan{max-height:58vh;width:auto;max-width:100%;margin:0 auto}
-#vidBox .vtl{background:var(--bg2);padding:4px 5px 5px;direction:ltr}#vidBox .vtl .vtr{display:flex;align-items:center;gap:4px}#vidBox .vtl button{padding:2px 6px;min-width:0;font-size:15px;line-height:1.2}#vidBox .vtl .vtt{flex:1;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:#ffd84d}#vidBox #vScrub{width:100%;height:30px;display:block;margin-top:4px;touch-action:none;border-radius:6px;cursor:pointer}
+#vidBox .vrs{position:absolute;bottom:0;width:34px;height:24px;z-index:3;touch-action:none;display:flex;align-items:flex-end;justify-content:center;font-size:16px;color:#ffd84d;background:rgba(0,0,0,.35);user-select:none;-webkit-user-select:none}#vidBox .vrs.l{left:0;cursor:nesw-resize;border-top-right-radius:10px}#vidBox .vrs.r{right:0;cursor:nwse-resize;border-top-left-radius:10px}#vidBox{min-width:150px}
+#vidBox .vtl{background:var(--bg2);padding:4px 5px 26px;direction:ltr}#vidBox .vtl .vtr{display:flex;align-items:center;gap:4px}#vidBox .vtl button{padding:2px 6px;min-width:0;font-size:15px;line-height:1.2}#vidBox .vtl .vtt{flex:1;text-align:center;font-size:12px;font-variant-numeric:tabular-nums;color:#ffd84d}#vidBox #vScrub{width:100%;height:30px;display:block;margin-top:4px;touch-action:none;border-radius:6px;cursor:pointer}
 #vidBox .vbar{cursor:move;touch-action:none;display:flex;gap:4px;align-items:center;padding:2px 4px;background:var(--bg2);font-size:12px}
 #vidBox .vbar span{flex:1}
 #vidBox .vbar button{padding:2px 8px;min-height:0}
@@ -5598,10 +5599,17 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     $('vfxReset').onclick=()=>{ cur=JSON.parse(JSON.stringify(VPRESETS.none)); apply(); refresh(); toast('↺ בלי אפקטים'); };
     refresh(); }); }
 // floating preview
-(function(){ const box=document.createElement('div'); box.id='vidBox'; box.innerHTML='<div class="vbar"><span>🎬 וידאו · לגרור מכאן</span><button id="vFx" title="אפקטים לוידאו">✨</button><button id="vBig" title="גדול/קטן">⤢</button><button id="vClose" title="סגירה">✕</button></div><canvas id="vCan" width="640" height="360"></canvas><div class="vtl" data-notr><div class="vtr"><button id="vtB5" title="5 שניות אחורה">«5</button><button id="vtB1" title="שנייה אחורה">‹1</button><button id="vtPl" title="ניגון/עצירה">▶</button><button id="vtF1" title="שנייה קדימה">1›</button><button id="vtF5" title="5 שניות קדימה">5»</button><span class="vtt" id="vtTime">0:00</span></div><canvas id="vScrub" width="600" height="60"></canvas></div>'; document.body.appendChild(box);
+(function(){ const box=document.createElement('div'); box.id='vidBox'; box.innerHTML='<div class="vbar"><span>🎬 וידאו · לגרור מכאן</span><button id="vFx" title="אפקטים לוידאו">✨</button><button id="vBig" title="גדול/קטן">⤢</button><button id="vClose" title="סגירה">✕</button></div><canvas id="vCan" width="640" height="360"></canvas><div class="vtl" data-notr><div class="vtr"><button id="vtB5" title="5 שניות אחורה">«5</button><button id="vtB1" title="שנייה אחורה">‹1</button><button id="vtPl" title="ניגון/עצירה">▶</button><button id="vtF1" title="שנייה קדימה">1›</button><button id="vtF5" title="5 שניות קדימה">5»</button><span class="vtt" id="vtTime">0:00</span></div><canvas id="vScrub" width="600" height="60"></canvas></div><div class="vrs l" title="גרירה להגדלה/הקטנה">⤡</div><div class="vrs r" title="גרירה להגדלה/הקטנה">⤢</div>'; document.body.appendChild(box);
   const cv=box.querySelector('canvas'), g=cv.getContext('2d'); let shown=false, userClosed=false, cur=null;
   $('vClose').onclick=()=>{ userClosed=true; box.style.display='none'; shown=false; };
-  $('vBig').onclick=()=>box.classList.toggle('big'); $('vFx').onclick=()=>openVidFx();
+  const setW=w=>{ w=clamp(Math.round(w),150,Math.min(innerWidth-8,900)); box.style.width=w+'px'; box.classList.remove('big'); try{ localStorage.setItem('machrozet_vw',w); }catch(_){} };
+  try{ const sw=+localStorage.getItem('machrozet_vw'); if(sw) box.style.width=clamp(sw,150,innerWidth-8)+'px'; }catch(_){}
+  $('vBig').onclick=()=>{ const cur=box.getBoundingClientRect().width; const big=Math.min(innerWidth*0.92,640); setW(cur<big-20?big:240); const r=box.getBoundingClientRect(); if(r.right>innerWidth){ box.style.left=Math.max(0,innerWidth-r.width-4)+'px'; box.style.right='auto'; } };
+  box.querySelectorAll('.vrs').forEach(h=>{ let st=null;
+    h.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); const r=box.getBoundingClientRect(); box.style.left=r.left+'px'; box.style.top=r.top+'px'; box.style.right='auto'; st={x:e.clientX,w:r.width,l:r.left,left:h.classList.contains('l')}; try{ h.setPointerCapture(e.pointerId); }catch(_){} });
+    h.addEventListener('pointermove',e=>{ if(!st) return; const dx=e.clientX-st.x; if(st.left){ const w=clamp(st.w-dx,150,Math.min(innerWidth-8,900)); box.style.width=w+'px'; box.style.left=(st.l+st.w-w)+'px'; } else { const w=clamp(st.w+dx,150,Math.min(innerWidth-8-st.l,900)); box.style.width=w+'px'; } box.classList.remove('big'); });
+    const end=()=>{ if(!st) return; st=null; try{ localStorage.setItem('machrozet_vw',Math.round(box.getBoundingClientRect().width)); localStorage.setItem('machrozet_vpos',JSON.stringify([parseInt(box.style.left),parseInt(box.style.top)])); }catch(_){} };
+    h.addEventListener('pointerup',end); h.addEventListener('pointercancel',end); }); $('vFx').onclick=()=>openVidFx();
   const seekTo=t=>{ S.playhead=clamp(t,0,Math.max(projEnd(),0.1)); placePlayhead(); if(S.playing) restartPlay(); };
   $('vtB5').onclick=()=>seekTo(S.playhead-5); $('vtB1').onclick=()=>seekTo(S.playhead-1); $('vtF1').onclick=()=>seekTo(S.playhead+1); $('vtF5').onclick=()=>seekTo(S.playhead+5);
   $('vtPl').onclick=()=>{ if(S.playing) stopPlay(); else startPlay(); };
@@ -5865,6 +5873,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1121-2020"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1121-2039"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
