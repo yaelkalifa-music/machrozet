@@ -4812,6 +4812,10 @@ async function lyrPaste(){ let items=LYR_CLIP;
   if(!items||!items.length){ try{ const tx=navigator.clipboard&&await navigator.clipboard.readText(); const rows=(tx||'').split('\n').map(x=>x.trim()).filter(Boolean); if(rows.length) items=rows.map((r,i)=>({dt:i*2.7,d:2.5,text:r})); }catch(_){} }
   if(!items||!items.length){ toast('אין מה להדביק — קודם ⧉ העתקה או ✂ גזירה'); return; }
   if(!S.lyr){ S.lyr=lyrDef(); } pushHist(); const t=S.playhead; const nl=items.map(it=>({id:nid(),t:t+it.dt,d:it.d,text:it.text})); S.lyr.lines.push(...nl); lyrSort(); lyrSelSet(nl.map(l=>l.id)); render(); toast('📋 הודבקו '+nl.length+' שורות במקום הסמן'); }
+function lyrSplit(){ let ls=lyrSelLines(); const ph=S.playhead; if(!ls.length) ls=S.lyr.lines.filter(l=>ph>l.t&&ph<l.t+l.d); if(!ls.length){ toast('קודם בוחרים שורה'); return; } pushHist(); const made=[];
+  ls.forEach(l=>{ const inside=ph>l.t+0.05&&ph<l.t+l.d-0.05; const at=inside?ph:l.t+l.d/2; const f=(at-l.t)/l.d; const w=l.text.trim().split(/\s+/); let k=Math.round(w.length*f); k=Math.max(1,Math.min(w.length-1,k)); const t1=w.length>1?w.slice(0,k).join(' '):l.text, t2=w.length>1?w.slice(k).join(' '):l.text;
+    const n={id:nid(),t:at,d:l.t+l.d-at,text:t2}; l.d=at-l.t; l.text=t1; S.lyr.lines.push(n); made.push(l.id,n.id); });
+  lyrSort(); lyrSelSet(made); render(); toast(ls.some(l=>true)&&ls.length===1?'✂ נחתך לשתיים':'✂ נחתכו '+ls.length+' שורות'); }
 function lyrDup(){ const ls=lyrSelLines(); if(!ls.length) return; pushHist(); const t0=Math.min(...ls.map(l=>l.t)), t1=Math.max(...ls.map(l=>l.t+l.d)); const sh=t1-t0+0.1; const nl=ls.map(l=>({id:nid(),t:l.t+sh,d:l.d,text:l.text})); S.lyr.lines.push(...nl); lyrSort(); lyrSelSet(nl.map(l=>l.id)); render(); toast('⎘ שוכפל'); }
 function lyrDel(){ const ls=lyrSelLines(); if(!ls.length) return; pushHist(); S.lyr.lines=S.lyr.lines.filter(l=>!LYS.has(l.id)); lyrSelSet([]); render(); toast('🗑 נמחקו '+ls.length+' שורות (↶ לביטול)'); }
 function lyrNudge(dt){ const ls=lyrSelLines(); if(!ls.length) return; pushHist(); const mn=Math.min(...ls.map(l=>l.t)); dt=Math.max(-mn,dt); ls.forEach(l=>l.t+=dt); lyrSort(); render(); }
@@ -4821,14 +4825,14 @@ function lyrBar(){ let bar=$('lyrBar'); const n=LYS.size;
   if(!n&&!LYMULTI){ if(bar) bar.remove(); return; }
   if(!bar){ bar=document.createElement('div'); bar.id='lyrBar'; bar.setAttribute('data-notr',''); document.body.appendChild(bar); }
   bar.innerHTML=`<div class="lbt"><b>📝 ${n===1?'שורה אחת נבחרה':n?n+' שורות נבחרו':'בוחרים שורות…'}</b><button data-a="multi" class="${LYMULTI?'on':''}">☑ כמה</button><button data-a="all">בחר הכל</button><button data-a="x">✕</button></div>
-  <div class="lbr"><button data-a="cut">✂<small>גזירה</small></button><button data-a="copy">⧉<small>העתקה</small></button><button data-a="paste">📋<small>הדבקה</small></button><button data-a="dup">⎘<small>שכפול</small></button><button data-a="del">🗑<small>מחיקה</small></button></div>
+  <div class="lbr"><button data-a="split">✂<small>חיתוך בסמן</small></button><button data-a="copy">⧉<small>העתקה</small></button><button data-a="paste">📋<small>הדבקה</small></button><button data-a="dup">⎘<small>שכפול</small></button><button data-a="del">🗑<small>מחיקה</small></button></div>
   <div class="lbr" style="direction:ltr"><button data-a="m1">⏪<small>‎−0.5</small></button><button data-a="m2">◀<small>‎−0.1</small></button><button data-a="p2">▶<small>+0.1</small></button><button data-a="p1">⏩<small>+0.5</small></button><button data-a="st">⇤<small>מתחיל בסמן</small></button><button data-a="en">⇥<small>נגמר בסמן</small></button><button data-a="ed">✏️<small>עריכה</small></button></div>`;
   bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{ const a=b.dataset.a;
     if(a==='x'){ LYMULTI=false; lyrSelSet([]); render(); }
     else if(a==='multi'){ LYMULTI=!LYMULTI; lyrBar(); toast(LYMULTI?'☑ עכשיו כל נגיעה בשורה מוסיפה/מורידה אותה':'בחירה רגילה'); }
     else if(a==='all'){ lyrSelSet(S.lyr.lines.map(l=>l.id)); render(); }
-    else if(!n&&a!=='paste'){ toast('קודם בוחרים שורה'); }
-    else if(a==='cut') lyrClipCopy(true); else if(a==='copy') lyrClipCopy(false); else if(a==='paste') lyrPaste(); else if(a==='dup') lyrDup(); else if(a==='del') lyrDel();
+    else if(!n&&a!=='paste'&&a!=='split'){ toast('קודם בוחרים שורה'); }
+    else if(a==='split') lyrSplit(); else if(a==='cut') lyrClipCopy(true); else if(a==='copy') lyrClipCopy(false); else if(a==='paste') lyrPaste(); else if(a==='dup') lyrDup(); else if(a==='del') lyrDel();
     else if(a==='m1') lyrNudge(-0.5); else if(a==='m2') lyrNudge(-0.1); else if(a==='p2') lyrNudge(0.1); else if(a==='p1') lyrNudge(0.5);
     else if(a==='st') lyrStartHere(); else if(a==='en') lyrEndHere();
     else if(a==='ed'){ if(n===1){ const l=lyrSelLines()[0]; lyrEdit(l); } else lyrFixSheet(); } }); }
@@ -5873,6 +5877,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1121-2039"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1121-2043"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
