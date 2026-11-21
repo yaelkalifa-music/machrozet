@@ -4930,6 +4930,7 @@ async function lyrAuto(tid,rows,pr){ const t=S.tracks.find(x=>x.id===tid); if(!t
       let txt=''; try{ txt=(await ASR.run(buf.subarray(0,o).slice())).trim(); }catch(e){ console.warn(e); }
       const ws=txt.split(/\s+/).filter(Boolean); const durs=g.map(i=>segs[i].e-segs[i].t); const tot=durs.reduce((a,b)=>a+b,0)||1; let wi=0, acc=0;
       g.forEach((i,k)=>{ acc+=durs[k]; const upto=k===g.length-1?ws.length:Math.round(ws.length*acc/tot); heard[i].text=ws.slice(wi,upto).join(' '); wi=upto; }); } }
+  if(ASR&&ASR.w){ try{ ASR.w.terminate(); }catch(_){} ASR=null; } // free the phone's memory for the video
   heard=heard.map(h=>({t:h.t+from,e:h.e+from,text:h.text}));
   let lines; if(rows.length) lines=lyrFitBySegs(rows,heard); else lines=heard.filter(h=>h.text&&h.text.replace(/[\s.,…]/g,'').length).map(h=>({id:nid(),t:h.t,d:Math.max(0.5,h.e-h.t+0.2),text:h.text}));
   if(!lines.length) throw new Error('לא הצלחתי לזהות מילים — אפשר להדביק את הטקסט ואני אשבץ אותו');
@@ -5329,7 +5330,7 @@ async function vurlAsync(b){ let u=vurl(b); if(u) return u; const bb=baseOf(b); 
 function hasVideo(){ return allClips().some(x=>{ const b=bufs[x.c.buf]; return b&&baseOf(b)&&baseOf(b).vtype; }); }
 function videoAt(t){ let best=null; S.tracks.forEach((tr,ti)=>{ const anySolo=S.tracks.some(q=>q.solo); if(tr.mute||(anySolo&&!tr.solo)) return; tr.clips.forEach(c=>{ const b=bufs[c.buf]; if(!b||!baseOf(b)||!baseOf(b).vtype) return; if(t<c.start||t>=c.start+c.dur) return; best={c,b,vt:(c.offset+(t-c.start))*(b.src?b.src.tempo||1:1),rate:b.src?b.src.tempo||1:1,key:baseOf(b).id}; }); }); return best; }
 const VPOOL={};
-function vEl(key,url){ let v=VPOOL[key]; if(!v){ v=document.createElement('video'); v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto'; v.src=url; VPOOL[key]=v; } return v; }
+function vEl(key,url){ let v=VPOOL[key]; if(v&&v.error&&!v._retry){ v._retry=1; try{ v.src=url; v.load(); }catch(_){} } if(!v){ v=document.createElement('video'); v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.preload='auto'; v.src=url; VPOOL[key]=v; } return v; }
 function syncV(v,want,playing,rate){ if(!v) return; try{ if(v.readyState<1||v.seeking) return; const dur=v.duration||want; const d=v.currentTime-want;
   if(!playing){ if(Math.abs(d)>0.04) v.currentTime=Math.min(want,dur-0.01); if(v.playbackRate!==rate) v.playbackRate=rate; if(!v.paused) v.pause(); return; }
   const now=performance.now(); if(Math.abs(d)>0.6&&(!v._sk||now-v._sk>1200)){ v._sk=now; v.currentTime=Math.min(want+0.08,dur-0.01); v.playbackRate=rate; }
@@ -5442,6 +5443,8 @@ function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!
   if(F.spark>0){ g.save(); g.globalCompositeOperation='lighter'; const N=Math.round(26*F.spark); for(let i=0;i<N;i++){ const sd=i*12.9898; const px=((Math.sin(sd)*43758.5453)%1+1)%1, sp=0.04+(((Math.sin(sd*1.7)*24634.6345)%1+1)%1)*0.08; const py=1-((tt*sp+((Math.sin(sd*2.3)*9137.31)%1+1)%1)%1); const tw=0.5+0.5*Math.sin(tt*4+i*1.3); const s=(2+((i*7)%5))*Math.min(W,H)/400*(0.6+tw*0.6); const X=px*W, Y=py*H; const gr=g.createRadialGradient(X,Y,0,X,Y,s*4); gr.addColorStop(0,`rgba(255,240,200,${0.9*tw})`); gr.addColorStop(1,'rgba(255,200,120,0)'); g.fillStyle=gr; g.fillRect(X-s*4,Y-s*4,s*8,s*8); g.strokeStyle=`rgba(255,250,230,${0.8*tw})`; g.lineWidth=Math.max(1,s/3); g.beginPath(); g.moveTo(X-s*3,Y); g.lineTo(X+s*3,Y); g.moveTo(X,Y-s*3); g.lineTo(X,Y+s*3); g.stroke(); } g.restore(); } }
 let TESTFX=null;
 async function vfxDiag(){ const out=[]; const add=x=>{ out.push(x); const el=$('vfxDiagOut'); if(el) el.textContent=out.join('\n'); };
+  try{ const a=videoAt(S.playhead); const vc=allClips().filter(x=>bufs[x.c.buf]&&baseOf(bufs[x.c.buf])&&baseOf(bufs[x.c.buf]).vtype); add('ver '+(window.__BUILD||'?')+' · playhead '+S.playhead.toFixed(2)+' · video clips '+vc.length+(vc[0]?' ['+vc[0].c.start.toFixed(2)+'–'+(vc[0].c.start+vc[0].c.dur).toFixed(2)+']':'')+' · at playhead '+(a?'yes':'no')+' · lyr '+(S.lyr?S.lyr.lines.length:'-')+' lyrErr '+(window.__lyrErr||'-'));
+    Object.keys(VPOOL).forEach(k=>{ const v=VPOOL[k]; add('v '+k.slice(0,6)+': rs'+v.readyState+' '+v.videoWidth+'x'+v.videoHeight+' t'+(+v.currentTime).toFixed(2)+' err'+(v.error?v.error.code:'-')+' src'+(v.src?v.src.slice(0,5):'none')); }); const b=$('vidBox'); add('box '+(b?b.style.display+' '+b.offsetWidth+'x'+b.offsetHeight:'none')); }catch(e){ add('diag0 '+e.message); }
   try{ const G=vglInit(); if(!G){ add('GL: none'); return; } const gl=G.gl; const dbg=gl.getExtension('WEBGL_debug_renderer_info'); add('GPU: '+(dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)));
     const hp=gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER,gl.HIGH_FLOAT); add('highp: '+(hp?hp.precision:'-')+' lost:'+VGLlost+' err:'+(window.__vfxErr||'-'));
     const test=async(label)=>{ const a=videoAt(S.playhead)||(()=>{ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); return vc?videoAt(vc.c.start+0.1):null; })(); const v=a&&VPOOL[a.key]; if(!v||!v.videoWidth){ add(label+': no video'); return; }
