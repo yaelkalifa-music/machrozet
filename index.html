@@ -5308,6 +5308,8 @@ function drawLW(box,p){ const x=(p.t-LW.t0)*S.pps, T=512, i=Math.floor(x/T); let
 async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg')) $('rcMsg').textContent=t; if(t&&$('recPop')) $('recPop').hidden=false; };
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg('המכשיר לא מאפשר הקלטה כאן.'); return; }
   try{ if(navigator.audioSession) navigator.audioSession.type='play-and-record'; }catch(_){}
+  /* camera first, microphone last: on some Android phones opening the camera after the mic silenced the mic */
+  let V=null; if($('rcVid')&&$('rcVid').checked){ try{ const hq=!!($('rcHQ')&&$('rcHQ').checked); let cst; try{ cst=await camOpen(hq); }catch(e){ if(!hq) throw e; cst=await camOpen(false); } const D=await camPreview(cst,hq); V=camRecorder(cst,D); }catch(e){ console.error(e); toast('לא הצלחתי לפתוח את המצלמה — מקליטה רק קול',4000); } }
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e0){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ console.error('mic',e); const n=(e&&e.name)||'';
     const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
     let t;
@@ -5317,7 +5319,9 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
     else if((n==='NotAllowedError'||n==='SecurityError')&&/Android/.test(navigator.userAgent)) t='אין אישור למיקרופון. בכרום: לוחצים על הסמל שליד הכתובת למעלה ← הרשאות ← מיקרופון ← לאפשר. אם זה לא עוזר: הגדרות הטלפון ← אפליקציות ← Chrome ← הרשאות ← מיקרופון ← לאפשר. ואז לרענן ולנסות שוב.';
     else if(n==='NotAllowedError'||n==='SecurityError') t=ios?'אין אישור למיקרופון. בספארי: aA ← הגדרות אתר ← מיקרופון ← לאפשר. בכרום באייפד: הגדרות האייפד ← Chrome ← מיקרופון ← להדליק. ואז לנסות שוב.':'אין אישור למיקרופון. לוחצים על הסמל שליד הכתובת למעלה ← מיקרופון ← לאפשר ומרעננים. אם זה לא עוזר: הגדרות Windows ← פרטיות ← מיקרופון ← להדליק "אפשר לאפליקציות שולחן עבודה".';
     else t='לא הצלחתי לפתוח את המיקרופון ('+n+' '+(e&&e.message||'')+')';
+    if(V){ try{ V.vmr&&V.vmr.state!=='inactive'&&V.vmr.stop(); V.stream.getTracks().forEach(x=>x.stop()); camPreviewOff(V.D); }catch(_){} }
     msg(t); toast(t,8000); return; } }
+  { const at=stream.getAudioTracks()[0]; if(!at||at.readyState==='ended'){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(_){} } }
   if(c.state!=='running'){ try{ await c.resume(); }catch(_){} }
   const src=c.createMediaStreamSource(stream); const an=c.createAnalyser(); an.fftSize=1024; src.connect(an);
   let mon=null; if($('rcMon')&&$('rcMon').checked){ mon=c.createGain(); mon.gain.value=1; if($('rcRev').checked){ const cv=c.createConvolver(); cv.buffer=makeIR(c); const wg=c.createGain(); wg.gain.value=0.35; src.connect(cv); cv.connect(wg); wg.connect(mon); } src.connect(mon); mon.connect(c.destination); }
@@ -5326,7 +5330,6 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   const mr=new MediaRecorder(stream,mime?{mimeType:mime}:undefined); const chunks=[]; mr.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
   const count=$('rcCount')&&$('rcCount').checked; const punch=!!($('rcPunch')&&$('rcPunch').checked&&S.range); if(punch) S.playhead=S.range.l; const t0=S.playhead; let from=t0;
   let rt=targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!rt){ pushHist(); rt=newTrack('שירה'); rt.vocal=true; render(); } window.__recMute=rt.id;
-  let V=null; if($('rcVid')&&$('rcVid').checked){ try{ const hq=!!($('rcHQ')&&$('rcHQ').checked); let cst; try{ cst=await camOpen(hq); }catch(e){ if(!hq) throw e; cst=await camOpen(false); } const D=await camPreview(cst,hq); V=camRecorder(cst,D); }catch(e){ console.error(e); toast('לא הצלחתי לפתוח את המצלמה — מקליטה רק קול',4000); } }
   if(count){ from=Math.max(0,t0-barSec(t0)); } stopPlay(); S.playhead=from; const wasMetro=S.metro; if(count) S.metro=true;
   const aP=performance.now(); mr.start(); if(V){ V.vmr.start(1000); V.dt=(performance.now()-aP)/1000; } const recCtxStart=c.currentTime; startPlay(); if(count){ setTimeout(()=>{ if(rec&&!wasMetro){ S.metro=false; metroStop(); } },(t0-from)*1000+200); }
   if($('rcPrompt')&&$('rcPrompt').checked) promptOpen(count?Math.round(60/bpmAt(t0)*BPB()*1000)+300:800);
@@ -5958,6 +5961,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1122-0206"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1122-0214"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
