@@ -5329,7 +5329,7 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   const mime=(APPLE?['audio/mp4','audio/webm;codecs=opus','audio/webm']:['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg']).find(m=>window.MediaRecorder&&MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(m))||'';
   const mr=new MediaRecorder(stream,mime?{mimeType:mime}:undefined); const chunks=[]; mr.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
   const count=$('rcCount')&&$('rcCount').checked; const punch=!!($('rcPunch')&&$('rcPunch').checked&&S.range); if(punch) S.playhead=S.range.l; const t0=S.playhead; let from=t0;
-  let rt=targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!rt){ pushHist(); rt=newTrack('שירה'); rt.vocal=true; render(); } window.__recMute=rt.id;
+  let rt=targetTrack()||S.tracks.find(t=>t.vocal&&!t.pads)||null; if(!rt){ pushHist(); rt=newTrack('שירה'); rt.vocal=true; render(); } if(!rt.vocal&&!rt.fx&&!rt.pads&&rt.clips.every(c=>bufs[c.buf]&&bufs[c.buf].kind==='vocal')){ rt.vocal=true; } /* singing gets the natural vocal effect by default (turn off in ✨) */ window.__recMute=rt.id;
   if(count){ from=Math.max(0,t0-barSec(t0)); } stopPlay(); S.playhead=from; const wasMetro=S.metro; if(count) S.metro=true;
   const aP=performance.now(); mr.start(); if(V){ V.vmr.start(1000); V.dt=(performance.now()-aP)/1000; } const recCtxStart=c.currentTime; startPlay(); if(count){ setTimeout(()=>{ if(rec&&!wasMetro){ S.metro=false; metroStop(); } },(t0-from)*1000+200); }
   if($('rcPrompt')&&$('rcPrompt').checked) promptOpen(count?Math.round(60/bpmAt(t0)*BPB()*1000)+300:800);
@@ -5961,6 +5961,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1122-0214"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1122-1910"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
