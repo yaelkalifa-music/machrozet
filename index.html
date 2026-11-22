@@ -595,6 +595,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cVa" class="gold" hidden>🎯 עריכת תווים</button>
       <button id="cLink" hidden></button>
       <button id="cTie" hidden></button>
+      <button id="cLyr" title="לזהות את המילים בקטע הזה">📝 מילים לקטע הזה</button>
       <button id="cDup">⧉ שכפול</button>
       <button id="cTrans" class="gold">✨ מעבר לשיר הבא</button>
       <button id="cStraight">📏 יישור ביט</button>
@@ -3366,6 +3367,7 @@ $('cCopy').onclick=()=>{ const f=findClip(S.sel); if(!f) return; clipboard={len:
 $('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם ⧉ העתקה של קטע'); return; } pushHist(); const n=pasteAt(snapTime(S.playhead)); render(); toast(n?'הודבק בסמן ✓':'לא הודבק'); };
 $('cLink').onclick=()=>linkToggle();
 $('cTie').onclick=()=>tieToggle();
+$('cLyr').onclick=()=>{ if(!S.lyr){ pushHist(); S.lyr=lyrDef(); } lyrAutoSheet(); };
 $('cVa').onclick=()=>vaOpen();
 $('cDel').onclick=()=>{ const f=findClip(S.sel); if(!f) return; pushHist(); f.t.clips.splice(f.i,1); S.tmap=(S.tmap||[]).filter(x=>x.cn!==f.c.id); S.sel=null; render(); };
 $('cStraight').onclick=()=>{ if(S.sel) openStraighten(S.sel); };
@@ -5019,21 +5021,26 @@ function lyrFitBySegs(rows,segs){ let sg=segs.map(s=>({t:s.t,e:s.e})); const R=r
   for(let i=1;i<=R;i++) for(let j=i;j<=S-(R-i);j++) for(let k=i-1;k<j;k++){ if(D[i-1][k]>=INF) continue; const c=D[i-1][k]+Math.pow((cd[j]-cd[k])/TD-lens[i-1]/TL,2); if(c<D[i][j]){ D[i][j]=c; B[i][j]=k; } }
   const out=[]; let j=S; for(let i=R;i>=1;i--){ const k=B[i][j]; out.unshift({id:nid(),t:sg[k].t,d:Math.max(0.5,sg[j-1].e-sg[k].t+0.25),text:rows[i-1]}); j=k; }
   for(let i=0;i<out.length-1;i++) out[i].d=Math.max(0.4,Math.min(out[i].d,out[i+1].t-out[i].t-0.02)); return out; }
-function lyrAutoSheet(){ const vt=S.tracks.find(t=>t.clips.some(c=>bufs[c.buf]&&bufs[c.buf].kind==='vocal'))||S.tracks.find(t=>t.clips.some(c=>bufs[c.buf]&&baseOf(bufs[c.buf])&&baseOf(bufs[c.buf]).vtype))||S.tracks[0];
+function lyrClipRange(){ const f=S.sel&&findClip(S.sel); if(!f) return null; const c=f.c; const b=bufs[c.buf]; let tid=f.t?f.t.id:null; if(!tid){ const tr=S.tracks.find(t=>t.clips.includes(c)); tid=tr&&tr.id; }
+  if(b&&baseOf(b)&&baseOf(b).vtype){ let best=null; S.tracks.forEach(t=>t.clips.forEach(x=>{ const xb=bufs[x.buf]; if(!xb||(baseOf(xb)&&baseOf(xb).vtype)||xb.kind==='song') return; if(x.start<c.start+c.dur&&x.start+x.dur>c.start){ if(!best||xb.kind==='vocal') best={t,x}; } })); if(best) tid=best.t.id; }
+  return {from:c.start,to:c.start+c.dur,tid}; }
+function lyrAutoSheet(){ const R=lyrClipRange(); const vt=(R&&S.tracks.find(t=>t.id===R.tid))||S.tracks.find(t=>t.clips.some(c=>bufs[c.buf]&&bufs[c.buf].kind==='vocal'))||S.tracks.find(t=>t.clips.some(c=>bufs[c.buf]&&baseOf(bufs[c.buf])&&baseOf(bufs[c.buf]).vtype))||S.tracks[0];
   if(!vt){ toast('אין עדיין שירה או דיבור בפרויקט'); return; }
   openSheet(`<h3>✨ כתיבת מילים אוטומטית</h3><p class="hint">אני מקשיבה לערוץ ומוצאת בדיוק איפה שרים או מדברים.<br>📋 <b>עם הטקסט שלך</b> — מהיר ומדויק: כל שורה נכנסת בזמן שלה.<br>🤖 <b>בלי טקסט</b> — אני כותבת לבד ממה שאני שומעת. הכי טוב לדיבור; בשירה ייתכנו טעויות שאפשר לתקן. בפעם הראשונה יורד מנוע זיהוי (~160MB, פעם אחת).</p>
   <h4 style="margin:8px 0 4px">🎙 לאיזה ערוץ להקשיב?</h4><div class="row" style="flex-wrap:wrap;gap:6px">${S.tracks.map(t=>`<label class="hint" style="font-size:15px"><input type="radio" name="lyT" value="${t.id}" ${t===vt?'checked':''}> ${esc(t.name)}</label>`).join('')}</div>
   <h4 style="margin:10px 0 4px">📋 יש לך את הטקסט? (לא חובה)</h4><textarea id="lyTx" dir="auto" placeholder="מדביקים כאן את מילות השיר, כל שורה בשורה נפרדת — ואני אשבץ כל שורה בדיוק כשהיא נשמעת. אם משאירים ריק — אני כותבת לבד ממה שאני שומעת." style="width:100%;min-height:22vh;font-size:17px;border-radius:10px;padding:8px"></textarea>
-  ${S.lyr&&S.lyr.lines.length?'<p class="hint">⚠ השורות הקיימות יוחלפו (אפשר לבטל עם ↶).</p>':''}
+  ${R?`<h4 style="margin:10px 0 4px">✂ איזה חלק?</h4><div class="row" style="flex-wrap:wrap;gap:6px"><label class="hint" style="font-size:15px"><input type="radio" name="lyR" value="clip" checked> רק הקטע שבחרתי (${fmtTime(R.from).replace(/\.\d+$/,'')}–${fmtTime(R.to).replace(/\.\d+$/,'')}) — שאר המילים נשארות</label><label class="hint" style="font-size:15px"><input type="radio" name="lyR" value="all"> כל הערוץ</label></div>`:''}
+  ${S.lyr&&S.lyr.lines.length?'<p class="hint">'+(R?'⚠ בקטע שבחרתי השורות יוחלפו; מחוץ לו — נשארות.':'⚠ השורות הקיימות יוחלפו (אפשר לבטל עם ↶).')+'</p>':''}
   <div class="row" style="margin-top:8px"><button class="pri" id="lyGo">✨ קדימה</button><button id="lyNo">ביטול</button></div><p id="lyPr" class="hint"></p>`,()=>{
     $('lyNo').onclick=closeSheet;
     $('lyGo').onclick=async()=>{ const tid=(document.querySelector('input[name=lyT]:checked')||{}).value; const rows=$('lyTx').value.split('\n').map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean); $('lyGo').disabled=true;
       const pr=t=>{ const p=$('lyPr'); if(p) p.textContent=t; jobPill('📝 '+t); };
-      try{ await lyrAuto(tid,rows,pr); jobPill(null); closeSheet(); render(); toast('✓ המילים מוכנות — לחיצה על שורה לתיקון, 🎨 לעיצוב',5000); }
+      const only=R&&((document.querySelector('input[name=lyR]:checked')||{}).value==='clip')?{from:R.from,to:R.to}:null;
+      try{ await lyrAuto(tid,rows,pr,only); jobPill(null); closeSheet(); render(); toast('✓ המילים מוכנות — לחיצה על שורה לתיקון, 🎨 לעיצוב',5000); }
       catch(e){ console.error(e); jobPill(null); const p=$('lyPr'); if(p) p.textContent='❌ '+(e&&e.message||e); const b=$('lyGo'); if(b) b.disabled=false; } };
   }); }
-async function lyrAuto(tid,rows,pr){ const t=S.tracks.find(x=>x.id===tid); if(!t) throw new Error('לא נבחר ערוץ');
-  const cl=t.clips.filter(c=>bufs[c.buf]); if(!cl.length) throw new Error('הערוץ ריק'); const from=Math.min(...cl.map(c=>c.start)), to=Math.max(...cl.map(c=>c.start+c.dur));
+async function lyrAuto(tid,rows,pr,only){ const t=S.tracks.find(x=>x.id===tid); if(!t) throw new Error('לא נבחר ערוץ');
+  const cl=t.clips.filter(c=>bufs[c.buf]); if(!cl.length) throw new Error('הערוץ ריק'); let from=Math.min(...cl.map(c=>c.start)), to=Math.max(...cl.map(c=>c.start+c.dur)); if(only){ from=Math.max(from,only.from); to=Math.min(to,only.to); if(to-from<0.3) throw new Error('בקטע הזה אין שירה בערוץ שנבחר'); }
   pr('מקשיבה לערוץ…'); const sr=16000; const oc=new OfflineAudioContext(1,Math.ceil((to-from+0.2)*sr),sr); await prepTune(new Set([tid])); schedule(oc,oc.destination,from,0,new Set([tid])); const out=await oc.startRendering(); const x=out.getChannelData(0);
   const segs=lyrSegments(x,sr); if(!segs.length) throw new Error('לא שמעתי קול בערוץ הזה');
   let heard=segs.map(s=>({t:s.t,e:s.e,text:''}));
@@ -5050,7 +5057,8 @@ async function lyrAuto(tid,rows,pr){ const t=S.tracks.find(x=>x.id===tid); if(!t
   heard=heard.map(h=>({t:h.t+from,e:h.e+from,text:h.text}));
   let lines; if(rows.length) lines=lyrFitBySegs(rows,heard); else lines=heard.filter(h=>h.text&&h.text.replace(/[\s.,…]/g,'').length).map(h=>({id:nid(),t:h.t,d:Math.max(0.5,h.e-h.t+0.2),text:h.text}));
   if(!lines.length) throw new Error('לא הצלחתי לזהות מילים — אפשר להדביק את הטקסט ואני אשבץ אותו');
-  pushHist(); const vc=cl.find(c=>bufs[c.buf].kind==='vocal')||cl[0]; S.lyr=Object.assign(lyrDef(),S.lyr||{},{lines,clip:vc.id,at:vc.start}); LYS.clear(); lyrSelId=null; lyrBar(); }
+  pushHist(); const vc=cl.find(c=>bufs[c.buf].kind==='vocal')||cl[0];
+  if(only&&S.lyr&&S.lyr.lines.length){ const keep=S.lyr.lines.filter(l=>l.t+l.d<=from+0.05||l.t>=to-0.05); S.lyr.lines=keep.concat(lines).sort((a,b)=>a.t-b.t); } else S.lyr=Object.assign(lyrDef(),S.lyr||{},{lines,clip:vc.id,at:vc.start}); LYS.clear(); lyrSelId=null; lyrBar(); }
 
 /* ===== 📜 Prompter studio — one full-screen place to write, rehearse and record with the words =====
    Like teleprompter apps: big text, reading line, current line lit, tap = play/pause, drag = scroll,
@@ -5983,6 +5991,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1122-2245"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1123-0133"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
