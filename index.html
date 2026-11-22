@@ -174,7 +174,17 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 #prompter .prLine{position:absolute;left:0;right:0;top:9vh;height:2px;background:#ff4d6d66;pointer-events:none}
 #prompter .prBar{display:flex;gap:4px;align-items:center;justify-content:center;padding:4px;background:transparent;flex-wrap:wrap}#prompter .prBar button{background:#0006;backdrop-filter:blur(2px)}#prompter .prBar button{min-height:0;padding:4px 10px}#prompter .prSp{min-width:28px;text-align:center}
 body.prompting #camSrc.camShow:not(.small),body.prompting #camPrev:not(.small){top:calc(var(--prTop,0px) + 6px);height:min(78vh,calc(100vh - var(--prTop,0px) - 90px))}
-#prompter .prStop{background:#ff4d6d;color:#fff}
+#prompter .prStop{background:#ff4d6d;color:#fff}#prompter .prText .pl{opacity:.62;transition:opacity .2s}#prompter .prText .pl.cur{opacity:1;color:#fff8d0}
+#prStudio{position:fixed;inset:0;z-index:90;background:#0d0a14;display:flex;flex-direction:column;color:#fff}#prStudio[hidden]{display:none}
+#prStudio .psTop{display:flex;align-items:center;gap:8px;padding:calc(6px + env(safe-area-inset-top)) 10px 6px;border-bottom:1px solid var(--line)}#prStudio .psTop b{flex:1;text-align:center;font-size:17px}
+#prStudio .psSeg{display:flex;gap:0;border-radius:10px;overflow:hidden;border:1px solid var(--line)}#prStudio .psSeg button{border-radius:0;border:0;padding:6px 10px}#prStudio .psSeg button.on{background:#ffd84d;color:#222}
+#prStudio .psBody{flex:1;position:relative;overflow:hidden}#prStudio .psRead{position:absolute;inset:0;overflow:hidden;touch-action:none}#prStudio .psRead[hidden],#prStudio .psEditBox[hidden]{display:none}
+#prStudio .psText{direction:rtl;text-align:center;font-weight:800;line-height:1.4;padding:0 18px;will-change:transform}#prStudio .psText .pl{opacity:.38;transition:opacity .2s,color .2s}#prStudio .psText .pl.cur{opacity:1;color:#fff4c2}
+#prStudio .psMark{position:absolute;left:0;right:0;top:30%;border-top:2px solid #ff4d6d88;pointer-events:none;z-index:2}#prStudio .psMark::before{content:'▶';position:absolute;right:2px;top:-11px;color:#ff4d6d;font-size:14px}
+#prStudio .psHint{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:12px;pointer-events:none;transition:opacity .3s}
+#prStudio .psEditBox{position:absolute;inset:0;display:flex;flex-direction:column;padding:8px;gap:6px}#prStudio .psSrc{display:flex;gap:6px;flex-wrap:wrap}#prStudio .psSrc button{flex:1;font-size:13px;padding:6px}#prStudio textarea{flex:1;width:100%;font-size:20px;line-height:1.5;border-radius:12px;padding:10px;background:#1c1726;color:#fff;border:1px solid var(--line);resize:none}
+#prStudio .psCtl{padding:6px 10px calc(8px + env(safe-area-inset-bottom));background:#1a1424;border-top:1px solid var(--line)}#prStudio .psRow{display:flex;gap:6px;align-items:center;margin:5px 0}#prStudio .psRow button{flex:1;padding:9px 4px;font-size:15px}#prStudio #psPlay{flex:1.4;font-size:17px}#prStudio .psRecB{background:#ff4d6d;color:#fff}
+#prStudio .psSl input[type=range]{flex:1}#prStudio .psV{min-width:28px;text-align:center;font-size:12px;opacity:.7}#prStudio .psTg{font-size:13px;white-space:nowrap;display:flex;align-items:center;gap:3px}
 .vfxTop{position:sticky;top:0;z-index:2;background:var(--bg2,#1b1626);padding:4px 0;text-align:center}.vfxTop canvas{height:30vh;width:auto;max-width:100%;border-radius:12px;background:#000}
 .vrow{display:flex;align-items:center;gap:8px;margin:4px 0}.vrow span{min-width:118px}.vrow input{flex:1;direction:ltr}.vrow b{min-width:40px;text-align:center;direction:ltr}
 .lookChip{display:inline-flex}.lookChip button:first-child{border-radius:10px 0 0 10px}.lookChip button:last-child{border-radius:0 10px 10px 0;padding:4px 8px;opacity:.7}
@@ -506,7 +516,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
   <div id="barpos">1.1</div>
   <div class="sp"></div>
   <button id="toolBtn" title="כלים (חץ / מספריים / מתיחה / בחירה)">🧰</button><span id="toolTag" style="font-size:18px;display:none"></span>
-  <button id="recTop" title="הקלטה" style="color:#ff4d6d;font-size:18px">🎙</button><button id="vidBtn" title="תצוגת וידאו" style="display:none">🎬</button><button id="metro" title="מטרונום">🥁</button>
+  <button id="prBtn" title="פרומפטר — מילים שגוללות">📜</button><button id="recTop" title="הקלטה" style="color:#ff4d6d;font-size:18px">🎙</button><button id="vidBtn" title="תצוגת וידאו" style="display:none">🎬</button><button id="metro" title="מטרונום">🥁</button>
   <button id="zoomOut" title="הקטנה">−</button>
   <button id="zoomIn" title="הגדלה">+</button>
 </div>
@@ -4517,11 +4527,12 @@ let rec=null;
 (function(){ const pop=document.createElement('div'); pop.id='recPop'; pop.hidden=true; const LS=k=>{ try{ return localStorage.getItem('machrozet_rc_'+k); }catch(_){ return null; } };
   const ck=(id,lb,def)=>{ const v=LS(id); const on=v==null?def:v==='1'; return `<label><input type="checkbox" id="${id}" ${on?'checked':''}> ${lb}</label>`; };
   pop.innerHTML=`<div class="rpTop"><button class="pri" id="rcGo">🔴 הקלטה</button><div class="meter"><div id="rcLvl"></div></div><button id="rcOpt" title="אפשרויות">⚙</button><button id="rcClose" title="סגירה">✕</button></div>
-    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcVid','🎥 לצלם גם וידאו (לאורך, בלי זום)',false)}${ck('rcHQ','💎 איכות הכי גבוהה שהמצלמה נותנת (עד 4K · 60 תמונות בשנייה)',true)}${ck('rcPrompt','📜 פרומפטר — המילים גוללות לאט בזמן ההקלטה',false)}<div class="row" style="margin:2px 0 6px"><button type="button" id="rcPrEdit">✏️ מילים לפרומפטר</button></div>${ck('rcCount','ספירה של תיבה לפני',true)}${ck('rcClean','🧹 לנקות אוטומטית מוזיקה שנכנסה למיקרופון (בלי אוזניות)',false)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
+    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcVid','🎥 לצלם גם וידאו (לאורך, בלי זום)',false)}${ck('rcHQ','💎 איכות הכי גבוהה שהמצלמה נותנת (עד 4K · 60 תמונות בשנייה)',true)}${ck('rcPrompt','📜 פרומפטר — המילים גוללות לאט בזמן ההקלטה',false)}<div class="row" style="margin:2px 0 6px"><button type="button" id="rcPrEdit">📜 לפתוח את הפרומפטר (לכתוב ולנסות)</button></div>${ck('rcCount','ספירה של תיבה לפני',true)}${ck('rcClean','🧹 לנקות אוטומטית מוזיקה שנכנסה למיקרופון (בלי אוזניות)',false)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
   document.body.appendChild(pop);
   pop.querySelectorAll('#rcOpts input').forEach(i=>i.onchange=()=>{ try{ localStorage.setItem('machrozet_rc_'+i.id,i.checked?'1':'0'); }catch(_){} });
   $('rcOpt').onclick=()=>{ $('rcOpts').hidden=!$('rcOpts').hidden; };
-  { const pe=$('rcPrEdit'); if(pe) pe.onclick=()=>promptEdit(); }
+  { const pe=$('rcPrEdit'); if(pe) pe.onclick=()=>{ $('recPop').hidden=true; prsOpen(); }; }
+  { const pb=$('prBtn'); if(pb) pb.onclick=()=>prsOpen(); }
   $('rcClose').onclick=()=>{ pop.hidden=true; };
   $('rcGo').onclick=()=>{ if(rec){ stopRec(); return; } $('rcMsg').textContent=''; startRec(); };
   window.openRecPop=()=>{ $('rcPunchL').style.display=S.range?'':'none'; pop.hidden=false; const r=$('recTop').getBoundingClientRect(); pop.style.top=(r.bottom+6)+'px'; };
@@ -4720,12 +4731,12 @@ function movMux(o){ // o={W,H,avcC:Uint8Array, vs:[{data:Uint8Array,ts:us,key:bo
 }
 
 /* ===== 📝 Lyrics / captions track ===== */
-const LYR_FONTS=[['Fredoka','פרדוקה עגול'],['Varela Round','ורלה עגול'],['Heebo','היבו'],['Rubik','רוביק'],['Secular One','סקולר'],['Suez One','סואץ'],['Karantina','קרנטינה'],['Amatic SC','אמטיק'],['Frank Ruhl Libre','פרנק רוהל'],['Bellefair','בלפייר'],['David Libre','דוד']];
+const LYR_FONTS=[['Heebo','היבו'],['Rubik','רוביק'],['Secular One','סקולר'],['Suez One','סואץ'],['Karantina','קרנטינה'],['Amatic SC','אמטיק'],['Varela Round','ורלה'],['Frank Ruhl Libre','פרנק רוהל'],['Bellefair','בלפייר'],['David Libre','דוד']];
 const LYR_COLORS=['#ffffff','#ffd84d','#ff8fc8','#f6c27a','#8fe3ff','#c9a7ff','#b8ff8f','#ff6b6b','#111111','g:pinkgold','g:gold','g:sunset','g:ocean','g:rainbow'];
 const LYR_GRAD={pinkgold:['#ff8fc8','#ffd27a'],gold:['#fff2b0','#d9a441','#fff2b0'],sunset:['#ff6b6b','#ffb36b','#ffe66b'],ocean:['#8fe3ff','#c9a7ff'],rainbow:['#ff6b6b','#ffd84d','#b8ff8f','#8fe3ff','#c9a7ff']};
-const LYR_FX=[['soft','☁️ רך וחלומי'],['shadow','🌑 צל'],['outline','✏️ מסגרת'],['box','⬛ רקע כהה'],['boxw','⬜ רקע בהיר'],['glow','🌟 זוהר'],['neon','💡 ניאון'],['none','נקי']];
-const LYR_ANIM=[['dream','✨ חלומי (כמו דיסני)'],['fade','🌫 הופעה רכה'],['pop','💥 קפיצה'],['up','⬆️ עולה'],['type','⌨️ אות אחר אות'],['word','🔤 מילה אחר מילה'],['karaoke','🎤 קריוקי'],['none','בלי']];
-function lyrDef(){ return {lines:[],font:'Fredoka',color:'#ffffff',fx:'soft',anim:'dream',size:1,y:0.8,kc:'#ffd84d',hide:false,_v:2}; }
+const LYR_FX=[['shadow','🌑 צל'],['outline','✏️ מסגרת'],['box','⬛ רקע כהה'],['boxw','⬜ רקע בהיר'],['glow','🌟 זוהר'],['neon','💡 ניאון'],['none','נקי']];
+const LYR_ANIM=[['fade','🌫 הופעה רכה'],['pop','💥 קפיצה'],['up','⬆️ עולה'],['type','⌨️ אות אחר אות'],['word','🔤 מילה אחר מילה'],['karaoke','🎤 קריוקי'],['none','בלי']];
+function lyrDef(){ return {lines:[],font:'Heebo',color:'#ffffff',fx:'shadow',anim:'fade',size:1,y:0.8,kc:'#ffd84d',hide:false}; }
 function lyrCol(c,g,x0,x1){ if(typeof c==='string'&&c.startsWith('g:')){ const st=LYR_GRAD[c.slice(2)]||LYR_GRAD.gold; const gr=g.createLinearGradient(x0,0,x1,0); st.forEach((s,i)=>gr.addColorStop(i/(st.length-1),s)); return gr; } return c; }
 function lyrBase(c){ return typeof c==='string'&&c.startsWith('g:')?(LYR_GRAD[c.slice(2)]||['#fff'])[0]:c; }
 const lyrHeb=s=>/[֐-׿]/.test(s);
@@ -4733,22 +4744,21 @@ function lyrWrap(g,text,maxW){ const words=String(text).split(/\s+/).filter(Bool
 const easeOut=x=>1-Math.pow(1-x,3), backOut=x=>{ const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2); };
 let LYR_DEMO=null;
 function drawLyrics(g,W,H,t){ const L=S.lyr; if(!L||L.hide) return; if(t==null) t=S.playhead;
-  if(L._v!==2){ if((L.font||'Heebo')==='Heebo'&&(L.anim||'fade')==='fade'&&(L.fx||'shadow')==='shadow'){ L.font='Fredoka'; L.anim='dream'; L.fx='soft'; } L._v=2; }
+  if(L._v===2){ if(L.font==='Fredoka'&&L.anim==='dream'&&L.fx==='soft'){ L.font='Heebo'; L.anim='fade'; L.fx='shadow'; } delete L._v; }
   let act=(L.lines||[]).filter(l=>t>=l.t&&t<l.t+l.d);
   if(!act.length&&LYR_DEMO){ const p=(performance.now()/1000)%3.2; act=[{t:t-p,d:2.8,text:LYR_DEMO}]; if(p>2.8) act=[]; }
   act.slice(-2).forEach((l,k,arr)=>lyrPaint(g,W,H,t,l,L,arr.length>1?(k===0?-1:0):0)); }
 function lyrPaint(g,W,H,t,l,L,stackUp){
-  const a=t-l.t, b=l.t+l.d-t; const fs=Math.round(Math.min(W,H)*0.068*(L.size||1)); const fam=`"L-${L.font||'Fredoka'}", Heebo, system-ui, sans-serif`;
+  const a=t-l.t, b=l.t+l.d-t; const fs=Math.round(Math.min(W,H)*0.11*(L.size||1)); const fam=`"L-${L.font||'Heebo'}", Heebo, system-ui, sans-serif`;
   g.save(); g.font=`${fs}px ${fam}`; const rtl=lyrHeb(l.text); try{ g.direction=rtl?'rtl':'ltr'; }catch(_){} g.textAlign='center'; g.textBaseline='middle';
   const rows=lyrWrap(g,l.text,W*0.86); const lh=fs*1.18; let cy=(L.y==null?0.8:L.y)*H - (rows.length-1)*lh/2 + stackUp*rows.length*lh*1.05; cy=Math.max(lh/2,Math.min(H-lh/2-(rows.length-1)*lh,cy));
   const an=L.anim||'fade'; let alpha=an==='none'?1:Math.max(0,Math.min(1,a/0.18,b/0.18)); let sc=1, dy=0;
-  let blur=0; if(an==='dream'){ const pin=Math.min(1,a/0.75), pout=Math.min(1,b/0.55); alpha=Math.max(0,Math.min(easeOut(pin),easeOut(pout))); sc=0.93+0.07*easeOut(pin); dy=(1-easeOut(pin))*fs*0.45-(1-pout)*fs*0.3; blur=(1-Math.min(pin,pout))*fs*0.22; }
   if(an==='pop'){ sc=0.55+0.45*backOut(Math.min(1,a/0.32)); }
   if(an==='up'){ dy=(1-easeOut(Math.min(1,a/0.4)))*fs*0.9; }
   const full=rows.join(' '); let showChars=full.length, showWords=1e9;
   if(an==='type'){ const dur=Math.min(l.d*0.7,full.length*0.055); showChars=Math.floor(full.length*Math.min(1,a/Math.max(0.05,dur)))+1; }
   if(an==='word'){ const nw=full.split(/\s+/).length; const dur=Math.min(l.d*0.75,nw*0.35); showWords=Math.floor(nw*Math.min(1,a/Math.max(0.05,dur)))+1; }
-  g.globalAlpha=alpha; const cx=W/2; if(blur>0.5){ try{ g.filter='blur('+blur.toFixed(1)+'px)'; }catch(_){} }
+  g.globalAlpha=alpha; const cx=W/2;
   if(sc!==1){ g.translate(cx,cy+(rows.length-1)*lh/2); g.scale(sc,sc); g.translate(-cx,-(cy+(rows.length-1)*lh/2)); }
   const widths=rows.map(r=>g.measureText(r).width); const mw=Math.max(...widths);
   if(L.fx==='box'||L.fx==='boxw'){ const pad=fs*0.35; g.fillStyle=L.fx==='box'?'rgba(0,0,0,.55)':'rgba(255,255,255,.82)'; const x0=cx-mw/2-pad, y0=cy-lh/2-pad*0.5+dy, w=mw+pad*2, h=rows.length*lh+pad; const r=Math.min(fs*0.35,h/2); g.beginPath(); if(g.roundRect) g.roundRect(x0,y0,w,h,r); else g.rect(x0,y0,w,h); g.fill(); }
@@ -4761,7 +4771,6 @@ function lyrPaint(g,W,H,t,l,L,stackUp){
     let x=cx; if(txt!==row){ const pw=g.measureText(txt).width; x=rtl?x1-pw/2:x0+pw/2; }
     const fill=lyrCol(L.color||'#fff',g,x0,x1);
     const fx=L.fx||'shadow';
-    if(fx==='soft'){ const ga=g.globalAlpha; g.globalAlpha=ga*0.55; g.shadowColor='rgba(255,228,200,.9)'; g.shadowBlur=fs*0.55; g.fillStyle=fill; g.fillText(txt,x,y); g.globalAlpha=ga; g.shadowColor='rgba(30,10,50,.55)'; g.shadowBlur=fs*0.3; g.shadowOffsetY=fs*0.04; }
     if(fx==='shadow'){ g.shadowColor='rgba(0,0,0,.8)'; g.shadowBlur=fs*0.2; g.shadowOffsetY=fs*0.06; }
     if(fx==='glow'){ g.shadowColor=lyrBase(L.color); g.shadowBlur=fs*0.55; g.fillStyle=fill; g.fillText(txt,x,y); }
     if(fx==='neon'){ g.shadowColor=lyrBase(L.color); g.shadowBlur=fs*0.7; g.lineWidth=fs*0.09; g.strokeStyle=fill; g.strokeText(txt,x,y); g.shadowBlur=fs*0.25; }
@@ -4771,16 +4780,8 @@ function lyrPaint(g,W,H,t,l,L,stackUp){
     if(an==='karaoke'){ const tot=widths.reduce((s,v)=>s+v,0); const prev=widths.slice(0,i).reduce((s,v)=>s+v,0); const p=Math.max(0,Math.min(1,a/(l.d*0.92))); const fw=Math.max(0,Math.min(w,p*tot-prev));
       if(fw>0){ g.save(); g.beginPath(); if(rtl) g.rect(x1-fw,y-lh,fw,lh*2); else g.rect(x0,y-lh,fw,lh*2); g.clip(); if(fx==='outline'){ g.lineWidth=fs*0.14; g.strokeStyle='#111'; g.strokeText(txt,x,y); } g.fillStyle=lyrCol(L.kc||'#ffd84d',g,x0,x1); g.shadowColor=lyrBase(L.kc||'#ffd84d'); g.shadowBlur=fs*0.3; g.fillText(txt,x,y); g.restore(); } }
   });
-  if(an==='dream'){ try{ g.filter='none'; }catch(_){} lyrSparkles(g,l,a,b,cx,cy+dy,mw,rows.length*lh,fs); }
   g.restore(); }
-function lyrSparkles(g,l,a,b,cx,cy,w,h,fs){ let sd=0; const id=String(l.id||l.text); for(let i=0;i<id.length;i++) sd=(sd*31+id.charCodeAt(i))>>>0; const rnd=()=>{ sd=(sd*1664525+1013904223)>>>0; return sd/4294967296; };
-  const n=9; g.save(); const A0=g.globalAlpha; g.globalCompositeOperation='lighter';
-  for(let i=0;i<n;i++){ const px=cx+(rnd()-0.5)*(w+fs*1.6), py=cy-fs*0.6+rnd()*(h+fs*0.4), born=rnd()*0.9, ph=rnd()*6.28, sz=fs*(0.1+rnd()*0.14);
-    const age=a-born; if(age<0) continue; const intro=Math.min(1,age/0.35)*Math.max(0,1-Math.max(0,age-0.9)/0.8); const tw=0.25+0.75*Math.max(0,Math.sin(a*3.2+ph)); const al=Math.max(intro, 0.35*tw)*Math.min(1,b/0.4)*A0; if(al<0.02) continue;
-    const r=sz*(0.6+0.6*tw); g.globalAlpha=al; g.fillStyle=i%3?'#fff6d8':'#ffd9f0'; g.shadowColor='#ffe9a8'; g.shadowBlur=r*2.5;
-    g.beginPath(); g.moveTo(px,py-r*2); g.quadraticCurveTo(px,py,px+r*2,py); g.quadraticCurveTo(px,py,px,py+r*2); g.quadraticCurveTo(px,py,px-r*2,py); g.quadraticCurveTo(px,py,px,py-r*2); g.fill(); }
-  g.restore(); }
-async function lyrReady(){ const L=S.lyr; if(!L||!document.fonts) return; try{ await Promise.race([document.fonts.load(`40px "L-${L.font||'Fredoka'}"`,'אבגabc'),sleep(2500)]); }catch(_){} }
+async function lyrReady(){ const L=S.lyr; if(!L||!document.fonts) return; try{ await Promise.race([document.fonts.load(`40px "L-${L.font||'Heebo'}"`,'אבגabc'),sleep(2500)]); }catch(_){} }
 // ---------- timeline lane ----------
 let lyrSelId=null; const LYS=new Set(); let LYMULTI=false, LYR_CLIP=null;
 function lyrSelSet(ids){ LYS.clear(); ids.forEach(i=>LYS.add(i)); lyrSelId=ids.length?ids[ids.length-1]:null; if(ids.length&&S.sel){ try{ select(null); }catch(_){} } lyrBar(); }
@@ -5029,6 +5030,66 @@ async function lyrAuto(tid,rows,pr){ const t=S.tracks.find(x=>x.id===tid); if(!t
   if(!lines.length) throw new Error('לא הצלחתי לזהות מילים — אפשר להדביק את הטקסט ואני אשבץ אותו');
   pushHist(); const vc=cl.find(c=>bufs[c.buf].kind==='vocal')||cl[0]; S.lyr=Object.assign(lyrDef(),S.lyr||{},{lines,clip:vc.id,at:vc.start}); LYS.clear(); lyrSelId=null; lyrBar(); }
 
+/* ===== 📜 Prompter studio — one full-screen place to write, rehearse and record with the words =====
+   Like teleprompter apps: big text, reading line, current line lit, tap = play/pause, drag = scroll,
+   speed + size sliders, "with the song" rehearsal, and "follow the song" (scroll by the words-track timing). */
+const PRS={on:false,y:0,run:false,last:0,mode:'read'};
+function prLines(txt){ return String(txt||'').split('\n'); }
+function prFill(box,txt){ box.innerHTML=''; prLines(txt).forEach(l=>{ const d=document.createElement('div'); d.className='pl'+(l.trim()?'':' sp'); d.textContent=l.trim()?l:' '; box.appendChild(d); }); }
+/* y that puts the line being sung under the reading mark, from the words track timing */
+function prSyncY(box,markPx){ const L=S.lyr; if(!L||!L.lines.length) return null; const ls=L.lines; const ph=S.playhead; const els=[...box.children].filter(e=>!e.classList.contains('sp')); if(!els.length) return null;
+  let i=-1; for(let k=0;k<ls.length;k++){ if(ls[k].t<=ph) i=k; else break; }
+  const off=k=>{ const e=els[Math.max(0,Math.min(els.length-1,k))]; return e.offsetTop+e.offsetHeight/2; };
+  if(i<0){ return off(0)-markPx; }
+  const a=ls[i], b=ls[i+1]; const f=b?Math.max(0,Math.min(1,(ph-a.t)/Math.max(0.05,b.t-a.t))):0; return off(i)+(off(i+1)-off(i))*f-markPx; }
+function prMark(box,markPx,y){ let best=null, bd=1e9; [...box.children].forEach(e=>{ if(e.classList.contains('sp')) return; const c=e.offsetTop+e.offsetHeight/2-y; const d=Math.abs(c-markPx); if(d<bd){ bd=d; best=e; } }); [...box.children].forEach(e=>e.classList.toggle('cur',e===best)); }
+function prsSyncAvail(){ return !!(S.lyr&&S.lyr.lines.length); }
+function prsOpen(mode){ let el=$('prStudio');
+  if(!el){ el=document.createElement('div'); el.id='prStudio'; el.setAttribute('data-notr','');
+    el.innerHTML=`<div class="psTop"><button id="psClose" title="סגירה">✕</button><b>📜 פרומפטר</b><div class="psSeg"><button id="psRead">👁 קריאה</button><button id="psEdit">✏️ עריכה</button></div></div>
+    <div class="psBody"><div class="psRead" id="psView"><div class="psMark"></div><div class="psText" id="psText"></div><div class="psHint" id="psHint">נגיעה = ▶ / ⏸ · גרירה = גלילה</div></div>
+      <div class="psEditBox" id="psEditBox" hidden><div class="psSrc"><button id="psFromLyr">📝 מערוץ המילים</button><button id="psFromSheet">🎼 מדף האקורדים</button><button id="psClear">🗑 לנקות</button></div><textarea id="psTa" dir="rtl" placeholder="כותבים או מדביקים כאן את המילים. כל שורה בשורה נפרדת. נשמר לבד."></textarea></div></div>
+    <div class="psCtl"><div class="psRow"><button id="psTop" title="להתחלה">⏮</button><button id="psPlay" class="pri">▶ גלילה</button><button id="psSong">🎵 עם השיר</button><button id="psRec" class="psRecB">🔴 להקליט</button></div>
+      <div class="psRow psSl"><span>🐢</span><input type="range" id="psSp" min="5" max="150" step="1"><span>🐇</span><span class="psV" id="psSpV"></span></div>
+      <div class="psRow psSl"><span style="font-size:13px">A</span><input type="range" id="psFs" min="18" max="72" step="1"><span style="font-size:22px">A</span><label class="psTg" id="psSyncL"><input type="checkbox" id="psSync"> 🎯 לפי זמן השיר</label></div></div>`;
+    document.body.appendChild(el);
+    const view=$('psView');
+    $('psClose').onclick=()=>prsClose();
+    $('psRead').onclick=()=>prsMode('read'); $('psEdit').onclick=()=>prsMode('edit');
+    $('psPlay').onclick=()=>{ PRS.run=!PRS.run; PRS.last=performance.now(); if(!PRS.run&&PRS.song){ try{ stopPlay(); }catch(_){} PRS.song=false; } prsUpd(); };
+    $('psSong').onclick=()=>{ if(S.playing){ try{ stopPlay(); }catch(_){} PRS.song=false; PRS.run=false; } else { PRS.t0=S.playhead; try{ startPlay(); }catch(e){ console.warn(e); } PRS.song=true; PRS.run=true; PRS.last=performance.now(); } prsUpd(); };
+    $('psTop').onclick=()=>{ { const f=$('psText').firstElementChild; PRS.y=f?f.offsetTop+f.offsetHeight/2:0; } if(PRS.song||prLS('sync',0)){ const was=S.playing; try{ if(was) stopPlay(); }catch(_){} S.playhead=PRS.t0!=null?PRS.t0:0; placePlayhead(); if(was){ try{ startPlay(); }catch(_){} } } prsUpd(); };
+    $('psRec').onclick=()=>{ prsClose(true); try{ const c=$('rcPrompt'); if(c){ c.checked=true; } localStorage.setItem('machrozet_rc_rcPrompt','1'); }catch(_){} if(rec) return; try{ if(window.openRecPop) openRecPop(); }catch(_){} startRec(); };
+    $('psSp').oninput=e=>{ PR.sp=+e.target.value; prSet('sp',PR.sp); prsUpd(); };
+    $('psFs').oninput=e=>{ PR.fs=+e.target.value; prSet('fs',PR.fs); prsUpd(); };
+    $('psSync').onchange=e=>{ prSet('sync',e.target.checked?1:0); prsUpd(); toast(e.target.checked?'🎯 המילים יגללו לפי הזמן של השיר (מערוץ המילים)':'גלילה במהירות קבועה',2500); };
+    let tSave=null; $('psTa').oninput=e=>{ S.prompt=e.target.value; clearTimeout(tSave); tSave=setTimeout(()=>{ S._dirty=true; updDirty(); scheduleSave(); },500); };
+    $('psFromLyr').onclick=()=>{ if(!prsSyncAvail()){ toast('אין עדיין ערוץ מילים בפרויקט'); return; } $('psTa').value=S.lyr.lines.map(l=>l.text).join('\n'); $('psTa').oninput({target:$('psTa')}); toast('📝 נלקח מערוץ המילים'); };
+    $('psFromSheet').onclick=()=>{ const keep=S.prompt; S.prompt=''; const t=promptText(); S.prompt=keep; if(!t){ toast('אין דף אקורדים עם מילים'); return; } $('psTa').value=t; $('psTa').oninput({target:$('psTa')}); };
+    $('psClear').onclick=()=>{ if(!$('psTa').value.trim()) return; $('psTa').value=''; $('psTa').oninput({target:$('psTa')}); $('psTa').focus(); };
+    let dr=null, moved=false;
+    view.addEventListener('pointerdown',e=>{ dr={y:e.clientY,y0:PRS.y}; moved=false; try{ view.setPointerCapture(e.pointerId); }catch(_){} });
+    view.addEventListener('pointermove',e=>{ if(!dr) return; const d=e.clientY-dr.y; if(Math.abs(d)>6){ moved=true; } if(moved){ PRS.y=Math.max(0,dr.y0-d); prsUpd(); } });
+    view.addEventListener('pointerup',()=>{ if(dr&&!moved){ $('psPlay').click(); } dr=null; });
+    view.addEventListener('pointercancel',()=>{ dr=null; });
+    const loop=t=>{ requestAnimationFrame(loop); if(!PRS.on) return; const tx=$('psText'); const mark=view.clientHeight*0.3;
+      if(PRS.mode==='read'){
+        if(prLS('sync',0)&&prsSyncAvail()&&(S.playing||PRS.song)){ const y=prSyncY(tx,0); if(y!=null) PRS.y+= (Math.max(0,y)-PRS.y)*0.25; }
+        else if(PRS.run){ const dt=Math.min(0.1,(t-PRS.last)/1000); PRS.y+=PR.sp*dt; const max=Math.max(0,tx.scrollHeight-20); if(PRS.y>=max){ PRS.y=max; PRS.run=false; prsUpd(); } }
+        PRS.last=t; tx.style.transform=`translateY(${(mark-PRS.y).toFixed(1)}px)`; prMark(tx,0,PRS.y);
+        if(PRS.song&&!S.playing){ PRS.song=false; PRS.run=false; prsUpd(); } } };
+    requestAnimationFrame(loop); }
+  PR.sp=prLS('sp',30); PR.fs=prLS('fs',30); PRS.on=true; PRS.run=false; PRS.song=false; PRS.y=0; PRS.t0=S.playhead; el.hidden=false; document.body.classList.add('psOpen');
+  $('psTa').value=S.prompt&&S.prompt.trim()?S.prompt:promptText();
+  $('psSyncL').style.display=prsSyncAvail()?'':'none'; $('psSync').checked=!!prLS('sync',0);
+  prsMode(mode||($('psTa').value.trim()?'read':'edit')); }
+function prsMode(m){ PRS.mode=m; const ed=m==='edit'; $('psEditBox').hidden=!ed; $('psView').hidden=ed; $('psRead').classList.toggle('on',!ed); $('psEdit').classList.toggle('on',ed);
+  if(ed){ PRS.run=false; setTimeout(()=>{ try{ $('psTa').focus(); }catch(_){} },60); } else { S.prompt=$('psTa').value; prFill($('psText'),S.prompt||''); { const f=$('psText').firstElementChild; PRS.y=f?f.offsetTop+f.offsetHeight/2:0; } }
+  prsUpd(); }
+function prsUpd(){ if(!$('prStudio')) return; const tx=$('psText'); tx.style.fontSize=PR.fs+'px'; $('psSp').value=PR.sp; $('psFs').value=PR.fs; $('psSpV').textContent=PR.sp;
+  const sync=prLS('sync',0)&&prsSyncAvail(); $('psPlay').textContent=PRS.run?'⏸ עצירה':'▶ גלילה'; $('psPlay').disabled=!!(sync&&PRS.song); $('psSong').textContent=PRS.song?'⏹ לעצור שיר':'🎵 עם השיר'; $('psHint').style.opacity=PRS.run||PRS.song?0:0.7; }
+function prsClose(keepSong){ PRS.on=false; PRS.run=false; if(!keepSong&&PRS.song){ try{ stopPlay(); }catch(_){} } PRS.song=false; const t=$('psTa'); if(t&&t.value!==S.prompt){ S.prompt=t.value; S._dirty=true; updDirty(); scheduleSave(); } const el=$('prStudio'); if(el) el.hidden=true; document.body.classList.remove('psOpen'); }
+
 const VA={};
 function vaMono(B,a,b){ const C=B.numberOfChannels, n=b-a, X=new Float32Array(n); for(let ch=0;ch<C;ch++){ const d=B.getChannelData(ch); for(let i=0;i<n;i++) X[i]+=d[a+i]/C; } return X; }
 async function vaOpen(){ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c, b=bufs[c.buf]; if(!b||!b.buffer||b.vtype){ toast('אפשר לערוך תווים רק בקטע שירה'); return; }
@@ -5176,9 +5237,9 @@ function promptOpen(autoStart){ const txt=promptText(); if(!txt){ promptEdit(tru
       if(a==='play'){ PR.run=!PR.run; PR.last=performance.now(); if(PR.test){ try{ if(PR.run&&!S.playing) startPlay(); else if(!PR.run&&S.playing) stopPlay(); }catch(_){} } } else if(a==='slow'){ PR.sp=Math.max(5,PR.sp-5); prSet('sp',PR.sp); } else if(a==='fast'){ PR.sp=Math.min(200,PR.sp+5); prSet('sp',PR.sp); }
       else if(a==='small'){ PR.fs=Math.max(16,PR.fs-3); prSet('fs',PR.fs); } else if(a==='big'){ PR.fs=Math.min(72,PR.fs+3); prSet('fs',PR.fs); } else if(a==='top'){ PR.y=0; if(PR.test){ try{ const was=S.playing; if(was) stopPlay(); S.playhead=PR.t0||0; placePlayhead(); if(was) startPlay(); }catch(_){} } } else if(a==='edit'){ promptEdit(); return; } else if(a==='close'){ promptClose(); return; } else if(a==='stop'){ if(rec) stopRec(); else promptClose(); return; } prUpd(); };
     const v=el.querySelector('.prView'); let dy=null; v.addEventListener('pointerdown',e=>{ dy={y:e.clientY,y0:PR.y}; try{ v.setPointerCapture(e.pointerId); }catch(_){} }); v.addEventListener('pointermove',e=>{ if(!dy) return; PR.y=Math.max(0,dy.y0-(e.clientY-dy.y)); prUpd(); }); v.addEventListener('pointerup',()=>dy=null); v.addEventListener('pointercancel',()=>dy=null); }
-  PR.sp=prLS('sp',30); PR.fs=prLS('fs',30); PR.y=0; PR.on=true; PR.run=false; el.querySelector('.prText').textContent=txt; el.hidden=false; { const rb=$('recBar'); const tp=(rb&&!rb.hidden)?Math.round(rb.getBoundingClientRect().bottom):0; el.style.top=tp+'px'; document.documentElement.style.setProperty('--prTop',tp+'px'); } document.body.classList.add('prompting'); prUpd();
+  PR.sp=prLS('sp',30); PR.fs=prLS('fs',30); PR.y=0; PR.on=true; PR.run=false; prFill(el.querySelector('.prText'),txt); el.hidden=false; { const rb=$('recBar'); const tp=(rb&&!rb.hidden)?Math.round(rb.getBoundingClientRect().bottom):0; el.style.top=tp+'px'; document.documentElement.style.setProperty('--prTop',tp+'px'); } document.body.classList.add('prompting'); prUpd();
   if(autoStart){ clearTimeout(PR.st); PR.st=setTimeout(()=>{ if(PR.on){ PR.run=true; PR.last=performance.now(); prUpd(); } },autoStart); }
-  if(!PR.raf){ const loop=t=>{ PR.raf=requestAnimationFrame(loop); if(!PR.on) return; if(!PR.run){ prUpd(); return; } const dt=Math.min(0.1,(t-PR.last)/1000); PR.last=t; PR.y+=PR.sp*dt; const tx=$('prompter').querySelector('.prText'); const max=Math.max(0,tx.scrollHeight-40); if(PR.y>=max){ PR.y=max; PR.run=false; } prUpd(); }; PR.raf=requestAnimationFrame(loop); } }
+  if(!PR.raf){ const loop=t=>{ PR.raf=requestAnimationFrame(loop); if(!PR.on) return; const tx=$('prompter').querySelector('.prText'); const mk=innerHeight*0.09; if(prLS('sync',0)&&prsSyncAvail()&&S.playing){ const y=prSyncY(tx,mk); if(y!=null) PR.y+=(Math.max(0,y)-PR.y)*0.25; PR.last=t; prMark(tx,mk,PR.y); prUpd(); return; } if(!PR.run){ prMark(tx,mk,PR.y); prUpd(); return; } const dt=Math.min(0.1,(t-PR.last)/1000); PR.last=t; PR.y+=PR.sp*dt; const max=Math.max(0,tx.scrollHeight-40); if(PR.y>=max){ PR.y=max; PR.run=false; } prMark(tx,mk,PR.y); prUpd(); }; PR.raf=requestAnimationFrame(loop); } }
 function prUpd(){ const el=$('prompter'); if(!el) return; { const rb=$('recBar'); const tp=(rb&&!rb.hidden)?Math.round(rb.getBoundingClientRect().bottom):0; if(el._tp!==tp){ el._tp=tp; el.style.top=tp+'px'; document.documentElement.style.setProperty('--prTop',tp+'px'); } } const tx=el.querySelector('.prText'); tx.style.fontSize=PR.fs+'px'; tx.style.transform=`translateY(${-PR.y}px)`; el.querySelector('[data-a=play]').textContent=PR.run?'⏸':'▶'; el.querySelector('.prSp').textContent=PR.sp; }
 function promptTest(){ if(rec){ toast('בזמן הקלטה כבר יש פרומפטר'); return; } promptOpen(); PR.test=true; PR.t0=S.playhead; const el=$('prompter'); if(el){ const st=el.querySelector('.prStop'); if(st) st.textContent='⏹ סוף ניסיון'; } try{ if(!S.playing) startPlay(); }catch(e){ console.warn(e); } PR.run=true; PR.last=performance.now(); prUpd(); toast('▶ ניסיון — השיר מתנגן והמילים גוללות (לא מקליט)',3000); }
 function promptClose(){ if(PR.test){ PR.test=false; try{ if(S.playing) stopPlay(); }catch(_){} const st=$('prompter')&&$('prompter').querySelector('.prStop'); if(st) st.textContent='⏹ עצירה'; } PR.on=false; PR.run=false; clearTimeout(PR.st); const el=$('prompter'); if(el) el.hidden=true; document.body.classList.remove('prompting'); }
@@ -5897,6 +5958,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1122-0202"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1122-0206"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
