@@ -3261,7 +3261,7 @@ function render(){ try{ linkSync(false); }catch(e){ console.warn('link',e); } tr
     const lane=document.createElement('div'); lane.className='lane'; lane.dataset.ti=ti;
     const th=document.createElement('div'); th.className='thead';
     if(S.target===t.id) th.classList.add('tgt'); if(t.color) th.style.borderLeft='4px solid '+t.color;
-    th.innerHTML=`<div class="tn">${esc(t.name)}</div><div class="tb"><button class="m ${t.mute?'on':''}" title="השתקה">M</button><button class="s ${t.solo?'on':''}" title="סולו">S</button><button class="mn" title="אפשרויות">⋯</button></div><div class="tb tb2"><button class="pl" title="נגינה לערוץ הזה">🎹</button><button class="rc" title="הקלטה לערוץ הזה">●</button><button class="fxb ${fxOf(t)?'on':''}" title="אפקטים לערוץ">✨</button></div><input type="range" class="tvol" min="-40" max="12" step="0.5" value="${t.vol>0?Math.max(-40,Math.min(12,20*Math.log10(t.vol))).toFixed(1):-40}" title="ווליום הערוץ — לחיצה כפולה: 0dB"><b class="tdb">${t.vol>0.01?(20*Math.log10(t.vol)>=0.05?'+':'')+(20*Math.log10(t.vol)).toFixed(1):'−∞'}</b>`;
+    th.innerHTML=`<div class="tn">${esc(t.name)}${t.pan?`<small style="opacity:.7;font-size:10px"> ${t.pan<0?'◂L':'R▸'}${Math.round(Math.abs(t.pan)*100)}</small>`:''}</div><div class="tb"><button class="m ${t.mute?'on':''}" title="השתקה">M</button><button class="s ${t.solo?'on':''}" title="סולו">S</button><button class="mn" title="אפשרויות">⋯</button></div><div class="tb tb2"><button class="pl" title="נגינה לערוץ הזה">🎹</button><button class="rc" title="הקלטה לערוץ הזה">●</button><button class="fxb ${fxOf(t)?'on':''}" title="אפקטים לערוץ">✨</button></div><input type="range" class="tvol" min="-40" max="12" step="0.5" value="${t.vol>0?Math.max(-40,Math.min(12,20*Math.log10(t.vol))).toFixed(1):-40}" title="ווליום הערוץ — לחיצה כפולה: 0dB"><b class="tdb">${t.vol>0.01?(20*Math.log10(t.vol)>=0.05?'+':'')+(20*Math.log10(t.vol)).toFixed(1):'−∞'}</b>`;
     th.querySelector('.m').onclick=()=>{ pushHist(); t.mute=!t.mute; render(); if(S.playing) restartPlay(); };
     th.querySelector('.s').onclick=()=>{ pushHist(); t.solo=!t.solo; render(); if(S.playing) restartPlay(); };
     th.querySelector('.mn').onclick=()=>trackMenu(t);
@@ -3716,7 +3716,7 @@ function trackFx(c,t,fx,inp,dest,from){
 function schedule(c,dest,from,base,only,skip){
   const nodes=[], tg={}; let rev=null; const getRev=()=>{ if(!rev){ rev=c.createConvolver(); rev.buffer=makeIR(c); const rg=c.createGain(); rg.gain.value=0.9; rev.connect(rg); rg.connect(dest); } return rev; };
   const anySolo=S.tracks.some(t=>t.solo);
-  S.tracks.forEach(t=>{ const g=c.createGain(); g.gain.value=only?(only.has(t.id)?t.vol:0):((t.mute||(anySolo&&!t.solo))?0:t.vol); if(only&&!only.has(t.id)) return; if(!only&&window.__recMute===t.id) g.gain.value=0; g.connect(dest); tg[t.id]=g; const tfx=fxOf(t); let tin=g; if(tfx){ tin=c.createGain(); trackFx(c,t,tfx,tin,g,from); }
+  S.tracks.forEach(t=>{ const g=c.createGain(); g.gain.value=only?(only.has(t.id)?t.vol:0):((t.mute||(anySolo&&!t.solo))?0:t.vol); if(only&&!only.has(t.id)) return; if(!only&&window.__recMute===t.id) g.gain.value=0; if(c.createStereoPanner){ const pn=c.createStereoPanner(); pn.pan.value=clamp(t.pan||0,-1,1); g.connect(pn); pn.connect(dest); g._pan=pn; } else g.connect(dest); tg[t.id]=g; const tfx=fxOf(t); let tin=g; if(tfx){ tin=c.createGain(); trackFx(c,t,tfx,tin,g,from); }
     t.clips.forEach(cl=>{ if(skip&&cl.id===skip) return; const end=cl.start+cl.dur; if(end<=from+0.001) return; const b=bufs[cl.buf]; if(!b) return;
       const st=Math.max(cl.start,from), when=base+(st-from), off=cl.offset+(st-cl.start), dur=end-st;
       const s=c.createBufferSource(); s.buffer=tunedBuf(t,tfx,cl,b)||b.buffer; const cg=c.createGain(); if(cl.kar&&b.buffer.numberOfChannels>1) karaoke(c,s,cg); else s.connect(cg); const vo=vfxChain(c,cl.vfx,cg); vo.connect(tin);
@@ -5454,8 +5454,12 @@ function trackMenu(t){
   <div class="row"><input id="tmName" value="${esc(t.name)}" style="flex:1;height:40px;border-radius:10px;background:var(--bg3);border:1px solid var(--line);padding:0 10px"><button id="tmRen">שינוי שם</button></div>
   <p style="margin-top:12px">צבע:</p><div class="swatches">${TCOLORS.map(c=>`<button data-c="${c}" style="background:${c}"></button>`).join('')}<button data-c="" style="background:var(--bg3)">✕</button></div>
   <div class="row" style="margin-top:12px"><button id="tmTgt" class="gold">${S.target===t.id?'✓ ערוץ יעד':'🎯 צלילים חדשים ייכנסו לכאן'}</button></div>
+  <p style="margin-top:12px">↔ פאן — לאיזה צד הערוץ נשמע:</p><div class="row" style="align-items:center;gap:8px;direction:ltr"><b style="width:24px;text-align:center">L</b><input type="range" id="tmPan" min="-100" max="100" step="1" value="${Math.round((t.pan||0)*100)}" style="flex:1"><b style="width:24px;text-align:center">R</b></div><div class="row" style="align-items:center"><span id="tmPanV" class="hint" style="flex:1;text-align:center"></span><button id="tmPanC">⟲ למרכז</button></div>
   <div class="row"><button id="tmUp" ${ti===0?'disabled':''}>⬆ להזיז למעלה</button><button id="tmDn" ${ti===S.tracks.length-1?'disabled':''}>⬇ להזיז למטה</button></div>
   <div class="row"><button id="tmDel">🗑 מחיקת הערוץ${t.clips.length?' ('+t.clips.length+' קטעים)':''}</button><button id="tmClose">סגירה</button></div>`,()=>{
+    { let pushed=false; const lab=()=>{ const v=Math.round((t.pan||0)*100); $('tmPanV').textContent=v===0?'מרכז (שני הצדדים)':v<0?'שמאל '+(-v)+'%':'ימין '+v+'%'; };
+      const setP=v=>{ if(!pushed){ pushHist(); pushed=true; } t.pan=Math.abs(v)<3?0:v/100; try{ const g=play.tg&&play.tg[t.id]; if(g&&g._pan) g._pan.pan.value=t.pan; }catch(_){} lab(); S._dirty=true; updDirty(); scheduleSave(); };
+      $('tmPan').oninput=e=>setP(+e.target.value); $('tmPanC').onclick=()=>{ $('tmPan').value=0; setP(0); }; lab(); }
     $('tmRen').onclick=()=>{ const v=$('tmName').value.trim(); if(!v) return; pushHist(); t.name=v; closeSheet(); render(); };
     $('sheetBox').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ pushHist(); t.color=b.dataset.c||null; closeSheet(); render(); });
     $('tmTgt').onclick=()=>{ S.target=S.target===t.id?null:t.id; closeSheet(); render(); };
@@ -6000,6 +6004,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-0008"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-0009"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
