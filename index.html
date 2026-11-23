@@ -595,6 +595,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cVa" class="gold" hidden>🎯 עריכת תווים</button>
       <button id="cLink" hidden></button>
       <button id="cTie" hidden></button>
+      <button id="cVFade" hidden></button>
       <button id="cLyr" title="לזהות את המילים בקטע הזה">📝 מילים לקטע הזה</button>
       <button id="cDup">⧉ שכפול</button>
       <button id="cTrans" class="gold">✨ מעבר לשיר הבא</button>
@@ -3332,6 +3333,7 @@ function updPanel(){ setTimeout(updKeyTag,0);
   const f=S.sel&&findClip(S.sel); $('panelMain').hidden=!!f; $('panelClip').hidden=!f; if(!f) return;
   const c=f.c,b=bufs[c.buf];
   { const vb=$('cVa'); vb.hidden=!(b&&b.kind==='vocal'&&!b.vtype); }
+  { const fb=$('cVFade'); const isV2=!!(b&&baseOf(b)&&baseOf(b).vtype); fb.hidden=!isV2; const on=(c.fi>0.05||c.fo>0.05); fb.textContent=on?'🌗 פייד פועל — לבטל':'🌗 פייד כניסה ויציאה'; fb.classList.toggle('gold',on); fb.title=on?'פייד פועל — לבטל':'פייד כניסה ויציאה לוידאו'; }
   { const tb=$('cTie'); const isV=!!(b&&baseOf(b)&&baseOf(b).vtype); tb.hidden=!(c.tie||isV); tb.textContent=c.tie?'📎 זזים יחד — לנתק':'📎 להזיז יחד עם השירה והמילים'; tb.classList.toggle('gold',!!c.tie); }
   { const lb=$('cLink'); lb.hidden=!(c.link||c.unl); lb.textContent=c.link?'🔗 מחובר לוידאו — לנתק':'⛓ לחבר שוב לוידאו'; lb.classList.toggle('gold',!!c.link); }
   $('cName').textContent=b.name; $('cBpm').textContent=b.kind==='song'?('♩ '+fmtBpm(b.bpm)):b.kind==='vocal'?'🎤 שירה':b.kind==='notes'?'🎹 תווים':'אפקט';
@@ -3367,6 +3369,7 @@ $('cCopy').onclick=()=>{ const f=findClip(S.sel); if(!f) return; clipboard={len:
 $('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם ⧉ העתקה של קטע'); return; } pushHist(); const n=pasteAt(snapTime(S.playhead)); render(); toast(n?'הודבק בסמן ✓':'לא הודבק'); };
 $('cLink').onclick=()=>linkToggle();
 $('cTie').onclick=()=>tieToggle();
+$('cVFade').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const on=(c.fi>0.05||c.fo>0.05); const d=on?0:Math.min(1,c.dur/4); c.fi=d; c.fo=d; render(); toast(on?'פייד בוטל':'🌗 פייד של שנייה בהתחלה ובסוף — אפשר לכוון ב־⋯ עוד (פייד ↗ ↘)',3500); };
 $('cLyr').onclick=()=>{ if(!S.lyr){ pushHist(); S.lyr=lyrDef(); } lyrAutoSheet(); };
 $('cVa').onclick=()=>vaOpen();
 $('cDel').onclick=()=>{ const f=findClip(S.sel); if(!f) return; pushHist(); f.t.clips.splice(f.i,1); S.tmap=(S.tmap||[]).filter(x=>x.cn!==f.c.id); S.sel=null; render(); };
@@ -5566,7 +5569,7 @@ const VPRESETS={ none:{look:'none',beauty:0,glow:0,vig:0,grain:0,spark:0,leak:0,
   cine:{n:'🎬 קולנוע',look:'cine',beauty:0.3,glow:0.25,vig:0.5,grain:0.25,spark:0,leak:0,zoom:0,flash:0},
   retro:{n:'📼 רטרו',look:'vintage',beauty:0.2,glow:0.2,vig:0.45,grain:0.5,spark:0,leak:0.5,zoom:0,flash:0},
   beat:{n:'⚡ קצבי',look:'vivid',beauty:0.3,glow:0.3,vig:0.2,grain:0,spark:0.3,leak:0,zoom:0.6,flash:0.4},
-  beauty:{n:'💄 יופי טבעי',look:'bright',beauty:0.7,glow:0.2,vig:0.15,grain:0,spark:0,leak:0,zoom:0,flash:0} };
+  beauty:{n:'💄 יופי טבעי',look:'none',beauty:0.7,glow:0.2,vig:0.15,grain:0,spark:0,leak:0,zoom:0,flash:0} };
 const VADJ=[['br','☀ בהירות'],['ct','◐ ניגודיות'],['sa','🎨 רוויה'],['vi','💫 חיוניות'],['wa','🌡 חמימות'],['ti','🟣 גוון'],['hi','🔆 אזורים בהירים'],['sh','🌑 צללים'],['fa','🌫 דהייה'],['sp','🔍 חדות']];
 const IGF={ clarendon:{n:'Clarendon',a:{ct:.2,sa:.25,vi:.2,wa:-.15,hi:.1,sh:-.1}}, juno:{n:'Juno',a:{ct:.12,sa:.2,vi:.25,wa:.25,hi:.1}}, lark:{n:'Lark',a:{br:.12,ct:-.05,sa:-.1,vi:.2,wa:-.05,sh:.2}},
   gingham:{n:'Gingham',a:{br:.08,ct:-.15,sa:-.15,fa:.45,wa:.08}}, valencia:{n:'Valencia',a:{br:.06,ct:.06,sa:.08,wa:.35,fa:.2}}, aden:{n:'Aden',a:{br:.1,ct:-.12,sa:-.25,ti:-.25,wa:.12,fa:.4}},
@@ -5579,20 +5582,20 @@ function vadjOn(A){ return A&&VADJ.some(([k])=>Math.abs(A[k]||0)>0.005); }
 let VGL=null, VGLlost=0;
 function vglInit(){ if(VGL!==null) return VGL; try{ const c=document.createElement('canvas'); c.addEventListener('webglcontextlost',e=>{ e.preventDefault(); VGL=null; VGLlost=(window.VGLlost||0)+1; window.VGLlost=VGLlost; }); const gl=c.getContext('webgl',{premultipliedAlpha:false,preserveDrawingBuffer:true,antialias:false}); if(!gl) return VGL=false;
   const vs='attribute vec2 p;varying vec2 v;void main(){v=p*.5+.5;gl_Position=vec4(p,0.,1.);}';
-  const fs=`precision highp float;uniform sampler2D u;uniform vec2 px;uniform vec4 rc;uniform float br,ct,sa,vi,wa,ti,hi,sh,fa,sp,bty,glw,vig,grn,fls,tm;uniform vec4 shT,hiT;varying vec2 v;
+  const fs=`precision highp float;uniform sampler2D u;uniform vec2 px;uniform vec4 rc;uniform float br,ct,sa,vi,wa,ti,hi,sh,fa,sp,bty,glw,vig,grn,fls,tm,fo;uniform vec4 shT,hiT,fc;varying vec2 v;
 vec3 T(vec2 q){return texture2D(u,q).rgb;}
 float hash(vec2 p){p=fract(p*vec2(.1031,.1030));p+=dot(p,p.yx+33.33);return fract((p.x+p.y)*p.x);}
 void main(){ vec2 q=(v-rc.xy)/rc.zw; if(q.x<0.||q.y<0.||q.x>1.||q.y>1.){gl_FragColor=vec4(0.,0.,0.,1.);return;}
- vec3 c=T(q);
+ vec3 c=T(q); float fm=1.; if(fc.z>0.){ fm=1.-smoothstep(.75,1.15,length((q-fc.xy)/fc.zw)); } else if(fo>0.) fm=.25; float bm=fo>0.?fm:1.;
  if(bty>0.){ float Y=dot(c,vec3(.299,.587,.114)); float cb=(c.b-Y)*.564+.5, cr=(c.r-Y)*.713+.5;
    float skin=smoothstep(.0,.06,cr-.52)*(1.-smoothstep(.0,.08,cr-.68))*smoothstep(.0,.06,.53-cb)*(1.-smoothstep(.0,.06,.33-cb))*smoothstep(.12,.25,Y);
    if(skin>.01){ vec2 r=px*(1.5+bty*3.5); vec3 acc=c; float ws=1.; vec3 s; vec3 e; float w;
      #define TAP(dx,dy) s=T(q+vec2(dx,dy)*r); e=s-c; w=clamp(1.-dot(e,e)*14.,0.,1.); acc+=s*w; ws+=w;
      TAP(1.,0.) TAP(-1.,0.) TAP(0.,1.) TAP(0.,-1.) TAP(.7,.7) TAP(-.7,.7) TAP(.7,-.7) TAP(-.7,-.7)
      TAP(2.,0.) TAP(-2.,0.) TAP(0.,2.) TAP(0.,-2.) TAP(1.4,1.4) TAP(-1.4,1.4) TAP(1.4,-1.4) TAP(-1.4,-1.4)
-     vec3 sm=clamp(acc/max(ws,1.),0.,1.); c=mix(c,sm,clamp(bty*skin*1.1,0.,.92)); c+=skin*bty*.025; } }
+     vec3 sm=clamp(acc/max(ws,1.),0.,1.); c=mix(c,sm,clamp(bty*skin*1.1*bm,0.,.92)); c+=skin*bty*.025*bm; } if(fo>0.) c+=fm*bty*.06; }
  if(sp>0.){ vec3 b=(T(q+vec2(px.x,0.))+T(q-vec2(px.x,0.))+T(q+vec2(0.,px.y))+T(q-vec2(0.,px.y)))*.25; c+=(c-b)*sp*2.2; }
- if(glw>0.){ vec2 g=px*14.; vec3 h=max(T(q+vec2(g.x,0.))-.62,0.)+max(T(q-vec2(g.x,0.))-.62,0.)+max(T(q+vec2(0.,g.y))-.62,0.)+max(T(q-vec2(0.,g.y))-.62,0.)+max(T(q+g*.7)-.62,0.)+max(T(q-g*.7)-.62,0.)+max(T(q+vec2(g.x,-g.y)*.7)-.62,0.)+max(T(q+vec2(-g.x,g.y)*.7)-.62,0.); h/=8.; c=1.-(1.-clamp(c,0.,1.))*(1.-clamp(h*glw*2.4,0.,1.)); }
+ if(glw>0.){ vec2 g=px*14.; vec3 h=max(T(q+vec2(g.x,0.))-.62,0.)+max(T(q-vec2(g.x,0.))-.62,0.)+max(T(q+vec2(0.,g.y))-.62,0.)+max(T(q-vec2(0.,g.y))-.62,0.)+max(T(q+g*.7)-.62,0.)+max(T(q-g*.7)-.62,0.)+max(T(q+vec2(g.x,-g.y)*.7)-.62,0.)+max(T(q+vec2(-g.x,g.y)*.7)-.62,0.); h/=8.; c=1.-(1.-clamp(c,0.,1.))*(1.-clamp(h*glw*2.4*bm,0.,1.)); }
  c+=br*.22; c=(c-.5)*(1.+ct*.9)+.5;
  float l=dot(c,vec3(.299,.587,.114)); c+=sh*.28*(1.-smoothstep(0.,.55,l)); c+=hi*.28*smoothstep(.45,1.,l);
  l=dot(c,vec3(.299,.587,.114)); c=mix(vec3(l),c,1.+sa);
@@ -5608,7 +5611,7 @@ void main(){ vec2 q=(v-rc.xy)/rc.zw; if(q.x<0.||q.y<0.||q.x>1.||q.y>1.){gl_FragC
   const pr=gl.createProgram(); gl.attachShader(pr,shd(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,shd(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(pr); gl.useProgram(pr);
   const bf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,bf); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW); const pl=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(pl); gl.vertexAttribPointer(pl,2,gl.FLOAT,false,0,0);
   const tx=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,tx); [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(k=>gl.texParameteri(gl.TEXTURE_2D,k,gl.CLAMP_TO_EDGE)); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
-  const U={}; ['u','px','rc','br','ct','sa','vi','wa','ti','hi','sh','fa','sp','bty','glw','vig','grn','fls','tm','shT','hiT'].forEach(k=>U[k]=gl.getUniformLocation(pr,k));
+  const U={}; ['u','px','rc','br','ct','sa','vi','wa','ti','hi','sh','fa','sp','bty','glw','vig','grn','fls','tm','shT','hiT','fo','fc'].forEach(k=>U[k]=gl.getUniformLocation(pr,k));
   return VGL={c,gl,U}; }catch(e){ console.warn('vgl',e); return VGL=false; } }
 /* ---- natural makeup: face landmarks (MediaPipe Face Mesh, loaded only when makeup is on) ---- */
 const FM={st:0,fm:null,busy:false,lm:null,lmT:-1,sm:null};
@@ -5631,23 +5634,27 @@ function drawMakeup(g,W,H,L,M){ if(!L||L.length<468) return; const P=i=>[L[i].x*
     g.save(); g.imageSmoothingQuality='high'; g.globalCompositeOperation='multiply'; g.globalAlpha=M.lip*0.3; g.drawImage(mc,0,0,W,H); g.globalCompositeOperation='color'; g.globalAlpha=M.lip*0.45; g.drawImage(mc,0,0,W,H); g.globalCompositeOperation='soft-light'; g.globalAlpha=Math.min(1,M.lip); g.drawImage(mc,0,0,W,H); g.restore(); }
   if(M.blush>0){ const col=(MKLIP[M.lc]||MKLIP.rose)[1]; g.save(); g.globalCompositeOperation='soft-light'; for(const [ci,oi] of [[50,234],[280,454]]){ const c=P(ci), o=P(oi); const cx=c[0]*.75+o[0]*.25, cy=c[1]-fw*.02; const R=fw*.17; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(${col},${.8*M.blush})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); }
   if(M.eyes>0){ g.save(); g.globalCompositeOperation='soft-light'; for(const i of [145,374]){ const c=P(i); const cx=c[0], cy=c[1]+fw*.035; const R=fw*.09; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(255,240,225,${.6*M.eyes})`); gr.addColorStop(1,'rgba(255,240,225,0)'); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); } }
-async function vfxPrep(v){ const M=S.vidfx&&S.vidfx.mk; if(!mkOn(M)||!v.videoWidth) return; try{ await fmLoad(); }catch(_){ return; } await fmDetectNow(fmDetCan(v)); }
+async function vfxPrep(v){ const M=S.vidfx&&S.vidfx.mk; if(!(mkOn(M)||faceOn(S.vidfx))||!v.videoWidth) return; try{ await fmLoad(); }catch(_){ return; } await fmDetectNow(fmDetCan(v)); }
+function faceOn(F){ return !!F&&F.faceOnly!==false&&((F.beauty||0)>0||(F.glow||0)>0); }
 function mkOn(M){ return M&&((M.lip||0)>0||(M.blush||0)>0||(M.eyes||0)>0); }
 function drawFit(g,v,W,H,t,exp){ drawFit0(g,v,W,H,t,exp); try{ drawLyrics(g,W,H,t); }catch(e){ window.__lyrErr=e&&e.message; } }
-function drawFit0(g,v,W,H,t,exp){ try{ drawFitFx(g,v,W,H,t,exp); window.__vfxErr=null; }catch(e){ window.__vfxErr=(e&&e.message)||String(e); try{ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(v&&v.videoWidth){ const r=Math.min(W/v.videoWidth,H/v.videoHeight); g.drawImage(v,(W-v.videoWidth*r)/2,(H-v.videoHeight*r)/2,v.videoWidth*r,v.videoHeight*r); } }catch(_){} } }
+function vFadeAt(t){ if(t==null) t=S.playhead; const a=videoAt(t); if(!a) return 1; const c=a.c; let k=1; if(c.fi>0.01) k=Math.min(k,(t-c.start)/c.fi); if(c.fo>0.01) k=Math.min(k,(c.start+c.dur-t)/c.fo); return Math.max(0,Math.min(1,k)); }
+function drawFit0(g,v,W,H,t,exp){ drawFit1(g,v,W,H,t,exp); if(v){ const k=vFadeAt(t); if(k<1){ g.save(); g.globalAlpha=1-k*k*(3-2*k); g.fillStyle='#000'; g.fillRect(0,0,W,H); g.restore(); } } }
+function drawFit1(g,v,W,H,t,exp){ try{ drawFitFx(g,v,W,H,t,exp); window.__vfxErr=null; }catch(e){ window.__vfxErr=(e&&e.message)||String(e); try{ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(v&&v.videoWidth){ const r=Math.min(W/v.videoWidth,H/v.videoHeight); g.drawImage(v,(W-v.videoWidth*r)/2,(H-v.videoHeight*r)/2,v.videoWidth*r,v.videoHeight*r); } }catch(_){} } }
 function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!v||!v.videoWidth) return; const F=S.vidfx; const r=Math.min(W/v.videoWidth,H/v.videoHeight); let w=v.videoWidth*r, h=v.videoHeight*r;
   if(!F){ try{ g.drawImage(v,(W-w)/2,(H-h)/2,w,h); }catch(_){} return; }
   const tt=t==null?S.playhead:t; let z=1, fl=0;
   if(F.zoom>0||F.flash>0){ try{ const b=timeToBeat(tt), ph=b-Math.floor(b), bar=BPB(); z=1+0.06*F.zoom*Math.exp(-ph*7); const pb=(b/bar)-Math.floor(b/bar); fl=F.flash*0.55*Math.exp(-pb*bar*6); }catch(_){} }
   const L=VLOOKS[F.look]||VLOOKS.none; const A={}; VADJ.forEach(([k])=>A[k]=(L.a[k]||0)+((F.adj||{})[k]||0));
   const src=v; const M=F.mk; const mk=mkOn(M);
-  if(mk){ if(FM.st===0) fmLoad().catch(()=>{}); if(!exp){ fmDetect(fmDetCan(v)); fmSmooth(); } }
+  const fon=faceOn(F); if(mk||fon){ if(FM.st===0) fmLoad().catch(()=>{}); if(!exp){ fmDetect(fmDetCan(v)); fmSmooth(); } }
   const G=(VGLlost>3)?false:vglInit();
   if(G&&!G.gl.isContextLost()){ const {c,gl,U}=G; if(c.width!==W||c.height!==H){ c.width=W; c.height=H; } gl.viewport(0,0,W,H);
     try{ gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,src); }catch(_){ try{ g.drawImage(v,(W-w)/2,(H-h)/2,w,h); }catch(__){} return; }
     const sw=src.width||src.videoWidth, shh=src.height||src.videoHeight; gl.uniform1i(U.u,0); gl.uniform2f(U.px,1/sw,1/shh);
     const ww=w*z/W, hh=h*z/H; gl.uniform4f(U.rc,(1-ww)/2,(1-hh)/2,ww,hh);
     VADJ.forEach(([k])=>gl.uniform1f(U[k],A[k])); gl.uniform1f(U.bty,F.beauty||0); gl.uniform1f(U.glw,F.glow||0); gl.uniform1f(U.vig,F.vig||0); gl.uniform1f(U.grn,F.grain||0); gl.uniform1f(U.fls,fl); gl.uniform1f(U.tm,(tt*24|0)%997/97);
+    gl.uniform1f(U.fo,fon?1:0); { const Lm=fon&&(FM.sm||FM.lm); if(Lm&&Lm.length>=468){ const a=Lm[234],b=Lm[454],tp=Lm[10],bt=Lm[152]; const cx=(a.x+b.x)/2, cy=(tp.y+bt.y)/2; const rx=Math.abs(b.x-a.x)/2*1.18, ry=Math.abs(bt.y-tp.y)/2*1.22; gl.uniform4f(U.fc,cx,1-cy,Math.max(.02,rx),Math.max(.02,ry)); } else gl.uniform4f(U.fc,0,0,0,0); }
     gl.uniform4fv(U.shT,L.shT||[.5,.5,.5,0]); gl.uniform4fv(U.hiT,L.hiT||[.5,.5,.5,0]);
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4); const ge=gl.getError(); if(ge&&ge!==gl.NO_ERROR){ window.__vfxErr='gl '+ge; } g.drawImage(c,0,0,W,H);
   } else { try{ g.drawImage(src,(W-w*z)/2,(H-h*z)/2,w*z,h*z); }catch(_){} }
@@ -5680,7 +5687,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
   <div class="vpane" data-p="ready"><p class="hint">לחיצה אחת — וזה מוכן. אפשר אחר כך לשנות בלשוניות האחרות.</p>
     <div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(VPRESETS).filter(([k])=>k!=='none').map(([k,p])=>`<button data-pre="${k}">${p.n}</button>`).join('')}</div>
     <p class="hint" style="margin-top:8px">📸 כמו באינסטגרם:</p><div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(IGF).map(([k,f])=>`<button data-ig="${k}">${f.n}</button>`).join('')}</div></div>
-  <div class="vpane" data-p="beauty">${sl('fx','beauty','💄 החלקת עור')}<div class="row"><button data-auto="1">🪄 שיפור אוטומטי (בהיר ויפה)</button></div>
+  <div class="vpane" data-p="beauty"><label class="hint" style="display:block;font-size:15px;margin:4px 0"><input type="checkbox" id="vfxFace" ${cur.faceOnly!==false?'checked':''}> 🙂 החלקה וזוהר רק על הפנים (הרקע נשאר כמו שהוא)</label>${sl('fx','beauty','💄 החלקת עור')}<div class="row"><button data-auto="1">🪄 שיפור אוטומטי (בהיר ויפה)</button></div>
     <h4 style="margin:10px 0 4px">💋 איפור</h4><div class="row" style="flex-wrap:wrap;gap:6px"><button data-mkp="soft">✨ עדין</button><button data-mkp="glam">💄 ערב</button><button data-mkp="off">🚫 בלי</button></div>
     <div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(MKLIP).map(([k,m])=>`<button data-lc="${k}"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgb(${m[1]});vertical-align:middle"></span> ${m[0]}</button>`).join('')}</div>
     ${sl('mk','lip','💋 שפתיים')}${sl('mk','blush','🌸 סומק')}${sl('mk','eyes','👁 הארת עיניים')}<div id="mkStat" class="hint"></div></div>
@@ -5709,6 +5716,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     box.querySelectorAll('[data-pre]').forEach(b=>b.onclick=()=>{ const mk=cur.mk; cur=JSON.parse(JSON.stringify(VPRESETS[b.dataset.pre])); delete cur.n; if(mk) cur.mk=mk; apply(); refresh(); toast(b.textContent); });
     box.querySelectorAll('[data-ig]').forEach(b=>b.onclick=()=>{ cur.adj=Object.assign({},IGF[b.dataset.ig].a); cur.look='none'; apply(); refresh(); toast('📸 '+b.textContent); });
     box.querySelectorAll('[data-l]').forEach(b=>b.onclick=()=>{ cur.look=b.dataset.l; apply(); refresh(); });
+    { const fc=box.querySelector('#vfxFace'); if(fc) fc.onchange=()=>{ cur.faceOnly=fc.checked; apply(); refresh(); }; }
     box.querySelector('[data-auto]').onclick=()=>{ cur.adj=Object.assign({},cur.adj||{}); for(const k in VAUTO) cur.adj[k]=VAUTO[k]; if(!(cur.beauty>0)) cur.beauty=.35; apply(); refresh(); toast('🪄 שיפור אוטומטי'); };
     box.querySelectorAll('[data-mkp]').forEach(b=>b.onclick=()=>{ const p={soft:{lip:.45,blush:.35,eyes:.35},glam:{lip:.8,blush:.6,eyes:.5},off:{lip:0,blush:0,eyes:0}}[b.dataset.mkp]; cur.mk=Object.assign({lc:'rose'},cur.mk||{},p); if(b.dataset.mkp!=='off'&&!(cur.beauty>0)) cur.beauty=.35; apply(); refresh(); });
     box.querySelectorAll('[data-lc]').forEach(b=>b.onclick=()=>{ cur.mk=Object.assign({lip:.45},cur.mk||{}); cur.mk.lc=b.dataset.lc; if(!(cur.mk.lip>0)) cur.mk.lip=.45; apply(); refresh(); });
@@ -5991,6 +5999,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1123-0133"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1123-1218"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
