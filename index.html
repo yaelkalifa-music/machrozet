@@ -2859,7 +2859,7 @@ let HEADER=76, LANE_H=100; const PEAK_RATE=400;
 function setLayout(h,l){ const sl=scroller.scrollLeft-HEADER; HEADER=Math.round(clamp(h,70,240)); LANE_H=Math.round(clamp(l,56,280)); document.documentElement.style.setProperty('--hdr',HEADER+'px'); document.documentElement.style.setProperty('--lane',LANE_H+'px'); try{ localStorage.setItem('machrozet_hdr',HEADER); localStorage.setItem('machrozet_laneh',LANE_H); }catch(_){} render(); scroller.scrollLeft=Math.max(0,sl+HEADER); }
 const $=id=>document.getElementById(id);
 const PALETTE=['#ff5c9a','#5cc8ff','#8f7bff','#4fd1a5','#ff8a5c','#e86cf0'];
-const S={noFollow:(()=>{ try{ return localStorage.getItem('machrozet_nofollow')==='1'; }catch(_){ return false; } })(),bpb:4,bpm:120,pps:30,snap:1,tracks:[],sel:null,playhead:0,playing:false};
+const S={noFollow:(()=>{ try{ return localStorage.getItem('machrozet_nofollow')==='1'; }catch(_){ return false; } })(),bpb:4,bpm:120,pps:30,snap:0,tracks:[],sel:null,playhead:0,playing:false};
 const bufs={}; let idc=1, colorI=0; const nid=()=>'i'+(idc++)+'_'+Math.random().toString(36).slice(2,6);
 let ctx=null;
 function iosUnmute(){ try{ if(!/iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent)||!('ontouchend' in document)) return; const a=document.createElement('audio'); a.setAttribute('x-webkit-airplay','deny'); a.preload='auto'; a.loop=true; a.src='data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQgAAACAgICAgICAgA=='; a.volume=0.01; a.play().catch(()=>{}); window.__iosA=a; }catch(_){} }
@@ -3745,6 +3745,7 @@ $('metro').onclick=()=>{ S.metro=!S.metro; $('metro').classList.toggle('on',S.me
 /* ---------- top controls ---------- */
 $('bpm').onchange=()=>{ const v=parseFloat($('bpm').value); if(!(v>=40&&v<=240)){ $('bpm').value=fmtBpm(S.bpm); return; } pushHist(); S.bpm=v; render(); };
 let lastSnap=1; function updSnapQ(){ $('snapQ').classList.toggle('on',!!S.snap); $('snapQ').textContent=S.snap?'🧲':'✋'; }
+setTimeout(()=>{ try{ if($('snap')) $('snap').value=String(S.snap); updSnapQ(); }catch(_){} },0);
 function snapOpts(){ const sel=$('snap'); const cur=S.snap; const o=BPB()===6?[[6,'לתיבה'],[3,'2 בתיבה (♩.)'],[1,'6 בתיבה (שמינית)'],[0.5,'12 בתיבה'],[0,'חופשי (בלי הצמדה)']]:BPB()===3?[[3,'לתיבה'],[1,'3 בתיבה (פעמה)'],[0.5,'6 בתיבה'],[1/3,'שלישיות'],[0.25,'12 בתיבה'],[0,'חופשי (בלי הצמדה)']]:[[4,'לתיבה'],[1,'4 בתיבה (פעמה)'],[0.5,'8 בתיבה'],[1/3,'שלישיות'],[0.25,'16 בתיבה'],[0,'חופשי (בלי הצמדה)']];
   sel.innerHTML=o.map(x=>`<option value="${x[0]}">${x[1]}</option>`).join(''); const m=o.find(x=>Math.abs(x[0]-cur)<1e-6); if(!m&&cur){ S.snap=cur>=4?BPB():1; } sel.value=String(o.find(x=>Math.abs(x[0]-S.snap)<1e-6)?.[0]??1); $('meter').value=String(BPB()); }
 $('meter').onchange=()=>{ pushHist(); S.bpb=parseInt($('meter').value)||4; snapOpts(); render(); if(S.playing) restartPlay(); try{ if(typeof PV!=='undefined'&&$('playView')&&!$('playView').hidden) buildPV(); }catch(_){} toast(S.bpb===6?'משקל 6/8 · הקצב נספר בשמיניות':'משקל '+S.bpb+'/4');
@@ -5999,6 +6000,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1123-1218"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-0008"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
