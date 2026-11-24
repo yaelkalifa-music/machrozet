@@ -560,7 +560,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="recBtn">🎙 הקלטה</button>
       <button id="addTrack">+ ערוץ</button>
       <button id="exportBtn">⬇ ייצוא</button>
-      <button id="saveProj">💾 שמירה לקובץ</button>
+      <button id="saveProj">⬇ גיבוי לקובץ</button>
       <button id="shareProj">📤 לשלוח לחברה</button>
       <button id="qMix">🎚 מיקס מהיר</button>
       <button id="chordsBtn">🎼 זיהוי אקורדים</button>
@@ -3995,21 +3995,28 @@ async function saveNamed(askName){
   if(S.projId&&!askName){ try{ await writeNamed(); toast('✓ נשמר: '+S.projName,1800); }catch(e){ toast('❌ השמירה לא הצליחה'); } return; }
   const def=S.projName||(()=>{ const f=allClips().map(x=>bufs[x.c.buf]).find(b=>b&&b.kind==='song'); return f?f.name:'מחרוזת '+new Date().toLocaleDateString('he-IL'); })();
   openSheet(`<h3>💾 שם לפרויקט</h3><p class="hint">מעכשיו כל לחיצה על 💾 שומרת לתוך הפרויקט הזה</p><input id="pnIn" dir="auto" value="${esc(def)}" style="width:100%;font-size:18px;padding:10px;color:#111;background:#fff;-webkit-text-fill-color:#111;border:2px solid #7fc96b;border-radius:10px"><div class="row" style="margin-top:10px"><button class="pri" id="pnOk">💾 שמירה</button></div>`,()=>{
-    const go=async()=>{ const v=$('pnIn').value.trim()||def; if(!S.projId||askName==='new') S.projId='pj'+Date.now().toString(36); S.projName=v; updProjName(); closeSheet(); try{ await writeNamed(); toast('✓ נשמר: '+v,2200); }catch(e){ toast('❌ השמירה לא הצליחה'); } };
+    const go=async()=>{ const v=$('pnIn').value.trim()||def; if(!S.projId||askName==='new') S.projId='pj'+Date.now().toString(36); S.projName=v; updProjName(); closeSheet(); try{ await writeNamed(); toast('✓ נשמר: '+v+' — רואים אותו ב־📁 הפרויקטים שלי',3200); }catch(e){ toast('❌ השמירה לא הצליחה'); } };
     $('pnOk').onclick=go; $('pnIn').onkeydown=e=>{ if(e.key==='Enter') go(); }; setTimeout(()=>{ $('pnIn').focus(); $('pnIn').select(); },60); });
 }
-async function listNamed(){ const out=[]; const ks=await dbOp('proj','readonly',st=>st.getAllKeys()); for(const k of (ks||[])){ if(typeof k==='string'&&k.startsWith('p:')){ const q=await dbOp('proj','readonly',st=>st.get(k)); if(q) out.push({k,id:q.projId,name:q.projName||'ללא שם',saved:q.saved,n:(q.tracks||[]).reduce((a,t)=>a+t.clips.length,0)}); } } return out.sort((a,b)=>b.saved-a.saved); }
+async function listNamed(){ const out=[]; const ks=await dbOp('proj','readonly',st=>st.getAllKeys()); for(const k of (ks||[])){ if(typeof k==='string'&&k.startsWith('p:')){ const q=await dbOp('proj','readonly',st=>st.get(k)); if(q) out.push({k,id:q.projId,name:q.projName||'ללא שם',saved:q.saved,n:(q.tracks||[]).reduce((a,t)=>a+t.clips.length,0),vid:Object.values(q.metas||{}).some(m=>m&&m.vtype),lyr:!!(q.lyr&&q.lyr.lines&&q.lyr.lines.length)}); } } return out.sort((a,b)=>b.saved-a.saved); }
 async function openMyProjects(){ let L=[]; try{ L=await listNamed(); }catch(_){}
   const fmtD=t=>{ const d=new Date(t); return d.toLocaleDateString('he-IL')+' '+d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}); };
-  openSheet(`<h3>📁 הפרויקטים שלי</h3>${L.length?'':'<p class="hint">עוד אין פרויקטים שמורים. לוחצים 💾 שמירה ונותנים שם.</p>'}<div id="pjList" style="display:flex;flex-direction:column;gap:8px">${L.map(x=>`<div class="row" style="background:#241a2c;border:1px solid ${x.id===S.projId?'#7fc96b':'#4a3a58'};border-radius:12px;padding:8px;align-items:center"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===S.projId?' <span class="hint" style="color:#9fe08a">(פתוח עכשיו)</span>':''}<div class="hint">${fmtD(x.saved)} · ${x.n} קטעים</div></div><button class="pri" data-po="${x.k}">פתיחה</button><button data-pd="${x.k}" title="מחיקה">🗑</button></div>`).join('')}</div>
-    <div class="row" style="margin-top:12px">${S.projId?'<button id="pjAs">💾 שמירה בשם אחר</button><button id="pjRen">✏️ שינוי שם</button>':''}<button id="pjBk">⬇ גיבוי לקובץ</button></div><p class="hint">הפרויקטים נשמרים במכשיר הזה. כדי להעביר למכשיר אחר או לגבות — ⬇ גיבוי לקובץ.</p>`,()=>{
+  openSheet(`<h3>📁 הפרויקטים שלי</h3>${L.length>5?'<input id="pjSearch" dir="auto" placeholder="🔍 חיפוש לפי שם…" style="width:100%;font-size:16px;padding:8px;border-radius:10px;margin-bottom:8px">':''}${L.length?'':'<p class="hint">עוד אין פרויקטים שמורים. לוחצים 💾 שמירה ונותנים שם.</p>'}<div id="pjList" style="display:flex;flex-direction:column;gap:8px">${L.map(x=>`<div class="row" style="background:#241a2c;border:1px solid ${x.id===S.projId?'#7fc96b':'#4a3a58'};border-radius:12px;padding:8px;align-items:center"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===S.projId?' <span class="hint" style="color:#9fe08a">(פתוח עכשיו)</span>':''}<div class="hint">${fmtD(x.saved)} · ${x.n} קטעים${x.vid?' · 🎥':''}${x.lyr?' · 📝':''}</div></div><button class="pri" data-po="${x.k}">📂 פתיחה</button><button data-pr="${x.k}" title="שינוי שם">✏️</button><button data-pd="${x.k}" title="מחיקה">🗑</button></div>`).join('')}</div>
+    <div class="row" style="margin-top:12px">${S.projId?'<button id="pjAs">💾 שמירה בשם אחר</button><button id="pjRen">✏️ שינוי שם</button>':''}<button id="pjBk">⬇ גיבוי לקובץ</button></div><p class="hint">📍 הפרויקטים שמורים בתוך האפליקציה עצמה (לא בגלריה ולא בתיקיות) — את כולם רואים כאן. "⬇ גיבוי לקובץ" שומר עותק בתיקיית ההורדות (Downloads / קבצים) בטלפון — טוב להעברה לטלפון אחר.</p>`,()=>{
     document.querySelectorAll('[data-po]').forEach(b=>b.onclick=async()=>{ const k=b.dataset.po; if(S.projId&&allClips().length){ try{ await writeNamed(); }catch(_){} } const q=await dbOp('proj','readonly',st=>st.get(k)); if(!q) return; closeSheet(); stopPlay(); toast('פותחת…',60000); pushHist(); S.projId=q.projId; S.projName=q.projName; updProjName();
       await applyProject(q,async id=>{ try{ const rec=await dbOp('files','readonly',st=>st.get(id)); return rec?{bytes:rec.bytes,meta:rec.meta}:null; }catch(e){ return null; } }); if(q.notes&&!NOTES.includes(q.notes.trim())){} saveProject(); });
     document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{ const k=b.dataset.pd; const it=L.find(x=>x.k===k); openSheet(`<h3>למחוק את "${esc(it.name)}"?</h3><p>אי אפשר לבטל את זה.</p><div class="row"><button class="pri" id="pdY" style="background:#a32">🗑 כן, למחוק</button><button id="pdN">ביטול</button></div>`,()=>{ $('pdN').onclick=openMyProjects; $('pdY').onclick=async()=>{ await dbOp('proj','readwrite',st=>st.delete(k)); if(it.id===S.projId){ S.projId=null; S.projName=''; updProjName(); } toast('נמחק'); openMyProjects(); }; }); });
+    document.querySelectorAll('[data-pr]').forEach(b=>b.onclick=()=>{ const k=b.dataset.pr; const it=L.find(x=>x.k===k); openSheet(`<h3>✏️ שם חדש</h3><input id="prnIn" dir="auto" value="${esc(it.name)}" style="width:100%;font-size:18px;padding:10px;border-radius:10px"><div class="row" style="margin-top:10px"><button class="pri" id="prnOk">✓ שמירה</button><button id="prnNo">ביטול</button></div>`,()=>{ $('prnNo').onclick=openMyProjects; setTimeout(()=>{ try{ $('prnIn').focus(); $('prnIn').select(); }catch(_){} },60); $('prnOk').onclick=async()=>{ const v=$('prnIn').value.trim(); if(!v) return; const q=await dbOp('proj','readonly',st=>st.get(k)); if(q){ q.projName=v; await dbOp('proj','readwrite',st=>st.put(q,k)); } if(it.id===S.projId){ S.projName=v; updProjName(); } toast('✓ השם שונה'); openMyProjects(); }; }); });
+    { const se=$('pjSearch'); if(se) se.oninput=()=>{ const q=se.value.trim(); document.querySelectorAll('#pjList > .row').forEach(r=>{ r.style.display=!q||r.textContent.includes(q)?'':'none'; }); }; }
     if($('pjAs')) $('pjAs').onclick=()=>saveNamed('new');
     if($('pjRen')) $('pjRen').onclick=()=>saveNamed('rename');
     $('pjBk').onclick=()=>{ closeSheet(); exportProject(); };
   }); }
+/* Android "back": never close the app — close what's open instead */
+(function(){ try{ history.pushState({mz:1},''); }catch(_){}
+  window.addEventListener('popstate',()=>{ try{ history.pushState({mz:1},''); }catch(_){}
+    try{ if($('dlAsk')){ $('dlAsk').remove(); return; } if($('sheet')&&!$('sheet').hidden){ closeSheet(); return; } const ps=$('prStudio'); if(ps&&!ps.hidden){ prsClose(); return; } if(typeof PR!=='undefined'&&PR.on&&!rec){ promptClose(); return; } const pv=$('playView'); if(pv&&!pv.hidden){ const cb=$('pvClose'); if(cb) cb.click(); else pv.hidden=true; return; } const hm=$('hdrMore'); if(hm&&!hm.hidden){ $('hdrGear').click(); return; } if($('lyrBar')){ LYMULTI=false; lyrSelSet([]); render(); return; } const rp=$('recPop'); if(rp&&!rp.hidden&&!rec){ rp.hidden=true; return; } if(S.sel){ select(null); return; } }catch(_){}
+    toast('כדי לצאת מהאפליקציה — כפתור הריבוע ▢ של הטלפון',2500); }); })();
 window.addEventListener('keydown',e=>{ if(!(e.ctrlKey||e.metaKey)) return; const k=e.key.toLowerCase(); if(k==='s'||k==='ד'){ e.preventDefault(); saveNamed(); return; }
  });
 
@@ -4026,7 +4033,8 @@ window.addEventListener('keydown',e=>{ if(!(e.ctrlKey||e.metaKey)) return; const
   brand.appendChild(langPills());
   gear.onclick=()=>{ more.hidden=!more.hidden; gear.classList.toggle('on',!more.hidden); gear.innerHTML=more.hidden?'⚙':'▲'; };
   // project name stays visible next to the logo
-  const tag=$('projNameTag'); if(tag) brand.appendChild(tag);
+  const tag=$('projNameTag'); if(tag){ brand.appendChild(tag); tag.style.cursor='pointer'; tag.title='📁 הפרויקטים שלי'; tag.onclick=()=>openMyProjects(); }
+  { const mp=document.createElement('button'); mp.id='hdrProj'; mp.textContent='📁'; mp.title='📁 הפרויקטים שלי — לפתוח / למחוק / לשנות שם'; mp.onclick=()=>openMyProjects(); hdr.insertBefore(mp,gear); }
   // key tag into transport
   const kt=$('keyTag'); if(kt){ $('transport').insertBefore(kt,$('transport').querySelector('.sp')); }
   // bottom: main row = most used, the rest behind ☰
@@ -6135,6 +6143,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-0438"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-1139"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
