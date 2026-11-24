@@ -560,7 +560,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="recBtn">🎙 הקלטה</button>
       <button id="addTrack">+ ערוץ</button>
       <button id="exportBtn">⬇ ייצוא</button>
-      <button id="saveProj">⬇ גיבוי לקובץ</button>
+      <button id="saveProj">☁️ גיבוי לדרייב</button>
       <button id="shareProj">📤 לשלוח לחברה</button>
       <button id="qMix">🎚 מיקס מהיר</button>
       <button id="chordsBtn">🎼 זיהוי אקורדים</button>
@@ -3838,7 +3838,7 @@ $('addVocal').onclick=()=>{ importAs='vocal'; ac(); fileIn.value=''; fileIn.clic
 fileIn.onchange=()=>importFiles([...fileIn.files]);
 scroller.addEventListener('dragover',e=>e.preventDefault());
 scroller.addEventListener('drop',e=>{ e.preventDefault(); importFiles([...e.dataTransfer.files].filter(f=>/audio|\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(f.type+' '+f.name))); });
-$('saveProj').onclick=()=>exportProject(); $('shareProj').onclick=()=>shareProject(); $('qMix').onclick=()=>openQuickMix(); $('chordsBtn').onclick=()=>openChordDetect(); $('quickSave').onclick=()=>saveNamed(); $('myProj').onclick=()=>openMyProjects();
+$('saveProj').onclick=()=>driveBackup('current'); $('shareProj').onclick=()=>shareProject(); $('qMix').onclick=()=>openQuickMix(); $('chordsBtn').onclick=()=>openChordDetect(); $('quickSave').onclick=()=>saveNamed(); $('myProj').onclick=()=>openMyProjects();
 $('openProj').onclick=()=>{ $('projFile').value=''; $('projFile').click(); };
 $('projFile').onchange=()=>{ const f=$('projFile').files[0]; if(f) importProjectFile(f); };
 $('addTrack').onclick=()=>{ pushHist(); newTrack(); render(); };
@@ -4001,11 +4001,12 @@ async function saveNamed(askName){
 async function listNamed(){ const out=[]; const ks=await dbOp('proj','readonly',st=>st.getAllKeys()); for(const k of (ks||[])){ if(typeof k==='string'&&k.startsWith('p:')){ const q=await dbOp('proj','readonly',st=>st.get(k)); if(q) out.push({k,id:q.projId,name:q.projName||'ללא שם',saved:q.saved,n:(q.tracks||[]).reduce((a,t)=>a+t.clips.length,0),vid:Object.values(q.metas||{}).some(m=>m&&m.vtype),lyr:!!(q.lyr&&q.lyr.lines&&q.lyr.lines.length)}); } } return out.sort((a,b)=>b.saved-a.saved); }
 async function openMyProjects(){ let L=[]; try{ L=await listNamed(); }catch(_){}
   const fmtD=t=>{ const d=new Date(t); return d.toLocaleDateString('he-IL')+' '+d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}); };
-  openSheet(`<h3>📁 הפרויקטים שלי</h3>${L.length>5?'<input id="pjSearch" dir="auto" placeholder="🔍 חיפוש לפי שם…" style="width:100%;font-size:16px;padding:8px;border-radius:10px;margin-bottom:8px">':''}${L.length?'':'<p class="hint">עוד אין פרויקטים שמורים. לוחצים 💾 שמירה ונותנים שם.</p>'}<div id="pjList" style="display:flex;flex-direction:column;gap:8px">${L.map(x=>`<div class="row" style="background:#241a2c;border:1px solid ${x.id===S.projId?'#7fc96b':'#4a3a58'};border-radius:12px;padding:8px;align-items:center"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===S.projId?' <span class="hint" style="color:#9fe08a">(פתוח עכשיו)</span>':''}<div class="hint">${fmtD(x.saved)} · ${x.n} קטעים${x.vid?' · 🎥':''}${x.lyr?' · 📝':''}</div></div><button class="pri" data-po="${x.k}">📂 פתיחה</button><button data-pr="${x.k}" title="שינוי שם">✏️</button><button data-pd="${x.k}" title="מחיקה">🗑</button></div>`).join('')}</div>
-    <div class="row" style="margin-top:12px">${S.projId?'<button id="pjAs">💾 שמירה בשם אחר</button><button id="pjRen">✏️ שינוי שם</button>':''}<button id="pjBk">⬇ גיבוי לקובץ</button></div><p class="hint">📍 הפרויקטים שמורים בתוך האפליקציה עצמה (לא בגלריה ולא בתיקיות) — את כולם רואים כאן. "⬇ גיבוי לקובץ" שומר עותק בתיקיית ההורדות (Downloads / קבצים) בטלפון — טוב להעברה לטלפון אחר.</p>`,()=>{
+  openSheet(`<h3>📁 הפרויקטים שלי</h3>${L.length>5?'<input id="pjSearch" dir="auto" placeholder="🔍 חיפוש לפי שם…" style="width:100%;font-size:16px;padding:8px;border-radius:10px;margin-bottom:8px">':''}${L.length?'':'<p class="hint">עוד אין פרויקטים שמורים. לוחצים 💾 שמירה ונותנים שם.</p>'}<div id="pjList" style="display:flex;flex-direction:column;gap:8px">${L.map(x=>`<div class="row" style="background:#241a2c;border:1px solid ${x.id===S.projId?'#7fc96b':'#4a3a58'};border-radius:12px;padding:8px;align-items:center"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===S.projId?' <span class="hint" style="color:#9fe08a">(פתוח עכשיו)</span>':''}<div class="hint">${fmtD(x.saved)} · ${x.n} קטעים${x.vid?' · 🎥':''}${x.lyr?' · 📝':''}</div></div><button class="pri" data-po="${x.k}">📂 פתיחה</button><button data-pg="${x.k}" title="גיבוי לגוגל דרייב">☁️</button><button data-pr="${x.k}" title="שינוי שם">✏️</button><button data-pd="${x.k}" title="מחיקה">🗑</button></div>`).join('')}</div>
+    <div class="row" style="margin-top:12px">${S.projId?'<button id="pjAs">💾 שמירה בשם אחר</button><button id="pjRen">✏️ שינוי שם</button>':''}<button id="pjBk">⬇ שמירה בטלפון</button></div><p class="hint">📍 הפרויקטים שמורים בתוך האפליקציה עצמה — את כולם רואים כאן.<br>☁️ = גיבוי לגוגל דרייב: נפתח חלון שיתוף ← בוחרים <b>Drive / דרייב</b> ← שמירה. לא תופס מקום בטלפון.<br>כדי לפתוח גיבוי מהדרייב: 📂 פתיחת פרויקט ← בוחרים Drive בחלון הקבצים.</p>`,()=>{
     document.querySelectorAll('[data-po]').forEach(b=>b.onclick=async()=>{ const k=b.dataset.po; if(S.projId&&allClips().length){ try{ await writeNamed(); }catch(_){} } const q=await dbOp('proj','readonly',st=>st.get(k)); if(!q) return; closeSheet(); stopPlay(); toast('פותחת…',60000); pushHist(); S.projId=q.projId; S.projName=q.projName; updProjName();
       await applyProject(q,async id=>{ try{ const rec=await dbOp('files','readonly',st=>st.get(id)); return rec?{bytes:rec.bytes,meta:rec.meta}:null; }catch(e){ return null; } }); if(q.notes&&!NOTES.includes(q.notes.trim())){} saveProject(); });
     document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{ const k=b.dataset.pd; const it=L.find(x=>x.k===k); openSheet(`<h3>למחוק את "${esc(it.name)}"?</h3><p>אי אפשר לבטל את זה.</p><div class="row"><button class="pri" id="pdY" style="background:#a32">🗑 כן, למחוק</button><button id="pdN">ביטול</button></div>`,()=>{ $('pdN').onclick=openMyProjects; $('pdY').onclick=async()=>{ await dbOp('proj','readwrite',st=>st.delete(k)); if(it.id===S.projId){ S.projId=null; S.projName=''; updProjName(); } toast('נמחק'); openMyProjects(); }; }); });
+    document.querySelectorAll('[data-pg]').forEach(b=>b.onclick=()=>{ closeSheet(); driveBackup(b.dataset.pg); });
     document.querySelectorAll('[data-pr]').forEach(b=>b.onclick=()=>{ const k=b.dataset.pr; const it=L.find(x=>x.k===k); openSheet(`<h3>✏️ שם חדש</h3><input id="prnIn" dir="auto" value="${esc(it.name)}" style="width:100%;font-size:18px;padding:10px;border-radius:10px"><div class="row" style="margin-top:10px"><button class="pri" id="prnOk">✓ שמירה</button><button id="prnNo">ביטול</button></div>`,()=>{ $('prnNo').onclick=openMyProjects; setTimeout(()=>{ try{ $('prnIn').focus(); $('prnIn').select(); }catch(_){} },60); $('prnOk').onclick=async()=>{ const v=$('prnIn').value.trim(); if(!v) return; const q=await dbOp('proj','readonly',st=>st.get(k)); if(q){ q.projName=v; await dbOp('proj','readwrite',st=>st.put(q,k)); } if(it.id===S.projId){ S.projName=v; updProjName(); } toast('✓ השם שונה'); openMyProjects(); }; }); });
     { const se=$('pjSearch'); if(se) se.oninput=()=>{ const q=se.value.trim(); document.querySelectorAll('#pjList > .row').forEach(r=>{ r.style.display=!q||r.textContent.includes(q)?'':'none'; }); }; }
     if($('pjAs')) $('pjAs').onclick=()=>saveNamed('new');
@@ -5188,7 +5189,7 @@ function openAngles(){ const vs=angleClips(null); if(vs.length<2){ toast('צרי
 async function shareOrSave(name,blob,text){ const file=new File([blob],name,{type:blob.type||'application/octet-stream'});
   let can=false; try{ can=!!(navigator.canShare&&navigator.canShare({files:[file]})); }catch(_){}
   if(!can) return saveFile(name,blob);
-  return await new Promise(res=>{ const box=document.createElement('div'); box.id='dlAsk'; box.innerHTML=`<div class="dlin"><b>הקובץ מוכן ✓</b><span dir="ltr">${esc(name)} · ${(blob.size/1048576).toFixed(1)}MB</span><button class="pri" id="shGo">📤 לשלוח (וואטסאפ / מייל…)</button><button id="shSave">⬇ לשמור בטלפון</button><button id="shNo">ביטול</button></div>`; document.body.appendChild(box);
+  return await new Promise(res=>{ const box=document.createElement('div'); box.id='dlAsk'; box.innerHTML=`<div class="dlin"><b>הקובץ מוכן ✓</b><span dir="ltr">${esc(name)} · ${(blob.size/1048576).toFixed(1)}MB</span><button class="pri" id="shGo">${/\.zip$/.test(name)?'☁️ לשמור בדרייב / לשלוח':'📤 לשלוח (וואטסאפ / מייל…)'}</button>${/\.zip$/.test(name)?'<span class="hint" style="font-size:13px">בחלון שנפתח בוחרים <b>Drive</b> לגיבוי, או וואטסאפ לשליחה</span>':''}<button id="shSave">⬇ לשמור בטלפון</button><button id="shNo">ביטול</button></div>`; document.body.appendChild(box);
     const done=v=>{ box.remove(); res(v); };
     $('shNo').onclick=()=>done(false); $('shSave').onclick=async()=>{ box.remove(); res(await saveFile(name,blob)); };
     $('shGo').onclick=async()=>{ try{ await navigator.share({files:[file],title:name,text:text||''}); done(true); }catch(e){ if(e&&e.name==='AbortError') done(false); else { toast('לא הצלחתי לשתף — שומרת בטלפון במקום'); box.remove(); res(await saveFile(name,blob)); } } }; }); }
@@ -6135,6 +6136,12 @@ async function exportProject(){ if(!allClips().length&&!S.sheet&&!(NOTES||'').tr
   audioIds.forEach(id=>files.push({name:'audio/'+id,data:new Uint8Array(rawStore[id])}));
   p.notes=NOTES||''; files.unshift({name:'project.json',data:new TextEncoder().encode(JSON.stringify(p))});
   const blob=zipMulti(files); const name='מחרוזת-'+stamp()+'.zip'; await saveFile(name,blob); toast('הפרויקט נשמר לקובץ ✓',2500); }
+async function zipProjectRec(q){ const files=[]; for(const id of Object.keys(q.metas||{})){ let by=rawStore[id]; if(!by){ try{ const rec=await dbOp('files','readonly',st=>st.get(id)); by=rec&&rec.bytes; }catch(_){} } if(by) files.push({name:'audio/'+id,data:new Uint8Array(by.buffer?by.buffer.slice(by.byteOffset||0,(by.byteOffset||0)+by.byteLength):by)}); }
+  files.unshift({name:'project.json',data:new TextEncoder().encode(JSON.stringify(q))}); return zipMulti(files); }
+async function driveBackup(k){ toast('אורזת לגיבוי…',60000); let q=null;
+  try{ if(!k||k==='current'){ if(S.projId){ await writeNamed(); k='p:'+S.projId; } else { await saveProject(); k='current'; } } q=await dbOp('proj','readonly',st=>st.get(k)); }catch(_){}
+  if(!q){ toast('❌ לא מצאתי את הפרויקט'); return; } const blob=await zipProjectRec(q); const nm=(q.projName||'מחרוזת').replace(/[\\/:*?"<>|]+/g,' ').trim()+' - '+stamp()+'.zip'; toast('',1);
+  await shareOrSave(nm,blob,'גיבוי פרויקט "מחרוזות" — לבחור Drive / דרייב'); }
 async function importProjectFile(f){ try{ toast('פותחת פרויקט…',60000); const z=unzipStore(await f.arrayBuffer()); if(!z['project.json']) throw new Error('זה לא קובץ פרויקט של המחרוזות'); const p=JSON.parse(new TextDecoder().decode(z['project.json']));
     stopPlay(); pushHist(); Object.keys(z).filter(n=>n.startsWith('audio/')).forEach(n=>{ const id=n.slice(6); const m=(p.metas||{})[id]; if(m){ dbPutFile(id,z[n].buffer.slice(z[n].byteOffset,z[n].byteOffset+z[n].byteLength),m); } });
     await applyProject(p,async id=>{ const d=z['audio/'+id]; return d?{bytes:d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength),meta:(p.metas||{})[id]}:null; }); scheduleSave(); }
@@ -6143,6 +6150,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-1139"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-1145"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
