@@ -33,19 +33,28 @@ function langPills(){ const lg=document.createElement('div'); lg.className='lang
 (function(){ const f=()=>{ const t=document.getElementById('transport'); if(!t) return; t.classList.toggle('more-r',t.scrollLeft+t.clientWidth<t.scrollWidth-4); }; document.addEventListener('DOMContentLoaded',()=>{ const t=document.getElementById('transport'); if(t){ t.addEventListener('scroll',f,{passive:true}); window.addEventListener('resize',f); setTimeout(f,500); setInterval(f,2000); } }); })();
 /* ===== compact buttons: show only the emoji, the name goes to the title, ❓ lists them, long-press tells the name ===== */
 const EMO_RX=/^((?:[\p{Extended_Pictographic}←-⇿⌀-⏿■-◿☀-➿⬀-⯿⟦⟧⧉️‍]|✂|✓|✕)+)\s+(\S.*)$/u;
-function compactBtn(b){ if(!b||b.dataset.keepText!=null) return; const t=(b.textContent||'').trim(); const m=t.match(EMO_RX); if(!m) return; if(b.dataset.full===t&&b.textContent===m[1]) return; b.dataset.full=t; b.title=t; b.textContent=m[1]; b.classList.add('emo'); }
+const LAB_ID={cKaraoke:'להוריד זמרת',cSplit:'חיתוך',cTsTool:'מתיחה',cLoop:'לופ על הקטע',cExp:'ייצוא הקטע',cCopy:'העתקה',cPaste:'הדבקה',cClean:'ניקוי מוזיקה',cDup:'שכפול',cDel:'מחיקה',cTie:'להזיז יחד',cChords:'אקורדים',cVFade:'פייד וידאו',cCam:'תנועת מצלמה',cVTr:'מעבר וידאו',cPitch:'דיוק בשירה',cSilence:'חיתוך שקטים',cLyr:'מילים לקטע',cTrans:'מעבר לשיר הבא',cStraight:'יישור ביט',cUp:'ערוץ למעלה',cDn:'ערוץ למטה',cFromHere:'סמן להתחלה',cConnect:'חיבור בקצב',cDetT:'זיהוי טמפו',cFitProj:'לקצב הפרויקט',cOne:'ה־1 כאן',cNudgeL:'כיוון עדין',cLink:'חיבור לוידאו',cAng:'כמה זוויות',cLibAdd:'לספרייה',cVa:'תיקון תווים',cNotes:'עריכת תווים',cTop:'טייק למעלה',
+  undo:'ביטול',redo:'חזרה',quickSave:'שמירה',hdrProj:'פרויקטים',hdrNew:'פרויקט חדש',hdrGear:'הגדרות',toStart:'להתחלה',play:'נגינה',abBtn:'לפני/אחרי',toolBtn:'כלים',prBtn:'פרומפטר',recTop:'הקלטה',vidBtn:'וידאו',metro:'מטרונום',zoomOut:'הקטנה',zoomIn:'הגדלה',snapQ:'הצמדה',vFx:'אפקטים',vBig:'גודל',vClose:'סגירה',
+  mbDel:'מחיקה',mbDup:'שכפול',mbQ:'הצמדה',mbSd:'טון −',mbSu:'טון +',mbDn:'שקט יותר',mbUp:'חזק יותר',mbTrk:'כל הערוץ'};
+const LAB_TITLE={'השתקה':'שקט','סולו':'סולו','אפשרויות':'ערוץ','נגינה לערוץ הזה':'נגן','הקלטה לערוץ הזה':'הקלט','אפקטים לערוץ':'אפקט'};
+function btnLab(b,txt){ if(b.id==='cMoreBtn') return /פחות/.test(txt)?'פחות':'עוד לקטע'; if(b.dataset.lab) return b.dataset.lab; if(txt&&txt.length<=13) return txt; return LAB_ID[b.id]||LAB_TITLE[b.title]||(txt?txt.slice(0,14)+'…':''); }
+function compactBtn(b){ if(!b||b.dataset.keepText!=null||b.tagName!=='BUTTON') return; if(b.dataset.rendered!=null&&b.textContent===b.dataset.rendered) return; const t=(b.textContent||'').trim(); if(!t) return; const m=t.match(EMO_RX);
+  let icon, lab;
+  if(m){ icon=m[1]; lab=btnLab(b,m[2]); if(!b.dataset.ttl) b.title=t; b.dataset.full=t; }
+  else { const L=b.dataset.lab||LAB_ID[b.id]||LAB_TITLE[b.title]; if(!L||t.length>4) return; icon=t; lab=L; b.dataset.full=(b.title||L); }
+  b.textContent=''; const a=document.createElement('span'); a.className='ei'; a.textContent=icon; const c=document.createElement('span'); c.className='el'; c.textContent=lab; b.appendChild(a); b.appendChild(c); b.classList.add('emo'); b.dataset.rendered=b.textContent; }
 function compactIn(root){ if(!root) return; root.querySelectorAll('button').forEach(compactBtn); }
-const COMPACT_ROOTS=['panelClip','panelMain','multiBar'];
-function compactInit(){ COMPACT_ROOTS.forEach(id=>{ const r=$(id); if(!r) return; compactIn(r); new MutationObserver(ms=>{ for(const m of ms){ const b=m.target.nodeType===1?m.target.closest('button'):(m.target.parentElement&&m.target.parentElement.closest('button')); if(b) compactBtn(b); else if(m.addedNodes) m.addedNodes.forEach(n=>{ if(n.nodeType===1){ if(n.tagName==='BUTTON') compactBtn(n); else compactIn(n); } }); } }).observe(r,{subtree:true,childList:true,characterData:true}); });
+const COMPACT_ROOTS=['panelClip','panelMain','multiBar','HDR','transport','lanes','vidBox','trackHeads'];
+function compactInit(){ COMPACT_ROOTS.forEach(id=>{ const r=id==='HDR'?document.querySelector('header'):$(id); if(!r) return; compactIn(r); new MutationObserver(ms=>{ for(const m of ms){ const b=m.target.nodeType===1?m.target.closest('button'):(m.target.parentElement&&m.target.parentElement.closest('button')); if(b) compactBtn(b); else if(m.addedNodes) m.addedNodes.forEach(n=>{ if(n.nodeType===1){ if(n.tagName==='BUTTON') compactBtn(n); else compactIn(n); } }); } }).observe(r,{subtree:true,childList:true,characterData:true}); });
   // ❓ buttons
   [['panelClip','.row'],['panelMain','.row']].forEach(([id,sel])=>{ const r=$(id); if(!r) return; const row=r.querySelector(sel); if(!row||row.querySelector('.helpQ')) return; const q=document.createElement('button'); q.className='helpQ'; q.textContent='❓'; q.title='מה כל סמל עושה'; q.dataset.keepText=''; q.onclick=()=>emoHelp(r); row.appendChild(q); });
   // long press = show the name
   let lp=null; document.addEventListener('pointerdown',e=>{ const b=e.target.closest&&e.target.closest('button.emo'); if(!b) return; clearTimeout(lp); lp=setTimeout(()=>{ toast(b.title||b.dataset.full,1600); b._lp=Date.now(); },480); },true);
   ['pointerup','pointercancel','pointermove'].forEach(ev=>document.addEventListener(ev,e=>{ if(ev==='pointermove'&&Math.abs(e.movementX||0)+Math.abs(e.movementY||0)<3) return; clearTimeout(lp); },true));
   document.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('button.emo'); if(b&&b._lp&&Date.now()-b._lp<700){ e.stopPropagation(); e.preventDefault(); b._lp=0; } },true); }
-function emoHelp(root){ const items=[...root.querySelectorAll('button.emo')].filter(b=>b.offsetParent).map(b=>`<div class="row" style="align-items:center;gap:10px;margin:4px 0"><span style="font-size:22px;min-width:40px;text-align:center">${esc(b.textContent)}</span><span>${esc((b.title||b.dataset.full||'').replace(EMO_RX,'$2'))}</span></div>`).join('');
+function emoHelp(root){ const items=[...root.querySelectorAll('button.emo')].filter(b=>b.offsetParent).map(b=>`<div class="row" style="align-items:center;gap:10px;margin:4px 0"><span style="font-size:22px;min-width:40px;text-align:center">${esc((b.querySelector('.ei')||b).textContent)}</span><span>${esc((b.dataset.full||b.title||'').replace(EMO_RX,'$2'))}</span></div>`).join('');
   openSheet(`<h3>❓ מה כל סמל עושה</h3><p class="hint">טיפ: לחיצה ארוכה על כפתור מראה את השם שלו.</p>${items||'<p class="hint">אין כפתורים כאן</p>'}`); }
-document.addEventListener('DOMContentLoaded',()=>setTimeout(compactInit,0));
+document.addEventListener('DOMContentLoaded',()=>setTimeout(compactInit,250));
 function setLang(l){ try{ localStorage.setItem('machrozet_lang',l); }catch(_){} location.reload(); }
 </script>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4gPGRlZnM+IDxsaW5lYXJHcmFkaWVudCBpZD0iYmciIHgxPSIwIiB5MT0iMCIgeDI9IjEiIHkyPSIxIj4gPHN0b3Agb2Zmc2V0PSIwIiBzdG9wLWNvbG9yPSIjM2ExMDMwIi8+IDxzdG9wIG9mZnNldD0iMC41NSIgc3RvcC1jb2xvcj0iIzhlMWY1YyIvPiA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmZjVjOWEiLz4gPC9saW5lYXJHcmFkaWVudD4gPGxpbmVhckdyYWRpZW50IGlkPSJnb2xkIiB4MT0iMCIgeTE9IjAiIHgyPSIwIiB5Mj0iMSI+IDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2ZmZjFjNCIvPiA8c3RvcCBvZmZzZXQ9IjAuNDUiIHN0b3AtY29sb3I9IiNmMmI4NGIiLz4gPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjYzQ4MDFkIi8+IDwvbGluZWFyR3JhZGllbnQ+IDxyYWRpYWxHcmFkaWVudCBpZD0iZ2xvdyIgY3g9IjAuNSIgY3k9IjAuNjIiIHI9IjAuNSI+IDxzdG9wIG9mZnNldD0iMCIgc3RvcC1jb2xvcj0iI2ZmZDI3YSIgc3RvcC1vcGFjaXR5PSIwLjQ1Ii8+IDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2ZmZDI3YSIgc3RvcC1vcGFjaXR5PSIwIi8+IDwvcmFkaWFsR3JhZGllbnQ+IDxmaWx0ZXIgaWQ9InNoIiB4PSItMjAlIiB5PSItMjAlIiB3aWR0aD0iMTQwJSIgaGVpZ2h0PSIxNDAlIj4gPGZlRHJvcFNoYWRvdyBkeD0iMCIgZHk9IjYiIHN0ZERldmlhdGlvbj0iOCIgZmxvb2QtY29sb3I9IiMyYTA3MTgiIGZsb29kLW9wYWNpdHk9IjAuNTUiLz4gPC9maWx0ZXI+IDwvZGVmcz4gPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTIiIGZpbGw9InVybCgjYmcpIi8+IDxjaXJjbGUgY3g9IjI1NiIgY3k9IjMwMCIgcj0iMjMwIiBmaWxsPSJ1cmwoI2dsb3cpIi8+IDxwYXRoIGQ9Ik03MCAxNTAgUTI1NiA0NzAgNDQyIDE1MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJ1cmwoI2dvbGQpIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgb3BhY2l0eT0iMC45Ii8+IDxnIGZpbHRlcj0idXJsKCNzaCkiIGZpbGw9InVybCgjZ29sZCkiPiA8cmVjdCB4PSI5MiIgeT0iMTYwIiB3aWR0aD0iMjYiIGhlaWdodD0iNzAiIHJ4PSIxMyIvPiA8cmVjdCB4PSIxMzIiIHk9IjE5NiIgd2lkdGg9IjI2IiBoZWlnaHQ9IjEwNCIgcng9IjEzIi8+IDxyZWN0IHg9IjE3MiIgeT0iMjE0IiB3aWR0aD0iMjYiIGhlaWdodD0iMTQwIiByeD0iMTMiLz4gPHJlY3QgeD0iMjEyIiB5PSIyMjYiIHdpZHRoPSIyNiIgaGVpZ2h0PSIxODIiIHJ4PSIxMyIvPiA8cmVjdCB4PSIyNzQiIHk9IjIyNiIgd2lkdGg9IjI2IiBoZWlnaHQ9IjE4MiIgcng9IjEzIi8+IDxyZWN0IHg9IjMxNCIgeT0iMjE0IiB3aWR0aD0iMjYiIGhlaWdodD0iMTQwIiByeD0iMTMiLz4gPHJlY3QgeD0iMzU0IiB5PSIxOTYiIHdpZHRoPSIyNiIgaGVpZ2h0PSIxMDQiIHJ4PSIxMyIvPiA8cmVjdCB4PSIzOTQiIHk9IjE2MCIgd2lkdGg9IjI2IiBoZWlnaHQ9IjcwIiByeD0iMTMiLz4gPC9nPiA8ZyBmaWx0ZXI9InVybCgjc2gpIj4gPHJlY3QgeD0iMjQwIiB5PSI4NiIgd2lkdGg9IjMyIiBoZWlnaHQ9IjY0IiByeD0iMTYiIGZpbGw9IiNmZmYxYzQiLz4gPHBhdGggZD0iTTIyNiAxMjggYTMwIDMwIDAgMCAwIDYwIDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZjFjNCIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4gPGxpbmUgeDE9IjI1NiIgeTE9IjE1OCIgeDI9IjI1NiIgeTI9IjE4MiIgc3Ryb2tlPSIjZmZmMWM0IiBzdHJva2Utd2lkdGg9IjciIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPiA8L2c+IDxnIGZpbGw9IiNmZmY2ZGMiPiA8cGF0aCBkPSJNMTE4IDkyIGw2IDE2IDE2IDYgLTE2IDYgLTYgMTYgLTYgLTE2IC0xNiAtNiAxNiAtNnoiLz4gPHBhdGggZD0iTTM5OCA4NCBsNCAxMSAxMSA0IC0xMSA0IC00IDExIC00IC0xMSAtMTEgLTQgMTEgLTR6Ii8+IDxjaXJjbGUgY3g9IjQzMCIgY3k9IjMwMCIgcj0iNSIvPiA8Y2lyY2xlIGN4PSI4MiIgY3k9IjI5MCIgcj0iNCIvPiA8L2c+IDwvc3ZnPg==">
@@ -59,7 +68,7 @@ function setLang(l){ try{ localStorage.setItem('machrozet_lang',l); }catch(_){} 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#141019;--bg2:#1d1724;--bg3:#2a2133;--line:#3a2f45;--txt:#f4eef7;--dim:#a99bb5;--pink:#ff5c9a;--gold:#f2b84b;--hdr:76px;--lane:100px}
+:root{--bg:#141019;--bg2:#1d1724;--bg3:#2a2133;--line:#3a2f45;--txt:#f4eef7;--dim:#a99bb5;--pink:#ff5c9a;--gold:#f2b84b;--hdr:84px;--lane:118px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font-family:Heebo,system-ui,sans-serif;overflow:hidden;overscroll-behavior:none}
 body{display:flex;flex-direction:column;height:100dvh}
@@ -194,7 +203,7 @@ body.prompting #camSrc.camShow:not(.small),body.prompting #camPrev:not(.small){t
 #vaEd .vaNav{display:flex;gap:4px;align-items:center;padding:4px 6px;flex-wrap:wrap;direction:ltr}#vaEd .vaNav button{min-height:0;padding:6px 9px}#vaEd .vaNav .sep{width:8px}#vaEd .vaNav button.on{background:#ff4d6d;color:#fff}
 #vaEd .vaScroll{flex:1;min-height:0;overflow:auto;position:relative;direction:ltr}#vaEd .vaIn{display:flex;width:max-content}#vaEd #vaKeys{flex:none;width:44px;position:sticky;left:0;z-index:2;background:#141019}#vaEd #vaCv{display:block;touch-action:none}
 #vaEd .vaBar{padding:6px 8px;border-top:1px solid #ffffff22}#vaEd .vaBar button{min-height:0;padding:6px 10px}
-button.emo{font-size:20px;padding-left:10px;padding-right:10px;min-width:44px}.helpQ{font-size:18px}
+button.emo{font-size:20px;padding-left:6px;padding-right:6px;min-width:44px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.05}button.emo .ei{line-height:1.1}#lanes .thead button.emo{padding:1px 0!important;min-width:0;overflow:hidden;height:31px!important;min-height:31px!important;gap:0}#lanes button.emo .el{color:#e8e0f0}#lanes button.emo .el{font-size:8.5px!important;max-width:32px;white-space:nowrap;overflow:hidden}#lanes button.emo .ei{font-size:13px;line-height:1}button.emo .el{font-size:10.5px;font-weight:600;line-height:1.1;max-width:78px;white-space:normal;text-align:center;opacity:.92;letter-spacing:0}.helpQ{font-size:18px}
 .langPills{display:inline-flex;direction:ltr;border:1px solid #ffffff33;border-radius:999px;overflow:hidden;flex:none}.langPills button{min-width:0;padding:4px 7px;font-size:12px;font-weight:700;border:0;border-radius:0;background:#ffffff10;color:#ddd;line-height:1.2;min-height:0;height:auto}.langPills button+button{border-inline-start:1px solid #ffffff22}.langPills button.on,#playView .langPills button.on{background:var(--gold)!important;color:#000!important;border-color:transparent!important}#playView .langPills button{padding:4px 8px!important;font-size:13px!important;min-width:0!important;border-radius:0!important;box-shadow:none!important}
 #camSrc{position:fixed;left:-9999px;top:0;width:4px;height:4px;opacity:0;pointer-events:none}
 #camSrc.camShow{left:50%;top:58px;height:min(64vh,calc(100vh - 150px));width:auto;max-width:92vw;opacity:1;pointer-events:auto;transform:translateX(-50%) scaleX(-1);border-radius:16px;border:3px solid #ff4d6d;z-index:70;background:#000;box-shadow:0 8px 30px #000c;object-fit:contain}
@@ -545,7 +554,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
   </div>
 </div>
 <div id="perf" hidden><div class="pftop"><button id="pfX" class="backbtn">→ חזרה</button><b id="pfNow"></b><span id="pfTime"></span></div><div id="pfList"></div><div class="pfctl"><button id="pfPrev">⏮</button><button id="pfPlay" class="pri">▶</button><button id="pfNext">⏭</button></div></div>
-<div id="multiBar" hidden><b id="mbN">נבחרו 0</b><button id="mbDel">🗑 מחיקה</button><button id="mbDup">⧉ שכפול</button><button id="mbQ">🧲 הצמדה</button><button id="mbSd">🎵 − טון</button><button id="mbSu">🎵 + טון</button><button id="mbDn">🔉 −</button><button id="mbUp">🔊 +</button><button id="mbAll">הכל</button><button id="mbClr">ניקוי</button><button id="mbDone" class="pri">סיום ✓</button><p class="hint" style="width:100%;margin:2px 0 0">לוחצים על קטעים כדי לבחור/לבטל · גוררים קטע מסומן = כולם זזים ביחד</p></div>
+<div id="multiBar" hidden><b id="mbN">נבחרו 0</b><button id="mbDel">🗑 מחיקה</button><button id="mbDup">👯 שכפול</button><button id="mbQ">🧲 הצמדה</button><button id="mbSd">🎵 − טון</button><button id="mbSu">🎵 + טון</button><button id="mbDn">🔉 −</button><button id="mbUp">🔊 +</button><button id="mbTrk">▤ כל הערוץ</button><button id="mbAll">הכל</button><button id="mbClr">ניקוי</button><button id="mbDone" class="pri">סיום ✓</button><p class="hint" style="width:100%;margin:2px 0 0">לוחצים על קטעים כדי לבחור/לבטל · גוררים קטע מסומן = כולם זזים ביחד</p></div>
 <div id="panel">
   <div id="panelMain">
     <div class="row">
@@ -578,7 +587,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cClose" class="backbtn">→ חזרה</button>
     </div>
     <div class="row qrow"><button id="cNotes" class="gold" style="display:none">🎹 עריכת תווים</button><span class="semibox"><span class="hint">🎵 סולם</span><button id="cSemiD">−</button><b id="cSemiV" style="min-width:34px;text-align:center;direction:ltr">0</b><button id="cSemiU">+</button></span><button id="cKaraoke">🎤✕ להוריד זמרת</button><button id="cSplit">✂ חיתוך בסמן</button></div>
-    <div class="row qrow"><button id="cTsTool" title="חץ מתיחה: גוררים את קצה הקטע והשיר נמתח (כמו השעון בקיובייס)">⏱ מתיחה</button><button id="cLoop">🔁 לנגן את הקטע</button><button id="cExp">⬇ ייצוא הקטע</button><button id="cCopy">⧉ העתקה</button><button id="cPaste">📋 הדבקה בסמן</button><button id="cTop" style="display:none">⤒ הטייק הזה למעלה</button><button id="cClean">🧹 לנקות מוזיקה מהשירה</button></div>
+    <div class="row qrow"><button id="cTsTool" title="חץ מתיחה: גוררים את קצה הקטע והשיר נמתח (כמו השעון בקיובייס)">⏱ מתיחה</button><button id="cLoop">🔁 לנגן את הקטע</button><button id="cExp">⬇ ייצוא הקטע</button><button id="cCopy">📄 העתקה</button><button id="cPaste">📋 הדבקה בסמן</button><button id="cTop" style="display:none">⤒ הטייק הזה למעלה</button><button id="cClean">🧹 לנקות מוזיקה מהשירה</button></div>
     <div class="row">
       <div class="ctl">ווליום <input type="range" id="cGain" min="0" max="200" step="1"><b id="cGainV"></b></div>
     </div>
@@ -597,7 +606,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       </label>
     </div>
     <div class="row">
-      <button id="cVa" class="gold" hidden>🎯 עריכת תווים</button>
+      <button id="cVa" class="gold" hidden>🎚 תיקון תווים בשירה</button>
       <button id="cLink" hidden></button>
       <button id="cTie" hidden></button>
       <button id="cAng" hidden>🎬 כמה זוויות</button>
@@ -609,13 +618,13 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cPitch" hidden>🎯 דיוק בשירה</button>
       <button id="cSilence" hidden>🔇 חיתוך שקטים</button>
       <button id="cLyr" title="לזהות את המילים בקטע הזה">📝 מילים לקטע הזה</button>
-      <button id="cDup">⧉ שכפול</button>
+      <button id="cDup">👯 שכפול</button>
       <button id="cTrans" class="gold">✨ מעבר לשיר הבא</button>
       <button id="cStraight">📏 יישור ביט</button>
       <button id="cDel">🗑 מחיקה</button>
-      <button id="cUp">⬆ ערוץ</button>
-      <button id="cDn">⬇ ערוץ</button>
-      <button id="cFromHere">⏮ סמן לתחילת הקטע</button>
+      <button id="cUp">🔼 ערוץ למעלה</button>
+      <button id="cDn">🔽 ערוץ למטה</button>
+      <button id="cFromHere">⏪ הסמן לתחילת הקטע</button>
     </div>
     <div class="row" id="connRow">
       <button class="pri" id="cConnect">🔗 חברי בקצב לשיר הקודם</button>
@@ -2866,9 +2875,9 @@ if (typeof module === "object" && typeof module.exports === "object") Object.ass
 </script>
 <script>
 "use strict";
-let HEADER=76, LANE_H=100; const PEAK_RATE=400;
-(function(){ try{ const h=+localStorage.getItem('machrozet_hdr'), l=+localStorage.getItem('machrozet_laneh'); if(h>=70&&h<=240) HEADER=h; if(l>=56&&l<=280) LANE_H=l; }catch(_){} document.documentElement.style.setProperty('--hdr',HEADER+'px'); document.documentElement.style.setProperty('--lane',LANE_H+'px'); })();
-function setLayout(h,l){ const sl=scroller.scrollLeft-HEADER; HEADER=Math.round(clamp(h,70,240)); LANE_H=Math.round(clamp(l,56,280)); document.documentElement.style.setProperty('--hdr',HEADER+'px'); document.documentElement.style.setProperty('--lane',LANE_H+'px'); try{ localStorage.setItem('machrozet_hdr',HEADER); localStorage.setItem('machrozet_laneh',LANE_H); }catch(_){} render(); scroller.scrollLeft=Math.max(0,sl+HEADER); }
+let HEADER=84, LANE_H=118; const PEAK_RATE=400;
+(function(){ try{ const h=+localStorage.getItem('machrozet_hdr'), l=+localStorage.getItem('machrozet_laneh'); if(h>=70&&h<=240) HEADER=Math.max(h,84); if(l>=56&&l<=280) LANE_H=Math.max(l,112); }catch(_){} document.documentElement.style.setProperty('--hdr',HEADER+'px'); document.documentElement.style.setProperty('--lane',LANE_H+'px'); })();
+function setLayout(h,l){ const sl=scroller.scrollLeft-HEADER; HEADER=Math.round(clamp(h,84,240)); LANE_H=Math.round(clamp(l,112,280)); document.documentElement.style.setProperty('--hdr',HEADER+'px'); document.documentElement.style.setProperty('--lane',LANE_H+'px'); try{ localStorage.setItem('machrozet_hdr',HEADER); localStorage.setItem('machrozet_laneh',LANE_H); }catch(_){} render(); scroller.scrollLeft=Math.max(0,sl+HEADER); }
 const $=id=>document.getElementById(id);
 const PALETTE=['#ff5c9a','#5cc8ff','#8f7bff','#4fd1a5','#ff8a5c','#e86cf0'];
 const S={noFollow:(()=>{ try{ return localStorage.getItem('machrozet_nofollow')==='1'; }catch(_){ return false; } })(),bpb:4,bpm:120,pps:30,snap:0,tracks:[],sel:null,playhead:0,playing:false};
@@ -3382,7 +3391,7 @@ const clipRange=()=>{ const f=findClip(S.sel); if(!f) return null; setRange(f.c.
 $('cLoop').onclick=()=>{ const f=clipRange(); if(!f) return; S.loop=true; updRangeBar(); S.playhead=f.c.start; if(S.playing) restartPlay(); else startPlay(); toast('🔁 מנגן את הקטע בלופ · ⏹ לעצירה',2200); };
 $('cExp').onclick=()=>{ const f=clipRange(); if(!f) return; openExport('range'); };
 $('cCopy').onclick=()=>{ const f=findClip(S.sel); if(!f) return; clipboard={len:f.c.dur,items:[{ti:f.ti,c:Object.assign({},f.c,{start:0})}]}; toast('הקטע הועתק · מזיזים את הסמן ולוחצים 📋 הדבקה'); };
-$('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם ⧉ העתקה של קטע'); return; } pushHist(); const n=pasteAt(snapTime(S.playhead)); render(); toast(n?'הודבק בסמן ✓':'לא הודבק'); };
+$('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם 📄 העתקה של קטע'); return; } pushHist(); const n=pasteAt(snapTime(S.playhead)); render(); toast(n?'הודבק בסמן ✓':'לא הודבק'); };
 $('cLink').onclick=()=>linkToggle();
 $('cTie').onclick=()=>tieToggle();
 $('cAng').onclick=()=>openAngles(); $('cChords').onclick=()=>openChordDetect(); $('cLibAdd').onclick=()=>libAddClip();
@@ -3413,7 +3422,8 @@ window.addEventListener('pointercancel',e=>{ if(tapC&&e.pointerId===tapC.pid) ta
 const MS={on:false,set:new Set()};
 function msUpd(){ [...MS.set].forEach(id=>{ if(!findClip(id)) MS.set.delete(id); }); $('mbN').textContent='נבחרו '+MS.set.size; document.querySelectorAll('.clip').forEach(e=>e.classList.toggle('msel',MS.on&&MS.set.has(e.dataset.id))); }
 function msMode(on){ MS.on=on; document.body.classList.toggle('ms',on); if(!on) MS.set.clear(); else { if(S.sel) MS.set.add(S.sel); select(null); } $('multiBar').hidden=!on; document.querySelectorAll('.clip').forEach(e=>e.classList.remove('sel')); msUpd(); if(on) toast('לוחצים על הקטעים שרוצים לבחור'); }
-$('multiOn').onclick=()=>msMode(true); $('mbDone').onclick=()=>msMode(false); $('mbClr').onclick=()=>{ MS.set.clear(); msUpd(); };
+$('multiOn').onclick=()=>msMode(true); $('mbTrk').onclick=()=>{ const id=[...MS.set][0]; const f=id&&findClip(id); if(!f){ toast('קודם לוחצים על קטע אחד בערוץ'); return; } selTrackAll(f.t); };
+function selTrackAll(t){ if(!t||!t.clips.length){ toast('אין קטעים בערוץ הזה'); return; } if(!MS.on) msMode(true); MS.set.clear(); t.clips.forEach(c=>MS.set.add(c.id)); msUpd(); toast('▤ נבחר כל הערוץ ('+t.clips.length+' קטעים) — גוררים קטע אחד וכולם זזים ביחד',3500); } $('mbDone').onclick=()=>msMode(false); $('mbClr').onclick=()=>{ MS.set.clear(); msUpd(); };
 $('mbAll').onclick=()=>{ allClips().forEach(x=>MS.set.add(x.c.id)); msUpd(); };
 $('mbDel').onclick=()=>{ if(!MS.set.size){ toast('לא נבחרו קטעים'); return; } pushHist(); const n=MS.set.size; S.tracks.forEach(t=>t.clips=t.clips.filter(c=>!MS.set.has(c.id))); S.tmap=(S.tmap||[]).filter(x=>!MS.set.has(x.cn)); MS.set.clear(); render(); msUpd(); if(S.playing) restartPlay(); toast(n+' קטעים נמחקו (אפשר לבטל ↶)'); };
 $('mbDup').onclick=()=>{ if(!MS.set.size){ toast('לא נבחרו קטעים'); return; } const fs=[...MS.set].map(findClip).filter(Boolean); const lo=Math.min(...fs.map(f=>f.c.start)), hi=Math.max(...fs.map(f=>f.c.start+f.c.dur)); const bar=beatSec(lo)*4; const d=Math.ceil((hi-lo)/bar-1e-6)*bar; pushHist(); const nw=new Set(); fs.forEach(f=>{ const n=Object.assign({},f.c,{id:nid(),start:f.c.start+d}); f.t.clips.push(n); nw.add(n.id); }); MS.set=nw; render(); msUpd(); if(S.playing) restartPlay(); toast('שוכפל אחרי הקטעים'); };
@@ -4008,8 +4018,9 @@ async function saveNamed(askName){
 async function listNamed(){ const out=[]; const ks=await dbOp('proj','readonly',st=>st.getAllKeys()); for(const k of (ks||[])){ if(typeof k==='string'&&k.startsWith('p:')){ const q=await dbOp('proj','readonly',st=>st.get(k)); if(q) out.push({k,id:q.projId,name:q.projName||'ללא שם',saved:q.saved,n:(q.tracks||[]).reduce((a,t)=>a+t.clips.length,0),vid:Object.values(q.metas||{}).some(m=>m&&m.vtype),lyr:!!(q.lyr&&q.lyr.lines&&q.lyr.lines.length)}); } } return out.sort((a,b)=>b.saved-a.saved); }
 async function openMyProjects(){ let L=[]; try{ L=await listNamed(); }catch(_){}
   const fmtD=t=>{ const d=new Date(t); return d.toLocaleDateString('he-IL')+' '+d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}); };
-  openSheet(`<h3>📁 הפרויקטים שלי</h3>${L.length>5?'<input id="pjSearch" dir="auto" placeholder="🔍 חיפוש לפי שם…" style="width:100%;font-size:16px;padding:8px;border-radius:10px;margin-bottom:8px">':''}${L.length?'':'<p class="hint">עוד אין פרויקטים שמורים. לוחצים 💾 שמירה ונותנים שם.</p>'}<div id="pjList" style="display:flex;flex-direction:column;gap:8px">${L.map(x=>`<div class="row" style="background:#241a2c;border:1px solid ${x.id===S.projId?'#7fc96b':'#4a3a58'};border-radius:12px;padding:8px;align-items:center"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===S.projId?' <span class="hint" style="color:#9fe08a">(פתוח עכשיו)</span>':''}<div class="hint">${fmtD(x.saved)} · ${x.n} קטעים${x.vid?' · 🎥':''}${x.lyr?' · 📝':''}</div></div><button class="pri" data-po="${x.k}">📂 פתיחה</button><button data-pg="${x.k}" title="גיבוי לגוגל דרייב">☁️</button><button data-pr="${x.k}" title="שינוי שם">✏️</button><button data-pd="${x.k}" title="מחיקה">🗑</button></div>`).join('')}</div>
+  openSheet(`<h3>📁 הפרויקטים</h3><div class="row pjAct" style="flex-wrap:wrap;gap:6px;margin-bottom:10px"><button class="pri" id="pjSave">💾 שמירה${S.projName?' ("'+esc(S.projName)+'")':''}</button><button id="pjNew">➕ פרויקט חדש</button><button id="pjOpenF">📂 פתיחה מקובץ / מהדרייב</button><button id="pjDrive">☁️ גיבוי הפרויקט הפתוח לדרייב</button><button id="pjShare">📤 לשלוח לחברה</button></div><h4 style="margin:4px 0 6px">השמורים באפליקציה:</h4>${L.length>5?'<input id="pjSearch" dir="auto" placeholder="🔍 חיפוש לפי שם…" style="width:100%;font-size:16px;padding:8px;border-radius:10px;margin-bottom:8px">':''}${L.length?'':'<p class="hint">עוד אין פרויקטים שמורים. לוחצים 💾 שמירה ונותנים שם.</p>'}<div id="pjList" style="display:flex;flex-direction:column;gap:8px">${L.map(x=>`<div class="row" style="background:#241a2c;border:1px solid ${x.id===S.projId?'#7fc96b':'#4a3a58'};border-radius:12px;padding:8px;align-items:center"><div style="flex:1;min-width:0"><b>${esc(x.name)}</b>${x.id===S.projId?' <span class="hint" style="color:#9fe08a">(פתוח עכשיו)</span>':''}<div class="hint">${fmtD(x.saved)} · ${x.n} קטעים${x.vid?' · 🎥':''}${x.lyr?' · 📝':''}</div></div><button class="pri" data-po="${x.k}">📂 פתיחה</button><button data-pg="${x.k}" title="גיבוי לגוגל דרייב">☁️</button><button data-pr="${x.k}" title="שינוי שם">✏️</button><button data-pd="${x.k}" title="מחיקה">🗑</button></div>`).join('')}</div>
     <div class="row" style="margin-top:12px">${S.projId?'<button id="pjAs">💾 שמירה בשם אחר</button><button id="pjRen">✏️ שינוי שם</button>':''}<button id="pjBk">⬇ שמירה בטלפון</button></div><p class="hint">📍 הפרויקטים שמורים בתוך האפליקציה עצמה — את כולם רואים כאן.<br>☁️ = גיבוי לגוגל דרייב: נפתח חלון שיתוף ← בוחרים <b>Drive / דרייב</b> ← שמירה. לא תופס מקום בטלפון.<br>כדי לפתוח גיבוי מהדרייב: 📂 פתיחת פרויקט ← בוחרים Drive בחלון הקבצים.</p>`,()=>{
+    $('pjSave').onclick=()=>{ closeSheet(); saveNamed(); }; $('pjNew').onclick=()=>$('newProj').click(); $('pjOpenF').onclick=()=>{ closeSheet(); $('openProj').click(); }; $('pjDrive').onclick=()=>{ closeSheet(); driveBackup('current'); }; $('pjShare').onclick=()=>{ closeSheet(); shareProject(); };
     document.querySelectorAll('[data-po]').forEach(b=>b.onclick=async()=>{ const k=b.dataset.po; if(S.projId&&allClips().length){ try{ await writeNamed(); }catch(_){} } const q=await dbOp('proj','readonly',st=>st.get(k)); if(!q) return; closeSheet(); stopPlay(); toast('פותחת…',60000); pushHist(); S.projId=q.projId; S.projName=q.projName; updProjName();
       await applyProject(q,async id=>{ try{ const rec=await dbOp('files','readonly',st=>st.get(id)); return rec?{bytes:rec.bytes,meta:rec.meta}:null; }catch(e){ return null; } }); if(q.notes&&!NOTES.includes(q.notes.trim())){} saveProject(); });
     document.querySelectorAll('[data-pd]').forEach(b=>b.onclick=()=>{ const k=b.dataset.pd; const it=L.find(x=>x.k===k); openSheet(`<h3>למחוק את "${esc(it.name)}"?</h3><p>אי אפשר לבטל את זה.</p><div class="row"><button class="pri" id="pdY" style="background:#a32">🗑 כן, למחוק</button><button id="pdN">ביטול</button></div>`,()=>{ $('pdN').onclick=openMyProjects; $('pdY').onclick=async()=>{ await dbOp('proj','readwrite',st=>st.delete(k)); if(it.id===S.projId){ S.projId=null; S.projName=''; updProjName(); } toast('נמחק'); openMyProjects(); }; }); });
@@ -4042,7 +4053,10 @@ window.addEventListener('keydown',e=>{ if(!(e.ctrlKey||e.metaKey)) return; const
   gear.onclick=()=>{ more.hidden=!more.hidden; gear.classList.toggle('on',!more.hidden); gear.innerHTML=more.hidden?'⚙':'▲'; };
   // project name stays visible next to the logo
   const tag=$('projNameTag'); if(tag){ brand.appendChild(tag); tag.style.cursor='pointer'; tag.title='📁 הפרויקטים שלי'; tag.onclick=()=>openMyProjects(); }
-  { const mp=document.createElement('button'); mp.id='hdrProj'; mp.textContent='📁'; mp.title='📁 הפרויקטים שלי — לפתוח / למחוק / לשנות שם'; mp.onclick=()=>openMyProjects(); hdr.insertBefore(mp,gear); }
+  { const mp=document.createElement('button'); mp.id='hdrProj'; mp.textContent='📁'; mp.title='📁 הפרויקטים שלי — לפתוח / חדש / למחוק / גיבוי'; mp.onclick=()=>openMyProjects(); const qs=$('quickSave'); if(qs&&qs.parentNode===hdr) hdr.insertBefore(mp,qs.nextSibling); else hdr.insertBefore(mp,gear);
+    const nw=document.createElement('button'); nw.id='hdrNew'; nw.textContent='➕'; nw.title='➕ פרויקט חדש'; nw.onclick=()=>$('newProj').click(); hdr.insertBefore(nw,mp.nextSibling); }
+  ['saveProj','openProj','newProj','shareProj','addTrack','myProj'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
+  { const rt=$('recTop'); if(rt) rt.style.display='none'; }
   // key tag into transport
   const kt=$('keyTag'); if(kt){ $('transport').insertBefore(kt,$('transport').querySelector('.sp')); }
   // bottom: main row = most used, the rest behind ☰
@@ -4573,7 +4587,7 @@ let rec=null;
   { const pb=$('prBtn'); if(pb) pb.onclick=()=>prsOpen(); }
   $('rcClose').onclick=()=>{ pop.hidden=true; };
   $('rcGo').onclick=()=>{ if(rec){ stopRec(); return; } $('rcMsg').textContent=''; startRec(); };
-  window.openRecPop=()=>{ $('rcPunchL').style.display=S.range?'':'none'; pop.hidden=false; const r=$('recTop').getBoundingClientRect(); pop.style.top=(r.bottom+6)+'px'; };
+  window.openRecPop=()=>{ $('rcPunchL').style.display=S.range?'':'none'; pop.hidden=false; const rt=$('recTop'); const r=rt.getBoundingClientRect(); pop.style.top=(r.height?r.bottom+6:(($('transport').getBoundingClientRect().bottom||56)+6))+'px'; };
   document.addEventListener('pointerdown',e=>{ if(!pop.hidden&&!rec&&!e.target.closest('#recPop,#recTop,#recBtn,.thead .rc')) pop.hidden=true; },true);
 })();
 $('recBtn').onclick=()=>{ if(rec){ stopRec(); return; } openRecPop(); };
@@ -5764,10 +5778,12 @@ function trackMenu(t){
   openSheet(`<h3>ערוץ: ${esc(t.name)}</h3>
   <div class="row"><input id="tmName" value="${esc(t.name)}" style="flex:1;height:40px;border-radius:10px;background:var(--bg3);border:1px solid var(--line);padding:0 10px"><button id="tmRen">שינוי שם</button></div>
   <p style="margin-top:12px">צבע:</p><div class="swatches">${TCOLORS.map(c=>`<button data-c="${c}" style="background:${c}"></button>`).join('')}<button data-c="" style="background:var(--bg3)">✕</button></div>
+  <div class="row" style="margin-top:12px"><button id="tmAll" class="pri">▤ לבחור את כל הערוץ — להזיז הכל ביחד</button></div>
   <div class="row" style="margin-top:12px"><button id="tmTgt" class="gold">${S.target===t.id?'✓ ערוץ יעד':'🎯 צלילים חדשים ייכנסו לכאן'}</button></div>
   <p style="margin-top:12px">↔ פאן — לאיזה צד הערוץ נשמע:</p><div class="row" style="align-items:center;gap:8px;direction:ltr"><b style="width:24px;text-align:center">L</b><input type="range" id="tmPan" min="-100" max="100" step="1" value="${Math.round((t.pan||0)*100)}" style="flex:1"><b style="width:24px;text-align:center">R</b></div><div class="row" style="align-items:center"><span id="tmPanV" class="hint" style="flex:1;text-align:center"></span><button id="tmPanC">⟲ למרכז</button></div>
   <div class="row"><button id="tmUp" ${ti===0?'disabled':''}>⬆ להזיז למעלה</button><button id="tmDn" ${ti===S.tracks.length-1?'disabled':''}>⬇ להזיז למטה</button></div>
   <div class="row"><button id="tmDel">🗑 מחיקת הערוץ${t.clips.length?' ('+t.clips.length+' קטעים)':''}</button><button id="tmClose">סגירה</button></div>`,()=>{
+    $('tmAll').onclick=()=>{ closeSheet(); selTrackAll(t); };
     { let pushed=false; const lab=()=>{ const v=Math.round((t.pan||0)*100); $('tmPanV').textContent=v===0?'מרכז (שני הצדדים)':v<0?'שמאל '+(-v)+'%':'ימין '+v+'%'; };
       const setP=v=>{ if(!pushed){ pushHist(); pushed=true; } t.pan=Math.abs(v)<3?0:v/100; try{ const g=play.tg&&play.tg[t.id]; if(g&&g._pan) g._pan.pan.value=t.pan; }catch(_){} lab(); S._dirty=true; updDirty(); scheduleSave(); };
       $('tmPan').oninput=e=>setP(+e.target.value); $('tmPanC').onclick=()=>{ $('tmPan').value=0; setP(0); }; lab(); }
@@ -6327,6 +6343,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-1227"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1125-0135"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
