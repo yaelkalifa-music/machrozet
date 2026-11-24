@@ -5248,33 +5248,35 @@ function abToggle(on){ window.__fxBypass=on==null?!window.__fxBypass:!!on; const
   if(S.playing) restartPlay(); try{ if(typeof drawVideoNow==='function') drawVideoNow(); }catch(_){} toast(window.__fxBypass?'🅰 לפני — בלי אפקטים (שירה, הד, וידאו)':'🅱 אחרי — עם כל האפקטים',1600); }
 
 /* ---------- 17 · cut out silences ---------- */
-function findSound(c){ const b=bufs[c.buf]; if(!b||!b.buffer) return null; const buf=b.buffer, sr=buf.sampleRate, C=buf.numberOfChannels; const win=Math.round(0.02*sr);
+function findSound(c,tight){ const b=bufs[c.buf]; if(!b||!b.buffer) return null; const buf=b.buffer, sr=buf.sampleRate, C=buf.numberOfChannels; const win=Math.round(0.02*sr);
   const a0=Math.max(0,Math.floor(c.offset*sr)), a1=Math.min(buf.length,Math.floor((c.offset+c.dur)*sr)); const nw=Math.floor((a1-a0)/win); if(nw<5) return null;
   const db=new Float32Array(nw); const chs=[]; for(let k=0;k<C;k++) chs.push(buf.getChannelData(k));
   for(let w=0;w<nw;w++){ let s=0; const p=a0+w*win; for(const d of chs) for(let i=0;i<win;i++){ const v=d[p+i]; s+=v*v; } db[w]=10*Math.log10(s/(win*C)+1e-12); }
   const srt=Array.from(db).sort((x,y)=>x-y); const p95=srt[Math.floor(srt.length*0.95)]; const thr=Math.max(p95-38,-58);
   const on=new Uint8Array(nw); for(let w=0;w<nw;w++) on[w]=db[w]>thr?1:0;
-  const minGap=Math.round(0.5/0.02), padA=0.12, padB=0.22; const runs=[]; let w=0;
+  const minGap=Math.round((tight?0.22:0.5)/0.02), padA=tight?0.05:0.12, padB=tight?0.09:0.22; const runs=[]; let w=0;
   while(w<nw){ if(!on[w]){ w++; continue; } let e=w; while(e<nw&&on[e]) e++; runs.push([w,e]); w=e; }
   if(!runs.length) return {pieces:[],thr}; const merged=[runs[0].slice()]; for(let i=1;i<runs.length;i++){ const L=merged[merged.length-1]; if(runs[i][0]-L[1]<minGap) L[1]=runs[i][1]; else merged.push(runs[i].slice()); }
-  const pieces=merged.map(([s,e])=>[Math.max(0,s*0.02-padA),Math.min(c.dur,e*0.02+padB)]).filter(([s,e])=>e-s>0.15);
+  const pieces=merged.map(([s,e])=>[Math.max(0,s*0.02-padA),Math.min(c.dur,e*0.02+padB)]).filter(([s,e])=>e-s>(tight?0.1:0.15));
   for(let i=1;i<pieces.length;i++) if(pieces[i][0]<pieces[i-1][1]){ pieces[i-1][1]=pieces[i][1]; pieces.splice(i,1); i--; }
   return {pieces,thr}; }
-function cutSilence(close){ const f=S.sel&&findClip(S.sel); if(!f){ toast('בחרי קטע'); return; } const c=f.c, t=f.t; const r=findSound(c); if(!r){ toast('הקטע קצר מדי'); return; }
+function cutSilence(close,tight){ const f=S.sel&&findClip(S.sel); if(!f){ toast('בחרי קטע'); return; } const c=f.c, t=f.t; const r=findSound(c,tight); const keepGap=tight?0.04:0.15; const oldEnd=c.start+c.dur; if(!r){ toast('הקטע קצר מדי'); return; }
   const P=r.pieces; const silent=c.dur-P.reduce((a,p)=>a+(p[1]-p[0]),0); if(!P.length){ toast('לא נמצא קול בקטע הזה'); return; } if(silent<0.4){ toast('אין כאן שקטים ארוכים לחתוך 👍'); return; }
   pushHist(); const idx=t.clips.indexOf(c); const out=[]; let shift=0, prevEnd=null;
   P.forEach((p,i)=>{ const n=Object.assign({},c,{id:i===0?c.id:nid(),start:c.start+p[0],offset:c.offset+p[0],dur:p[1]-p[0],fi:Math.min(0.03,(p[1]-p[0])/4),fo:Math.min(0.06,(p[1]-p[0])/4)});
     if(i===0&&c.fi>0.03) n.fi=Math.min(c.fi,n.dur/2); if(i===P.length-1&&c.fo>0.06) n.fo=Math.min(c.fo,n.dur/2);
-    if(close){ if(prevEnd!=null){ const gap=n.start-shift-prevEnd; if(gap>0.15) shift+=gap-0.15; } n.start-=shift; prevEnd=n.start+n.dur; }
+    delete n.tie; delete n.ta; delete n.to; if(close){ if(prevEnd!=null){ const gap=n.start-shift-prevEnd; if(gap>keepGap) shift+=gap-keepGap; } else if(tight&&p[0]>0.05){ shift+=p[0]; } n.start-=shift; prevEnd=n.start+n.dur; }
     out.push(n); });
-  t.clips.splice(idx,1,...out); S.sel=out[0].id; render(); scheduleSave&&scheduleSave();
-  toast(`✂ נחתכו ${silent.toFixed(1)} שניות של שקט · ${out.length} חלקים`+(close?' · הרווחים נסגרו':''),3500); }
-function openSilence(){ const f=S.sel&&findClip(S.sel); if(!f){ toast('בחרי קטע'); return; } const r=findSound(f.c); const P=r?r.pieces:[]; const silent=r?f.c.dur-P.reduce((a,p)=>a+(p[1]-p[0]),0):0;
+  t.clips.splice(idx,1,...out); let moved=0; if(close&&shift>0.01){ const endNew=out[out.length-1].start+out[out.length-1].dur; t.clips.forEach(x=>{ if(!out.includes(x)&&x.start>=oldEnd-0.01){ x.start=Math.max(endNew,x.start-shift); moved++; } }); } S.sel=out[0].id; render(); scheduleSave&&scheduleSave();
+  toast(`✂ נחתכו ${silent.toFixed(1)} שניות של שקט · ${out.length} חלקים`+(close?' · הרווחים נסגרו — '+(silent).toFixed(1)+' שנ׳ קצר יותר':''),3500); }
+function openSilence(){ const f=S.sel&&findClip(S.sel); if(!f){ toast('בחרי קטע'); return; } const r=findSound(f.c); const P=r?r.pieces:[]; const silent=r?f.c.dur-P.reduce((a,p)=>a+(p[1]-p[0]),0):0; const rt=findSound(f.c,true); const st=rt?f.c.dur-rt.pieces.reduce((a,p)=>a+(p[1]-p[0]),0):0; const isV=!!(bufs[f.c.buf]&&baseOf(bufs[f.c.buf])&&baseOf(bufs[f.c.buf]).vtype);
   openSheet(`<h3>🔇 חיתוך שקטים</h3><p>${P.length?`מצאתי <b>${silent.toFixed(1)} שניות</b> של שקט/רעש רקע בקטע הזה (${P.length} חלקים עם קול).`:'לא מצאתי קול בקטע הזה.'}</p>
-  <div class="row" style="margin-top:10px"><button class="pri" id="silIn">✂ לחתוך שקטים — כל חלק נשאר במקום</button></div>
+  <div class="row" style="margin-top:10px"><button class="${isV?'pri':''}" id="silTight">⚡ דיבור צפוף ממש — לחתוך כל שקט ולהצמיד</button></div>
+  <p class="hint">לסרטון דיבור: חותך גם הפסקות קצרות בין משפטים ומצמיד הכל — בערך ${st.toFixed(1)} שניות פחות. הוידאו נחתך יחד עם הקול. מה שבא אחרי בערוץ זז קדימה.</p>
+  <div class="row" style="margin-top:10px"><button class="${isV?'':'pri'}" id="silIn">✂ לחתוך שקטים — כל חלק נשאר במקום</button></div>
   <p class="hint">מומלץ להקלטת שירה על פלייבק: מוריד רעשי רקע ונשימות בין קטעים, והתזמון לא זז.</p>
   <div class="row" style="margin-top:10px"><button id="silClose">⇤ לחתוך ולסגור את הרווחים</button></div>
-  <p class="hint">לדיבור / הקראה בלי פלייבק — החלקים מתקרבים זה לזה.</p><p class="hint">אפשר תמיד לבטל עם ↶</p>`,()=>{ $('silIn').onclick=()=>{ closeSheet(); cutSilence(false); }; $('silClose').onclick=()=>{ closeSheet(); cutSilence(true); }; }); }
+  <p class="hint">לדיבור / הקראה בלי פלייבק — החלקים מתקרבים זה לזה.</p><p class="hint">אפשר תמיד לבטל עם ↶</p>`,()=>{ $('silIn').onclick=()=>{ closeSheet(); cutSilence(false); }; $('silClose').onclick=()=>{ closeSheet(); cutSilence(true); }; $('silTight').onclick=()=>{ closeSheet(); cutSilence(true,true); }; }); }
 
 /* ---------- 18 · video transitions between clips ---------- */
 const VTRS=[['','בלי מעבר (חיתוך רגיל)'],['blur','🌫 טשטוש'],['white','🤍 הבהוב לבן'],['black','🖤 דרך שחור'],['whip','💨 החלקה מהירה'],['zoom','🔍 זום פנימה'],['spin','🌀 סיבוב קטן']];
@@ -6299,6 +6301,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-1210"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-1218"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
