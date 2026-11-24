@@ -515,6 +515,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
   <button id="play" class="pri" title="נגינה">▶</button>
   <div id="time">0:00.00</div>
   <div id="barpos">1.1</div>
+  <button id="abBtn" title="לפני/אחרי — לשמוע בלי אפקטים ועם" style="font-size:12px;font-weight:700;padding:0 7px;min-width:0">A/B</button>
   <div class="sp"></div>
   <button id="toolBtn" title="כלים (חץ / מספריים / מתיחה / בחירה)">🧰</button><span id="toolTag" style="font-size:18px;display:none"></span>
   <button id="prBtn" title="פרומפטר — מילים שגוללות">📜</button><button id="recTop" title="הקלטה" style="color:#ff4d6d;font-size:18px">🎙</button><button id="vidBtn" title="תצוגת וידאו" style="display:none">🎬</button><button id="metro" title="מטרונום">🥁</button>
@@ -603,6 +604,9 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cLibAdd" hidden>⭐ לשמור בספרייה</button>
       <button id="cVFade" hidden></button>
       <button id="cCam" hidden></button>
+      <button id="cVTr" hidden>🎞 מעבר וידאו</button>
+      <button id="cPitch" hidden>🎯 דיוק בשירה</button>
+      <button id="cSilence" hidden>🔇 חיתוך שקטים</button>
       <button id="cLyr" title="לזהות את המילים בקטע הזה">📝 מילים לקטע הזה</button>
       <button id="cDup">⧉ שכפול</button>
       <button id="cTrans" class="gold">✨ מעבר לשיר הבא</button>
@@ -3341,6 +3345,7 @@ function updPanel(){ setTimeout(updKeyTag,0);
   const f=S.sel&&findClip(S.sel); $('panelMain').hidden=!!f; $('panelClip').hidden=!f; if(!f) return;
   const c=f.c,b=bufs[c.buf];
   { const vb=$('cVa'); vb.hidden=!(b&&b.kind==='vocal'&&!b.vtype); }
+  { const isVv=!!(b&&baseOf(b)&&baseOf(b).vtype); const vb=$('cVTr'); vb.hidden=!isVv; vb.classList.toggle('gold',!!c.vtr); vb.textContent=c.vtr?'🎞 '+((VTRS.find(x=>x[0]===c.vtr)||['',''])[1]):'🎞 מעבר וידאו'; const kd=b&&(baseOf(b)||b).kind; $('cPitch').hidden=!(kd==='vocal'||isVv||(f.t&&f.t.vocal)); $('cSilence').hidden=kd==='notes'||kd==='sfx'; }
   { const cb=$('cCam'); const isV3=!!(b&&baseOf(b)&&baseOf(b).vtype); cb.hidden=!isV3; const cm=CAMS.find(x=>x[0]===(c.cam||''))||CAMS[0]; cb.textContent=cm[1]; cb.title='תנועת מצלמה: '+cm[1]+' (לחיצה מחליפה)'; cb.classList.toggle('gold',!!c.cam); }
   { const isVv=!!(b&&baseOf(b)&&baseOf(b).vtype); $('cAng').hidden=!(isVv&&angleClips(null).length>1); $('cAng').classList.toggle('gold',!!(S.angle&&S.angle.on)); $('cChords').hidden=!(b&&b.kind==='song'); $('cLibAdd').hidden=!(b&&!isVv&&b.buffer); }
   { const fb=$('cVFade'); const isV2=!!(b&&baseOf(b)&&baseOf(b).vtype); fb.hidden=!isV2; const on=(c.fi>0.05||c.fo>0.05); fb.textContent=on?'🌗 פייד פועל — לבטל':'🌗 פייד כניסה ויציאה'; fb.classList.toggle('gold',on); fb.title=on?'פייד פועל — לבטל':'פייד כניסה ויציאה לוידאו'; }
@@ -3380,6 +3385,7 @@ $('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם ⧉ העתקה של ק
 $('cLink').onclick=()=>linkToggle();
 $('cTie').onclick=()=>tieToggle();
 $('cAng').onclick=()=>openAngles(); $('cChords').onclick=()=>openChordDetect(); $('cLibAdd').onclick=()=>libAddClip();
+$('cVTr').onclick=()=>openVTr(); $('cPitch').onclick=()=>openPitchScore(); $('cSilence').onclick=()=>openSilence(); $('abBtn').onclick=()=>abToggle();
 $('cCam').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const i=CAMS.findIndex(x=>x[0]===(c.cam||'')); const nx=CAMS[(i+1)%CAMS.length]; c.cam=nx[0]||undefined; if(!c.cam) delete c.cam; render(); toast(nx[1]+(c.cam?' — על כל הקטע הזה (גם בייצוא). לחיצה נוספת מחליפה':''),3000); };
 $('cVFade').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const on=(c.fi>0.05||c.fo>0.05); const d=on?0:Math.min(1,c.dur/4); c.fi=d; c.fo=d; render(); toast(on?'פייד בוטל':'🌗 פייד של שנייה בהתחלה ובסוף — אפשר לכוון ב־⋯ עוד (פייד ↗ ↘)',3500); };
 $('cLyr').onclick=()=>{ if(!S.lyr){ pushHist(); S.lyr=lyrDef(); } lyrAutoSheet(); };
@@ -3728,13 +3734,13 @@ function trackFx(c,t,fx,inp,dest,from){
 function schedule(c,dest,from,base,only,skip){
   const nodes=[], tg={}; let rev=null; const getRev=()=>{ if(!rev){ rev=c.createConvolver(); rev.buffer=makeIR(c); const rg=c.createGain(); rg.gain.value=0.9; rev.connect(rg); rg.connect(dest); } return rev; };
   const anySolo=S.tracks.some(t=>t.solo);
-  S.tracks.forEach(t=>{ const g=c.createGain(); g.gain.value=only?(only.has(t.id)?t.vol:0):((t.mute||(anySolo&&!t.solo))?0:t.vol); if(only&&!only.has(t.id)) return; if(!only&&window.__recMute===t.id) g.gain.value=0; if(c.createStereoPanner){ const pn=c.createStereoPanner(); pn.pan.value=clamp(t.pan||0,-1,1); g.connect(pn); pn.connect(dest); g._pan=pn; } else g.connect(dest); tg[t.id]=g; const tfx=fxOf(t); let tin=g; if(tfx){ tin=c.createGain(); trackFx(c,t,tfx,tin,g,from); }
+  S.tracks.forEach(t=>{ const g=c.createGain(); g.gain.value=only?(only.has(t.id)?t.vol:0):((t.mute||(anySolo&&!t.solo))?0:t.vol); if(only&&!only.has(t.id)) return; if(!only&&window.__recMute===t.id) g.gain.value=0; if(c.createStereoPanner){ const pn=c.createStereoPanner(); pn.pan.value=clamp(t.pan||0,-1,1); g.connect(pn); pn.connect(dest); g._pan=pn; } else g.connect(dest); tg[t.id]=g; const tfx=window.__fxBypass?null:fxOf(t); let tin=g; if(tfx){ tin=c.createGain(); trackFx(c,t,tfx,tin,g,from); }
     t.clips.forEach(cl=>{ if(skip&&cl.id===skip) return; const end=cl.start+cl.dur; if(end<=from+0.001) return; const b=bufs[cl.buf]; if(!b) return;
       const st=Math.max(cl.start,from), when=base+(st-from), off=cl.offset+(st-cl.start), dur=end-st;
-      const s=c.createBufferSource(); s.buffer=tunedBuf(t,tfx,cl,b)||b.buffer; const cg=c.createGain(); if(cl.kar&&b.buffer.numberOfChannels>1) karaoke(c,s,cg); else s.connect(cg); const vo=vfxChain(c,cl.vfx,cg); vo.connect(tin);
+      const s=c.createBufferSource(); s.buffer=(tfx&&tunedBuf(t,tfx,cl,b))||b.buffer; const cg=c.createGain(); if(cl.kar&&b.buffer.numberOfChannels>1) karaoke(c,s,cg); else s.connect(cg); const vo=window.__fxBypass?cg:vfxChain(c,cl.vfx,cg); vo.connect(tin);
       try{ cg.gain.setValueCurveAtTime(envCurve(xfEff(t,cl),st,end),when,dur); }catch(err){ cg.gain.value=cl.gain; }
-      if(cl.rev>0){ const sg=c.createGain(); sg.gain.value=cl.rev*1.2; vo.connect(sg); sg.connect(getRev()); }
-      if(cl.echo>0){ const dl=c.createDelay(4), fb=c.createGain(), wg=c.createGain(), lp=c.createBiquadFilter(); dl.delayTime.value=Math.min(3.9,(cl.ediv||0.5)*beatSec(cl.start)); fb.gain.value=0.25+cl.echo*0.4; wg.gain.value=cl.echo*0.8; lp.type='lowpass'; lp.frequency.value=5000; vo.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wg); wg.connect(tin); }
+      if(cl.rev>0&&!window.__fxBypass){ const sg=c.createGain(); sg.gain.value=cl.rev*1.2; vo.connect(sg); sg.connect(getRev()); }
+      if(cl.echo>0&&!window.__fxBypass){ const dl=c.createDelay(4), fb=c.createGain(), wg=c.createGain(), lp=c.createBiquadFilter(); dl.delayTime.value=Math.min(3.9,(cl.ediv||0.5)*beatSec(cl.start)); fb.gain.value=0.25+cl.echo*0.4; wg.gain.value=cl.echo*0.8; lp.type='lowpass'; lp.frequency.value=5000; vo.connect(dl); dl.connect(lp); lp.connect(fb); fb.connect(dl); lp.connect(wg); wg.connect(tin); }
       s.start(when,off,dur); nodes.push(s); }); });
   return {nodes,tg};
 }
@@ -5199,6 +5205,148 @@ async function shareProject(){ if(!allClips().length&&!S.sheet){ toast('אין �
   if(!captured){ toast('❌ לא הצלחתי לארוז'); return; }
   await shareOrSave(captured.n,captured.b,'פרויקט מחרוזת 🎵 — פותחים באפליקציה "מחרוזות" ← 📂 פתיחה ← בוחרים את הקובץ. https://machrozet.pages.dev'); }
 
+/* ===== round 2: loudness, A/B, silence cut, video transitions, pitch score ===== */
+
+/* ---------- 10 · loudness normalization (ITU BS.1770 / LUFS) ---------- */
+const LN_OPTS=[['off','בלי שינוי',null],['yt','▶ יוטיוב / ספוטיפיי (‎-14)',-14],['wa','📱 וואטסאפ / סטטוס — חזק יותר (‎-11)',-11]];
+function lnGet(){ try{ const v=localStorage.getItem('machrozet_ln'); if(v&&LN_OPTS.some(o=>o[0]===v)) return v; }catch(_){} return 'yt'; }
+function lnSet(v){ try{ localStorage.setItem('machrozet_ln',v); }catch(_){} }
+function lnSelectHtml(){ const cur=lnGet(); return `<div class="row" style="margin-top:8px;align-items:center"><span class="hint">🔊 עוצמה אחידה:</span><select id="lnSel" onchange="lnSet(this.value)">${LN_OPTS.map(o=>`<option value="${o[0]}" ${o[0]===cur?'selected':''}>${o[1]}</option>`).join('')}</select></div>`; }
+function kFilter(x,sr){ const y=new Float32Array(x.length);
+  let f0=1681.974450955533, G=3.999843853973347, Q=0.7071752369554196, K=Math.tan(Math.PI*f0/sr), Vh=Math.pow(10,G/20), Vb=Math.pow(Vh,0.4996667741545416), a0=1+K/Q+K*K;
+  const b0=(Vh+Vb*K/Q+K*K)/a0, b1=2*(K*K-Vh)/a0, b2=(Vh-Vb*K/Q+K*K)/a0, a1=2*(K*K-1)/a0, a2=(1-K/Q+K*K)/a0;
+  f0=38.13547087602444; Q=0.5003270373238773; K=Math.tan(Math.PI*f0/sr); const d=1+K/Q+K*K, c1=2*(K*K-1)/d, c2=(1-K/Q+K*K)/d;
+  let x1=0,x2=0,y1=0,y2=0, u1=0,u2=0,w1=0,w2=0;
+  for(let i=0;i<x.length;i++){ const xi=x[i]; const s=b0*xi+b1*x1+b2*x2-a1*y1-a2*y2; x2=x1; x1=xi; y2=y1; y1=s; const o=s-2*u1+u2-c1*w1-c2*w2; u2=u1; u1=s; w2=w1; w1=o; y[i]=o; }
+  return y; }
+function measureLUFS(buf){ const sr=buf.sampleRate, C=Math.min(2,buf.numberOfChannels), n=buf.length; const blk=Math.round(0.4*sr), hop=Math.round(0.1*sr); if(n<blk) return -70;
+  const ks=[]; for(let ch=0;ch<C;ch++) ks.push(kFilter(buf.getChannelData(ch),sr));
+  const pre=ks.map(k=>{ const p=new Float64Array(n+1); for(let i=0;i<n;i++) p[i+1]=p[i]+k[i]*k[i]; return p; });
+  const z=[]; for(let s=0;s+blk<=n;s+=hop){ let v=0; for(const p of pre) v+=(p[s+blk]-p[s])/blk; z.push(v); }
+  const L=v=>-0.691+10*Math.log10(v+1e-12);
+  let g=z.filter(v=>L(v)>-70); if(!g.length) return -70; const m1=g.reduce((a,b)=>a+b,0)/g.length; const rel=L(m1)-10;
+  g=g.filter(v=>L(v)>rel); if(!g.length) return L(m1); return L(g.reduce((a,b)=>a+b,0)/g.length); }
+function runMin(a,w){ /* min over [i-w,i+w], van Herk / Gil-Werman */ const n=a.length, W=2*w+1, out=new Float32Array(n), pf=new Float32Array(n), sf=new Float32Array(n);
+  for(let i=0;i<n;i++) pf[i]=(i%W===0)?a[i]:Math.min(pf[i-1],a[i]);
+  for(let i=n-1;i>=0;i--) sf[i]=(i===n-1||(i+1)%W===0)?a[i]:Math.min(sf[i+1],a[i]);
+  for(let i=0;i<n;i++){ const lo=Math.max(0,i-w), hi=Math.min(n-1,i+w); out[i]=Math.min(sf[lo],pf[hi]); } return out; }
+function peakLimit(buf,ceil){ const sr=buf.sampleRate, C=buf.numberOfChannels, n=buf.length; const ch=[]; for(let c=0;c<C;c++) ch.push(buf.getChannelData(c));
+  let pk=0; for(const d of ch) for(let i=0;i<n;i++){ const v=Math.abs(d[i]); if(v>pk) pk=v; } if(pk<=ceil) return 0;
+  const r=new Float32Array(n); for(let i=0;i<n;i++){ let v=0; for(const d of ch){ const a=Math.abs(d[i]); if(a>v) v=a; } r[i]=v>ceil?ceil/v:1; }
+  const la=Math.max(8,Math.round(0.003*sr)); const m=runMin(r,la); const h=la>>1; const pre=new Float64Array(n+1); for(let i=0;i<n;i++) pre[i+1]=pre[i]+m[i];
+  const rel=1-Math.exp(-1/(0.08*sr)); let y=1; let red=0;
+  for(let i=0;i<n;i++){ const lo=Math.max(0,i-h), hi=Math.min(n,i+h+1); const av=(pre[hi]-pre[lo])/(hi-lo); y=Math.min(av,y+(1-y)*rel); const gg=Math.min(y,r[i]); if(gg<1) red=Math.max(red,1-gg); for(const d of ch){ let v=d[i]*gg; if(v>ceil) v=ceil; else if(v<-ceil) v=-ceil; d[i]=v; } }
+  return red; }
+function loudNorm(buf){ const o=LN_OPTS.find(x=>x[0]===lnGet()); if(!o||o[2]==null||!buf||buf.length<buf.sampleRate) return null; try{
+  const L=measureLUFS(buf); if(!(L>-60)) return null; let g=Math.pow(10,(o[2]-L)/20); g=Math.min(g,Math.pow(10,18/20)); const C=buf.numberOfChannels;
+  for(let c=0;c<C;c++){ const d=buf.getChannelData(c); for(let i=0;i<d.length;i++) d[i]*=g; }
+  peakLimit(buf,Math.pow(10,-1/20)); window.__lnLast={from:L,to:o[2],gain:20*Math.log10(g)}; return window.__lnLast; }catch(e){ console.warn('loudnorm',e); return null; } }
+
+/* ---------- 11 · before / after effects ---------- */
+window.__fxBypass=false;
+function abToggle(on){ window.__fxBypass=on==null?!window.__fxBypass:!!on; const b=$('abBtn'); if(b){ b.classList.toggle('gold',window.__fxBypass); b.textContent=window.__fxBypass?'לפני':'A/B'; b.title=window.__fxBypass?'שומעים בלי אפקטים (לפני) — לחיצה מחזירה':'שומעים עם האפקטים (אחרי) — לחיצה: בלי אפקטים'; }
+  if(S.playing) restartPlay(); try{ if(typeof drawVideoNow==='function') drawVideoNow(); }catch(_){} toast(window.__fxBypass?'🅰 לפני — בלי אפקטים (שירה, הד, וידאו)':'🅱 אחרי — עם כל האפקטים',1600); }
+
+/* ---------- 17 · cut out silences ---------- */
+function findSound(c){ const b=bufs[c.buf]; if(!b||!b.buffer) return null; const buf=b.buffer, sr=buf.sampleRate, C=buf.numberOfChannels; const win=Math.round(0.02*sr);
+  const a0=Math.max(0,Math.floor(c.offset*sr)), a1=Math.min(buf.length,Math.floor((c.offset+c.dur)*sr)); const nw=Math.floor((a1-a0)/win); if(nw<5) return null;
+  const db=new Float32Array(nw); const chs=[]; for(let k=0;k<C;k++) chs.push(buf.getChannelData(k));
+  for(let w=0;w<nw;w++){ let s=0; const p=a0+w*win; for(const d of chs) for(let i=0;i<win;i++){ const v=d[p+i]; s+=v*v; } db[w]=10*Math.log10(s/(win*C)+1e-12); }
+  const srt=Array.from(db).sort((x,y)=>x-y); const p95=srt[Math.floor(srt.length*0.95)]; const thr=Math.max(p95-38,-58);
+  const on=new Uint8Array(nw); for(let w=0;w<nw;w++) on[w]=db[w]>thr?1:0;
+  const minGap=Math.round(0.5/0.02), padA=0.12, padB=0.22; const runs=[]; let w=0;
+  while(w<nw){ if(!on[w]){ w++; continue; } let e=w; while(e<nw&&on[e]) e++; runs.push([w,e]); w=e; }
+  if(!runs.length) return {pieces:[],thr}; const merged=[runs[0].slice()]; for(let i=1;i<runs.length;i++){ const L=merged[merged.length-1]; if(runs[i][0]-L[1]<minGap) L[1]=runs[i][1]; else merged.push(runs[i].slice()); }
+  const pieces=merged.map(([s,e])=>[Math.max(0,s*0.02-padA),Math.min(c.dur,e*0.02+padB)]).filter(([s,e])=>e-s>0.15);
+  for(let i=1;i<pieces.length;i++) if(pieces[i][0]<pieces[i-1][1]){ pieces[i-1][1]=pieces[i][1]; pieces.splice(i,1); i--; }
+  return {pieces,thr}; }
+function cutSilence(close){ const f=S.sel&&findClip(S.sel); if(!f){ toast('בחרי קטע'); return; } const c=f.c, t=f.t; const r=findSound(c); if(!r){ toast('הקטע קצר מדי'); return; }
+  const P=r.pieces; const silent=c.dur-P.reduce((a,p)=>a+(p[1]-p[0]),0); if(!P.length){ toast('לא נמצא קול בקטע הזה'); return; } if(silent<0.4){ toast('אין כאן שקטים ארוכים לחתוך 👍'); return; }
+  pushHist(); const idx=t.clips.indexOf(c); const out=[]; let shift=0, prevEnd=null;
+  P.forEach((p,i)=>{ const n=Object.assign({},c,{id:i===0?c.id:nid(),start:c.start+p[0],offset:c.offset+p[0],dur:p[1]-p[0],fi:Math.min(0.03,(p[1]-p[0])/4),fo:Math.min(0.06,(p[1]-p[0])/4)});
+    if(i===0&&c.fi>0.03) n.fi=Math.min(c.fi,n.dur/2); if(i===P.length-1&&c.fo>0.06) n.fo=Math.min(c.fo,n.dur/2);
+    if(close){ if(prevEnd!=null){ const gap=n.start-shift-prevEnd; if(gap>0.15) shift+=gap-0.15; } n.start-=shift; prevEnd=n.start+n.dur; }
+    out.push(n); });
+  t.clips.splice(idx,1,...out); S.sel=out[0].id; render(); scheduleSave&&scheduleSave();
+  toast(`✂ נחתכו ${silent.toFixed(1)} שניות של שקט · ${out.length} חלקים`+(close?' · הרווחים נסגרו':''),3500); }
+function openSilence(){ const f=S.sel&&findClip(S.sel); if(!f){ toast('בחרי קטע'); return; } const r=findSound(f.c); const P=r?r.pieces:[]; const silent=r?f.c.dur-P.reduce((a,p)=>a+(p[1]-p[0]),0):0;
+  openSheet(`<h3>🔇 חיתוך שקטים</h3><p>${P.length?`מצאתי <b>${silent.toFixed(1)} שניות</b> של שקט/רעש רקע בקטע הזה (${P.length} חלקים עם קול).`:'לא מצאתי קול בקטע הזה.'}</p>
+  <div class="row" style="margin-top:10px"><button class="pri" id="silIn">✂ לחתוך שקטים — כל חלק נשאר במקום</button></div>
+  <p class="hint">מומלץ להקלטת שירה על פלייבק: מוריד רעשי רקע ונשימות בין קטעים, והתזמון לא זז.</p>
+  <div class="row" style="margin-top:10px"><button id="silClose">⇤ לחתוך ולסגור את הרווחים</button></div>
+  <p class="hint">לדיבור / הקראה בלי פלייבק — החלקים מתקרבים זה לזה.</p><p class="hint">אפשר תמיד לבטל עם ↶</p>`,()=>{ $('silIn').onclick=()=>{ closeSheet(); cutSilence(false); }; $('silClose').onclick=()=>{ closeSheet(); cutSilence(true); }; }); }
+
+/* ---------- 18 · video transitions between clips ---------- */
+const VTRS=[['','בלי מעבר (חיתוך רגיל)'],['blur','🌫 טשטוש'],['white','🤍 הבהוב לבן'],['black','🖤 דרך שחור'],['whip','💨 החלקה מהירה'],['zoom','🔍 זום פנימה'],['spin','🌀 סיבוב קטן']];
+function vtrState(t){ const a=videoAt(t); if(!a) return null; const c=a.c, k0=a.key; const st=c.start, en=c.start+c.dur;
+  if(c.vtr&&t-st<(c.vtrD||0.6)/2){ const pv=videoAt(st-0.04); if(pv&&pv.c!==c){ const h=(c.vtrD||0.6)/2; return {type:c.vtr,e:1-(t-st)/h,dir:1}; } }
+  const nx=videoAt(en+0.04); if(nx&&nx.c!==c&&nx.c.vtr&&Math.abs(nx.c.start-en)<0.25){ const h=(nx.c.vtrD||0.6)/2; if(en-t<h) return {type:nx.c.vtr,e:1-(en-t)/h,dir:-1}; }
+  return null; }
+function vtrApply(g,W,H,t){ if(window.__fxBypass) return; let s=null; try{ s=vtrState(t); }catch(_){ return; } if(!s||s.e<=0.001) return; const e=Math.min(1,s.e), sm=e*e*(3-2*e);
+  const tc=vfxCan('vtr',W,H), x=tc.getContext('2d'); x.clearRect(0,0,W,H); x.drawImage(g.canvas,0,0,W,H);
+  g.save(); g.setTransform(1,0,0,1,0,0);
+  if(s.type==='blur'||s.type==='zoom'||s.type==='spin'){ const k=Math.max(1,Math.round(1+sm*(s.type==='blur'?22:10))); const sw=Math.max(2,Math.round(W/k)), sh=Math.max(2,Math.round(H/k)); const sc=vfxCan('vtrs',sw,sh), y=sc.getContext('2d'); y.imageSmoothingQuality='high'; y.drawImage(tc,0,0,sw,sh);
+    g.fillStyle='#000'; g.fillRect(0,0,W,H); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high'; g.translate(W/2,H/2);
+    if(s.type==='zoom'){ const z=1+0.5*sm; g.scale(z,z); } if(s.type==='spin'){ g.rotate(s.dir*0.35*sm); const z=1+0.35*sm; g.scale(z,z); }
+    g.drawImage(sc,-W/2,-H/2,W,H); if(s.type!=='blur'){ g.globalAlpha=0.35*sm; g.fillStyle='#fff'; g.fillRect(-W,-H,W*2,H*2); } }
+  else if(s.type==='white'||s.type==='black'){ g.globalAlpha=sm; g.fillStyle=s.type==='white'?'#fff':'#000'; g.fillRect(0,0,W,H); }
+  else if(s.type==='whip'){ const off=s.dir*-1*sm*W*0.55; g.fillStyle='#000'; g.fillRect(0,0,W,H); const n=7; for(let i=0;i<n;i++){ g.globalAlpha=i===0?1:0.22; g.drawImage(tc,off+(i-3)*sm*W*0.05,0,W,H); } }
+  g.restore(); }
+function openVTr(){ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; const pv=videoAt(c.start-0.04); const has=pv&&pv.c!==c;
+  openSheet(`<h3>🎞 מעבר וידאו לקטע הזה</h3><p class="hint">${has?'המעבר יופיע בין הקטע הקודם לקטע הזה (גם בייצוא).':'⚠ אין וידאו צמוד לפני הקטע הזה — המעבר יופיע כשיהיה קטע וידאו ממש לפניו.'}</p>
+  <div class="row" style="flex-wrap:wrap">${VTRS.map(v=>`<button data-vt="${v[0]}" class="${(c.vtr||'')===v[0]?'gold':''}">${v[1]}</button>`).join('')}</div>
+  <div class="row" style="margin-top:10px;align-items:center"><span class="hint">משך:</span><input type="range" id="vtrD" min="0.3" max="1.6" step="0.1" value="${c.vtrD||0.6}" style="flex:1"><b id="vtrDv">${(c.vtrD||0.6).toFixed(1)}</b><span class="hint">שנ׳</span></div>
+  <div class="row" style="margin-top:10px"><button id="vtrAll">להחיל על כל המעברים בוידאו</button><button id="vtrPrev">▶ לראות</button></div>`,()=>{
+    let hist=false; const ph=()=>{ if(!hist){ pushHist(); hist=true; } };
+    $('sheetBox').querySelectorAll('[data-vt]').forEach(b=>b.onclick=()=>{ ph(); c.vtr=b.dataset.vt||undefined; if(!c.vtr) delete c.vtr; $('sheetBox').querySelectorAll('[data-vt]').forEach(x=>x.classList.toggle('gold',x===b)); render(); });
+    $('vtrD').oninput=e=>{ ph(); c.vtrD=+e.target.value; $('vtrDv').textContent=c.vtrD.toFixed(1); };
+    $('vtrAll').onclick=()=>{ ph(); let n=0; allClips().forEach(({c:x})=>{ const b=bufs[x.buf]; if(!(b&&baseOf(b)&&baseOf(b).vtype)||x===c) return; if(c.vtr){ x.vtr=c.vtr; x.vtrD=c.vtrD||0.6; } else { delete x.vtr; delete x.vtrD; } n++; }); render(); toast(c.vtr?'🎞 הוחל על כל קטעי הוידאו ('+(n+1)+')':'המעברים בוטלו'); };
+    $('vtrPrev').onclick=()=>{ closeSheet(); seek(Math.max(0,c.start-1.2)); if(!S.playing) $('play').click(); }; }); }
+
+/* ---------- 1 · singing accuracy score ---------- */
+function pitchTrackJS(x,sr){ /* YIN on ~11 kHz */ const ds=Math.max(1,Math.round(sr/11025)), fs=sr/ds, n=Math.floor(x.length/ds); const y=new Float32Array(n); for(let i=0;i<n;i++){ let s=0; for(let k=0;k<ds;k++) s+=x[i*ds+k]; y[i]=s/ds; }
+  const W=Math.round(fs*0.04), hop=Math.round(fs*0.02), minL=Math.floor(fs/1000), maxL=Math.ceil(fs/70); const nf=Math.max(0,Math.floor((n-W-maxL)/hop)); const f0=new Float32Array(nf), rms=new Float32Array(nf), d=new Float32Array(maxL+1);
+  for(let f=0;f<nf;f++){ const p=f*hop; let e=0; for(let i=0;i<W;i++) e+=y[p+i]*y[p+i]; rms[f]=Math.sqrt(e/W);
+    if(rms[f]<1e-4){ f0[f]=0; continue; } d[0]=1; let run=0, best=-1;
+    for(let L=1;L<=maxL;L++){ let s=0; for(let i=0;i<W;i++){ const v=y[p+i]-y[p+i+L]; s+=v*v; } run+=s; d[L]=run>0?s*L/run:1; }
+    for(let L=minL;L<maxL;L++){ if(d[L]<0.15){ while(L+1<maxL&&d[L+1]<d[L]) L++; best=L; break; } }
+    if(best<0){ f0[f]=0; continue; } const a=d[best-1], b=d[best], c=d[best+1]; const den=a-2*b+c; const sh=den?0.5*(a-c)/den:0; f0[f]=fs/(best+sh); }
+  return {f0,rms,dt:hop/fs}; }
+const PS_W=`const pitchTrackJS=${pitchTrackJS.toString()}; onmessage=e=>{ const {x,sr}=e.data; const r=pitchTrackJS(x,sr); postMessage(r,[r.f0.buffer,r.rms.buffer]); };`;
+function pitchTrack(x,sr){ return new Promise((res,rej)=>{ let w; try{ w=new Worker(URL.createObjectURL(new Blob([PS_W],{type:'text/javascript'}))); }catch(_){ try{ res(pitchTrackJS(x,sr)); }catch(e){ rej(e); } return; }
+  w.onmessage=e=>{ w.terminate(); res(e.data); }; w.onerror=e=>{ w.terminate(); try{ res(pitchTrackJS(x,sr)); }catch(er){ rej(er); } }; w.postMessage({x,sr},[x.buffer]); }); }
+async function pitchScore(c){ const b=bufs[c.buf]; if(!b||!b.buffer) throw new Error('אין שמע'); const buf=b.buffer, sr=buf.sampleRate; const a0=Math.max(0,Math.floor(c.offset*sr)), a1=Math.min(buf.length,Math.floor((c.offset+c.dur)*sr));
+  const x=new Float32Array(a1-a0), C=buf.numberOfChannels; for(let k=0;k<C;k++){ const d=buf.getChannelData(k); for(let i=0;i<x.length;i++) x[i]+=d[a0+i]/C; }
+  let key=songKeyAt(c.start+Math.min(2,c.dur/2)); if(!key) key={tonic:0,scale:0};
+  const ts=(clipTS(c).s||0); const mask=SCMASK[key.scale]||SCMASK[0]; const allowed=[...Array(12)].map((_,pc)=>!!mask[mod(pc-key.tonic,12)]);
+  const r=await pitchTrack(x,sr); const {f0,rms,dt}=r; const nf=f0.length; let pk=0; for(let i=0;i<nf;i++) if(rms[i]>pk) pk=rms[i]; const gate=pk*0.06;
+  const midi=new Float32Array(nf); for(let i=0;i<nf;i++) midi[i]=(f0[i]>0&&rms[i]>gate)?69+12*Math.log2(f0[i]/440)-ts*0:0;
+  /* smooth over ~140ms (averages out vibrato), skip slides */ const hw=3; const dev=new Float32Array(nf).fill(NaN);
+  for(let i=0;i<nf;i++){ if(!midi[i]) continue; let s=0,s2=0,m=0; for(let k=i-hw;k<=i+hw;k++){ if(k<0||k>=nf||!midi[k]) continue; s+=midi[k]; s2+=midi[k]*midi[k]; m++; } if(m<hw*2) continue; const mu=s/m, sd=Math.sqrt(Math.max(0,s2/m-mu*mu)); if(sd>0.6) continue;
+    let bd=99; const base=Math.round(mu); for(let q=base-2;q<=base+2;q++){ if(!allowed[mod(q,12)]) continue; const dd=mu-q; if(Math.abs(dd)<Math.abs(bd)) bd=dd; } if(bd!==99) dev[i]=bd*100; }
+  let voiced=0, good=0; const bad=[]; let cur=null;
+  for(let i=0;i<nf;i++){ const v=dev[i]; if(isNaN(v)){ if(cur){ cur=null; } continue; } voiced++; const off=Math.abs(v)>38; if(!off) good++;
+    if(off){ const t=c.start+i*dt; if(cur&&t-cur.e<0.12){ cur.e=t+dt; cur.n++; cur.sum+=v; } else { cur={s:t,e:t+dt,n:1,sum:v}; bad.push(cur); } } else cur=null; }
+  const spots=bad.filter(b=>b.n*dt>=0.2).map(b=>({s:b.s,e:b.e,c:Math.round(b.sum/b.n)}));
+  return {score:voiced?Math.round(100*good/voiced):null, voicedSec:voiced*dt, spots, key, dev, dt, t0:c.start}; }
+const KNAMES=['דו','דו#','רה','מי♭','מי','פה','פה#','סול','סול#','לה','סי♭','סי'];
+async function openPitchScore(){ const f=S.sel&&findClip(S.sel); if(!f){ toast('בחרי קטע שירה'); return; } const c=f.c;
+  openSheet(`<h3>🎯 דיוק בשירה</h3><p id="psMsg">מנתחת את השירה… ⏳</p><div id="psOut"></div>`); let r;
+  try{ r=await pitchScore(c); }catch(e){ if($('psMsg')) $('psMsg').textContent='לא הצלחתי לנתח: '+(e&&e.message||e); return; } if(!$('psMsg')) return;
+  if(r.score==null||r.voicedSec<2){ $('psMsg').textContent='לא מצאתי כאן מספיק שירה. בחרי את קטע ההקלטה שלך (לא את הפלייבק).'; return; }
+  const col=r.score>=85?'#7be08a':r.score>=70?'#ffd84d':'#ff8a7a'; const word=r.score>=90?'מדויק מאוד 👑':r.score>=80?'יפה מאוד ✨':r.score>=70?'טוב — יש כמה מקומות לחזק':'שווה לעבור על המקומות המסומנים';
+  $('psMsg').innerHTML=`<div style="font-size:42px;font-weight:800;color:${col}">${r.score}%</div><div>${word}</div><div class="hint">${r.key.scale===0?'אין פלייבק — בדיקה מול התו הקרוב':'סולם השיר: '+KNAMES[r.key.tonic]+' '+(r.key.scale===2||r.key.scale===3?'מינור':'מז׳ור')} · נמדדו ${r.voicedSec.toFixed(0)} שניות שירה</div>`;
+  /* strip */ const W=600, H=70; const cv=document.createElement('canvas'); cv.width=W; cv.height=H; cv.style.cssText='width:100%;height:70px;border-radius:8px;background:#1b1530;margin-top:10px;touch-action:none'; const g=cv.getContext('2d');
+  g.strokeStyle='rgba(255,255,255,.15)'; g.beginPath(); g.moveTo(0,H/2); g.lineTo(W,H/2); g.stroke(); const n=r.dev.length;
+  for(let i=0;i<n;i++){ const v=r.dev[i]; if(isNaN(v)) continue; const x=i/n*W; const a=Math.abs(v); g.fillStyle=a>38?'#ff6b6b':a>22?'#ffd84d':'#6fe08a'; g.fillRect(x,H/2-v/50*(H/2)-1,Math.max(1,W/n+0.5),2.5); }
+  cv.onclick=e=>{ const rc=cv.getBoundingClientRect(); const t=r.t0+(e.clientX-rc.left)/rc.width*c.dur; closeSheet(); seek(Math.max(0,t-0.8)); };
+  const out=$('psOut'); out.appendChild(cv); out.insertAdjacentHTML('beforeend','<p class="hint">ירוק = מדויק · צהוב = קצת · אדום = מחוץ לתו. מעל הקו = גבוה מדי, מתחת = נמוך מדי. לחיצה על הפס קופצת לשם.</p>');
+  const L=S.lyr&&S.lyr.lines&&S.lyr.lines.length?S.lyr.lines.filter(l=>l.t<c.start+c.dur&&l.t+l.d>c.start):[];
+  let rows=''; if(L.length){ rows=L.map(l=>{ let v=0,gd=0; const i0=Math.max(0,Math.floor((l.t-r.t0)/r.dt)), i1=Math.min(n,Math.ceil((l.t+l.d-r.t0)/r.dt)); let hi=0,lo=0; for(let i=i0;i<i1;i++){ const d=r.dev[i]; if(isNaN(d)) continue; v++; if(Math.abs(d)<=38) gd++; else if(d>0) hi++; else lo++; } const sc=v>=5?Math.round(100*gd/v):null; const cc=sc==null?'#888':sc>=85?'#7be08a':sc>=70?'#ffd84d':'#ff8a7a'; const tip=sc!=null&&sc<85?(hi>lo?' ↑ גבוה מדי':' ↓ נמוך מדי'):''; return `<div data-ps="${l.t}" style="display:flex;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid #ffffff14;cursor:pointer"><b style="min-width:44px;color:${cc}">${sc==null?'—':sc+'%'}</b><span style="flex:1">${esc(l.text)}</span><span class="hint">${tip}</span></div>`; }).join(''); }
+  else if(r.spots.length){ rows=r.spots.slice(0,30).map(s=>`<div data-ps="${s.s}" style="display:flex;gap:8px;padding:7px 4px;border-bottom:1px solid #ffffff14;cursor:pointer"><b style="min-width:60px">${fmtTime(s.s)}</b><span style="flex:1">${s.c>0?'↑ גבוה מדי':'↓ נמוך מדי'} (${Math.abs(s.c)} סנט)</span></div>`).join(''); }
+  if(rows){ out.insertAdjacentHTML('beforeend',`<h4 style="margin:12px 0 4px">${L.length?'לפי שורות המילים':'מקומות לחזק'}</h4><div>${rows}</div><p class="hint">לחיצה על שורה קופצת לשם.</p>`); out.querySelectorAll('[data-ps]').forEach(d=>d.onclick=()=>{ closeSheet(); seek(Math.max(0,+d.dataset.ps-0.5)); }); }
+  else out.insertAdjacentHTML('beforeend','<p>לא נמצאו מקומות בעייתיים 👏</p>'); }
+
 /* ===== 📜 Prompter studio — one full-screen place to write, rehearse and record with the words =====
    Like teleprompter apps: big text, reading line, current line lit, tap = play/pause, drag = scroll,
    speed + size sliders, "with the song" rehearsal, and "follow the song" (scroll by the words-track timing). */
@@ -5640,12 +5788,13 @@ async function driveImport(f,btn){
 
 /* ---------- export ---------- */
 function openExport(scope){
+  if(window.__fxBypass) abToggle(false);
   if(!allClips().length){ toast('אין עדיין מה לייצא'); return; }
   const anySolo=S.tracks.some(t=>t.solo);
   openSheet(`<h3>⬇ ייצוא</h3><p>${window.__HOSTED?'הקובץ יורד ישר לטלפון.':'הקובץ יורד ארוז ב-ZIP (בטלפון: לפתוח את ה-ZIP בקבצים והשיר נפתח).'}</p>
   <div class="row"><label class="hint"><input type="radio" name="exs" value="all" ${scope!=='range'?'checked':''}> כל השיר</label><label class="hint"><input type="radio" name="exs" value="range" ${scope==='range'?'checked':''} ${S.range?'':'disabled'}> רק הקטע המסומן${S.range?' ('+fmtTime(S.range.l)+'–'+fmtTime(S.range.r)+')':''}</label></div>
   <p style="margin:10px 0 4px">ערוצים לייצוא:</p><div class="row">${S.tracks.map(t=>`<label class="hint"><input type="checkbox" class="exT" value="${t.id}" ${(t.mute||(anySolo&&!t.solo))?'':'checked'}> ${esc(t.name)}</label>`).join('')}</div>
-  <div class="row" style="margin-top:10px"><button class="pri" id="exMp3">MP3 (קטן, לשליחה)</button><button id="exWav">WAV (איכות מלאה)</button></div>${hasVideo()?'<div class="row" style="margin-top:8px"><button class="pri" id="exVid" style="background:#3a2a6a;border-color:#a98cff">🎬 וידאו עם הפלייבק</button></div><p class="hint">הוידאו נבנה ברקע — אפשר לסגור את החלון ולהמשיך לעבוד באפליקציה.</p>':''}<p id="exProg" style="margin-top:12px"></p>`,()=>{ $('exMp3').onclick=()=>doExport('mp3'); $('exWav').onclick=()=>doExport('wav'); if($('exVid')) $('exVid').onclick=()=>{ try{ ac().resume(); }catch(_){} doExportVideo(); }; });
+  ${lnSelectHtml()}<div class="row" style="margin-top:10px"><button class="pri" id="exMp3">MP3 (קטן, לשליחה)</button><button id="exWav">WAV (איכות מלאה)</button></div>${hasVideo()?'<div class="row" style="margin-top:8px"><button class="pri" id="exVid" style="background:#3a2a6a;border-color:#a98cff">🎬 וידאו עם הפלייבק</button></div><p class="hint">הוידאו נבנה ברקע — אפשר לסגור את החלון ולהמשיך לעבוד באפליקציה.</p>':''}<p id="exProg" style="margin-top:12px"></p>`,()=>{ $('exMp3').onclick=()=>doExport('mp3'); $('exWav').onclick=()=>doExport('wav'); if($('exVid')) $('exVid').onclick=()=>{ try{ ac().resume(); }catch(_){} doExportVideo(); }; });
 }
 $('exportBtn').onclick=()=>openExport(S.range?'range':'all');
 async function doExport(fmt){
@@ -5656,7 +5805,7 @@ async function doExport(fmt){
     prog.textContent='מרנדרת…'; await sleep(30);
     const tail=allClips().some(x=>x.c.rev>0||x.c.echo>0)?3.5:0.2;
     const from=useRange?S.range.l:0, len=useRange?(S.range.r-S.range.l):(projEnd()+tail); const sr=44100; const oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr);
-    await prepTune(only); schedule(oc,limiter(oc,oc.destination),from,0,only); const out=await oc.startRendering();
+    await prepTune(only); schedule(oc,limiter(oc,oc.destination),from,0,only); const out=await oc.startRendering(); loudNorm(out);
     if(useRange){ const fl=Math.min(out.length,Math.round(sr*0.01)); for(let ch=0;ch<out.numberOfChannels;ch++){ const d=out.getChannelData(ch); for(let i=0;i<fl;i++){ d[d.length-1-i]*=i/fl; } } }
     let data,name;
     if(fmt==='wav'){ data=wavEncode(out); name='playback-mix.wav'; }
@@ -5784,9 +5933,9 @@ function camAt(t,W,H,v){ const a=videoAt(t); if(!a||!a.c.cam) return null; const
   let z=1; if(c.cam==='in') z=1+A*e; else if(c.cam==='out') z=1+A*(1-e); else if(c.cam==='drift'){ z=1+A*0.7; fx=W*(0.3+0.4*e); } else if(c.cam==='breath') z=1+A*0.35*(0.5+0.5*Math.sin((t-c.start)*Math.PI*2/7));
   return {z,fx,fy}; }
 function vFadeAt(t){ if(t==null) t=S.playhead; const a=videoAt(t); if(!a) return 1; const c=a.c; let k=1; if(c.fi>0.01) k=Math.min(k,(t-c.start)/c.fi); if(c.fo>0.01) k=Math.min(k,(c.start+c.dur-t)/c.fo); return Math.max(0,Math.min(1,k)); }
-function drawFit0(g,v,W,H,t,exp){ const cm=v?camAt(t==null?S.playhead:t,W,H,v):null; if(cm&&cm.z>1.0005){ g.save(); g.translate(cm.fx,cm.fy); g.scale(cm.z,cm.z); g.translate(-cm.fx,-cm.fy); drawFit1(g,v,W,H,t,exp); g.restore(); } else drawFit1(g,v,W,H,t,exp); if(v){ const k=vFadeAt(t); if(k<1){ g.save(); g.globalAlpha=1-k*k*(3-2*k); g.fillStyle='#000'; g.fillRect(0,0,W,H); g.restore(); } } }
+function drawFit0(g,v,W,H,t,exp){ const cm=v?camAt(t==null?S.playhead:t,W,H,v):null; if(cm&&cm.z>1.0005){ g.save(); g.translate(cm.fx,cm.fy); g.scale(cm.z,cm.z); g.translate(-cm.fx,-cm.fy); drawFit1(g,v,W,H,t,exp); g.restore(); } else drawFit1(g,v,W,H,t,exp); if(v){ try{ vtrApply(g,W,H,t==null?S.playhead:t); }catch(_){} } if(v){ const k=vFadeAt(t); if(k<1){ g.save(); g.globalAlpha=1-k*k*(3-2*k); g.fillStyle='#000'; g.fillRect(0,0,W,H); g.restore(); } } }
 function drawFit1(g,v,W,H,t,exp){ try{ drawFitFx(g,v,W,H,t,exp); window.__vfxErr=null; }catch(e){ window.__vfxErr=(e&&e.message)||String(e); try{ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(v&&v.videoWidth){ const r=Math.min(W/v.videoWidth,H/v.videoHeight); g.drawImage(v,(W-v.videoWidth*r)/2,(H-v.videoHeight*r)/2,v.videoWidth*r,v.videoHeight*r); } }catch(_){} } }
-function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!v||!v.videoWidth) return; const F=S.vidfx; const r=Math.min(W/v.videoWidth,H/v.videoHeight); let w=v.videoWidth*r, h=v.videoHeight*r;
+function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!v||!v.videoWidth) return; const F=window.__fxBypass?null:S.vidfx; const r=Math.min(W/v.videoWidth,H/v.videoHeight); let w=v.videoWidth*r, h=v.videoHeight*r;
   if(!F){ try{ g.drawImage(v,(W-w)/2,(H-h)/2,w,h); }catch(_){} return; }
   const tt=t==null?S.playhead:t; let z=1, fl=0;
   if(F.zoom>0||F.flash>0){ try{ const b=timeToBeat(tt), ph=b-Math.floor(b), bar=BPB(); z=1+0.06*F.zoom*Math.exp(-ph*7); const pb=(b/bar)-Math.floor(b/bar); fl=F.flash*0.55*Math.exp(-pb*bar*6); }catch(_){} }
@@ -5941,7 +6090,7 @@ async function doExportVideo(){
   if(!sup){ prog.textContent='בדפדפן הזה הוידאו נבנה בזמן אמת — להשאיר את המסך פתוח'; return doExportVideoRT(); }
   const job=VJOB={stop:false}; prog.innerHTML='✓ הייצוא רץ ברקע — אפשר לסגור את החלון ולהמשיך לעבוד. ההתקדמות מופיעה למטה.'; jobPill('🎬 וידאו: מרנדרת סאונד…');
   try{
-    const sr=sup.ac.sr; const oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr); await prepTune(only); schedule(oc,limiter(oc,oc.destination),from,0,only); const out=await oc.startRendering();
+    const sr=sup.ac.sr; const oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr); await prepTune(only); schedule(oc,limiter(oc,oc.destination),from,0,only); const out=await oc.startRendering(); loudNorm(out);
     if(sup.ac.mux==='pcm'){
       let encErr=null; const vch=[]; let avcC=null; const toU8=d=>d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));
       const ve=new VideoEncoder({output:(c,m)=>{ if(m&&m.decoderConfig&&m.decoderConfig.description&&!avcC) avcC=toU8(m.decoderConfig.description); const b=new Uint8Array(c.byteLength); c.copyTo(b); vch.push({data:b,ts:c.timestamp,key:c.type==='key'}); },error:e=>encErr=e});
@@ -5998,7 +6147,7 @@ async function doExportVideoRT(){
     if(S.playing) stopPlay();
     prog.textContent='מרנדרת את הסאונד…'; await sleep(30);
     const from=useRange?S.range.l:0, len=useRange?(S.range.r-S.range.l):(projEnd()+0.3); const sr=44100; const oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr);
-    await prepTune(only); schedule(oc,limiter(oc,oc.destination),from,0,only); const out=await oc.startRendering();
+    await prepTune(only); schedule(oc,limiter(oc,oc.destination),from,0,only); const out=await oc.startRendering(); loudNorm(out);
     // load videos
     const keys={}; allClips().forEach(x=>{ const b=bufs[x.c.buf]; const bb=baseOf(b); if(bb&&bb.vtype) keys[bb.id]=b; });
     for(const k in keys){ const u=await vurlAsync(keys[k]); if(u){ const v=vEl(k,u); if(v.readyState<2) await new Promise(r=>{ const f=()=>{v.removeEventListener('loadeddata',f); r();}; v.addEventListener('loadeddata',f); try{v.load();}catch(_){} setTimeout(r,8000); }); } }
@@ -6150,6 +6299,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-1145"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-1210"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
