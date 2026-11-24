@@ -561,6 +561,9 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="addTrack">+ ערוץ</button>
       <button id="exportBtn">⬇ ייצוא</button>
       <button id="saveProj">💾 שמירה לקובץ</button>
+      <button id="shareProj">📤 לשלוח לחברה</button>
+      <button id="qMix">🎚 מיקס מהיר</button>
+      <button id="chordsBtn">🎼 זיהוי אקורדים</button>
       <button id="openProj">📂 פתיחת פרויקט</button>
       <button id="newProj">פרויקט חדש</button>
     </div>
@@ -595,6 +598,9 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cVa" class="gold" hidden>🎯 עריכת תווים</button>
       <button id="cLink" hidden></button>
       <button id="cTie" hidden></button>
+      <button id="cAng" hidden>🎬 כמה זוויות</button>
+      <button id="cChords" hidden>🎼 אקורדים</button>
+      <button id="cLibAdd" hidden>⭐ לשמור בספרייה</button>
       <button id="cVFade" hidden></button>
       <button id="cCam" hidden></button>
       <button id="cLyr" title="לזהות את המילים בקטע הזה">📝 מילים לקטע הזה</button>
@@ -2880,9 +2886,9 @@ const mod=(a,n)=>((a%n)+n)%n;
 
 /* ---------- history ---------- */
 let hist=[], fut=[];
-function snapState(){ return JSON.stringify({tracks:S.tracks,bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,xf:S.xf}); }
+function snapState(){ return JSON.stringify({tracks:S.tracks,bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,angle:S.angle||null,xf:S.xf}); }
 function pushHist(state){ S._dirty=true; setTimeout(updDirty,0); hist.push(state||snapState()); if(hist.length>80) hist.shift(); fut=[]; updUndo(); scheduleSave(); }
-function restore(st){ const o=JSON.parse(st); S.tracks=o.tracks; S.bpb=o.bpb||4; snapOpts(); S.bpm=o.bpm; S.tmap=o.tmap||[]; S.marks=o.marks||[]; S.lyr=o.lyr||null; S.xf=o.xf; $('bpm').value=fmtBpm(S.bpm); if(S.sel&&!findClip(S.sel)) S.sel=null; render(); }
+function restore(st){ const o=JSON.parse(st); S.tracks=o.tracks; S.bpb=o.bpb||4; snapOpts(); S.bpm=o.bpm; S.tmap=o.tmap||[]; S.marks=o.marks||[]; S.lyr=o.lyr||null; S.angle=o.angle||null; S.xf=o.xf; $('bpm').value=fmtBpm(S.bpm); if(S.sel&&!findClip(S.sel)) S.sel=null; render(); }
 function undo(){ if(!hist.length) return; fut.push(snapState()); restore(hist.pop()); updUndo(); scheduleSave(); }
 function redo(){ if(!fut.length) return; hist.push(snapState()); restore(fut.pop()); updUndo(); scheduleSave(); }
 function updUndo(){ $('undo').disabled=!hist.length; $('redo').disabled=!fut.length; }
@@ -3336,6 +3342,7 @@ function updPanel(){ setTimeout(updKeyTag,0);
   const c=f.c,b=bufs[c.buf];
   { const vb=$('cVa'); vb.hidden=!(b&&b.kind==='vocal'&&!b.vtype); }
   { const cb=$('cCam'); const isV3=!!(b&&baseOf(b)&&baseOf(b).vtype); cb.hidden=!isV3; const cm=CAMS.find(x=>x[0]===(c.cam||''))||CAMS[0]; cb.textContent=cm[1]; cb.title='תנועת מצלמה: '+cm[1]+' (לחיצה מחליפה)'; cb.classList.toggle('gold',!!c.cam); }
+  { const isVv=!!(b&&baseOf(b)&&baseOf(b).vtype); $('cAng').hidden=!(isVv&&angleClips(null).length>1); $('cAng').classList.toggle('gold',!!(S.angle&&S.angle.on)); $('cChords').hidden=!(b&&b.kind==='song'); $('cLibAdd').hidden=!(b&&!isVv&&b.buffer); }
   { const fb=$('cVFade'); const isV2=!!(b&&baseOf(b)&&baseOf(b).vtype); fb.hidden=!isV2; const on=(c.fi>0.05||c.fo>0.05); fb.textContent=on?'🌗 פייד פועל — לבטל':'🌗 פייד כניסה ויציאה'; fb.classList.toggle('gold',on); fb.title=on?'פייד פועל — לבטל':'פייד כניסה ויציאה לוידאו'; }
   { const tb=$('cTie'); const isV=!!(b&&baseOf(b)&&baseOf(b).vtype); tb.hidden=!(c.tie||isV); tb.textContent=c.tie?'📎 זזים יחד — לנתק':'📎 להזיז יחד עם השירה והמילים'; tb.classList.toggle('gold',!!c.tie); }
   { const lb=$('cLink'); lb.hidden=!(c.link||c.unl); lb.textContent=c.link?'🔗 מחובר לוידאו — לנתק':'⛓ לחבר שוב לוידאו'; lb.classList.toggle('gold',!!c.link); }
@@ -3372,6 +3379,7 @@ $('cCopy').onclick=()=>{ const f=findClip(S.sel); if(!f) return; clipboard={len:
 $('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם ⧉ העתקה של קטע'); return; } pushHist(); const n=pasteAt(snapTime(S.playhead)); render(); toast(n?'הודבק בסמן ✓':'לא הודבק'); };
 $('cLink').onclick=()=>linkToggle();
 $('cTie').onclick=()=>tieToggle();
+$('cAng').onclick=()=>openAngles(); $('cChords').onclick=()=>openChordDetect(); $('cLibAdd').onclick=()=>libAddClip();
 $('cCam').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const i=CAMS.findIndex(x=>x[0]===(c.cam||'')); const nx=CAMS[(i+1)%CAMS.length]; c.cam=nx[0]||undefined; if(!c.cam) delete c.cam; render(); toast(nx[1]+(c.cam?' — על כל הקטע הזה (גם בייצוא). לחיצה נוספת מחליפה':''),3000); };
 $('cVFade').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const on=(c.fi>0.05||c.fo>0.05); const d=on?0:Math.min(1,c.dur/4); c.fi=d; c.fo=d; render(); toast(on?'פייד בוטל':'🌗 פייד של שנייה בהתחלה ובסוף — אפשר לכוון ב־⋯ עוד (פייד ↗ ↘)',3500); };
 $('cLyr').onclick=()=>{ if(!S.lyr){ pushHist(); S.lyr=lyrDef(); } lyrAutoSheet(); };
@@ -3830,13 +3838,13 @@ $('addVocal').onclick=()=>{ importAs='vocal'; ac(); fileIn.value=''; fileIn.clic
 fileIn.onchange=()=>importFiles([...fileIn.files]);
 scroller.addEventListener('dragover',e=>e.preventDefault());
 scroller.addEventListener('drop',e=>{ e.preventDefault(); importFiles([...e.dataTransfer.files].filter(f=>/audio|\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(f.type+' '+f.name))); });
-$('saveProj').onclick=()=>exportProject(); $('quickSave').onclick=()=>saveNamed(); $('myProj').onclick=()=>openMyProjects();
+$('saveProj').onclick=()=>exportProject(); $('shareProj').onclick=()=>shareProject(); $('qMix').onclick=()=>openQuickMix(); $('chordsBtn').onclick=()=>openChordDetect(); $('quickSave').onclick=()=>saveNamed(); $('myProj').onclick=()=>openMyProjects();
 $('openProj').onclick=()=>{ $('projFile').value=''; $('projFile').click(); };
 $('projFile').onchange=()=>{ const f=$('projFile').files[0]; if(f) importProjectFile(f); };
 $('addTrack').onclick=()=>{ pushHist(); newTrack(); render(); };
 $('fabPlay').onclick=()=>$('play').click();
 (()=>{ const pn=$('panel'); const upd=()=>document.documentElement.style.setProperty('--ph',pn.getBoundingClientRect().height+'px'); try{ new ResizeObserver(upd).observe(pn); }catch(_){ setInterval(upd,1000); } upd(); })();
-$('newProj').onclick=()=>openSheet(`<h3>להתחיל פרויקט חדש?</h3><p>${S.projName?'הפרויקט "'+esc(S.projName)+'" שמור ב־📁 הפרויקטים שלי. ':''}כל הקטעים יימחקו מהמסך (אפשר לבטל עם ↶).</p><div class="row"><button class="pri" id="npYes">כן, חדש</button><button id="npNo">ביטול</button></div>`,()=>{ $('npYes').onclick=()=>{ pushHist(); S.tracks=[]; S.marks=[]; S.lyr=null; S.sel=null; S.playhead=0; S.projId=null; S.projName=''; S.sheet=null; S.yt=null; S.tmap=[]; S._missing=[]; updProjName(); stopPlay(); closeSheet(); render(); }; $('npNo').onclick=closeSheet; });
+$('newProj').onclick=()=>openSheet(`<h3>להתחיל פרויקט חדש?</h3><p>${S.projName?'הפרויקט "'+esc(S.projName)+'" שמור ב־📁 הפרויקטים שלי. ':''}כל הקטעים יימחקו מהמסך (אפשר לבטל עם ↶).</p><div class="row"><button class="pri" id="npYes">כן, חדש</button><button id="npNo">ביטול</button></div>`,()=>{ $('npYes').onclick=()=>{ pushHist(); S.tracks=[]; S.marks=[]; S.lyr=null; S.angle=null; S.sel=null; S.playhead=0; S.projId=null; S.projName=''; S.sheet=null; S.yt=null; S.tmap=[]; S._missing=[]; updProjName(); stopPlay(); closeSheet(); render(); }; $('npNo').onclick=closeSheet; });
 
 /* ---------- sheet ---------- */
 function openSheet(html,after){ $('sheetBox').innerHTML='<div class="backbar"><button class="backbtn" type="button">→ חזרה</button></div>'+html; $('sheetBox').querySelector('.backbtn').onclick=()=>closeSheet(); $('sheet').hidden=false; if(after) after(); }
@@ -3851,13 +3859,14 @@ $('openSfx').onclick=async()=>{
   const px=MY_SFX.filter(d=>myBufs[d.k]&&d.g==='px').map(d=>card(myBufs[d.k].id,d.t,d.d)).join('');
   const built=SFX_DEFS.map(d=>card(sfxBufs[d.k].id,d.t,d.d)).join('');
   openSheet(`<h3>✨ צלילים ואפקטים</h3><p>"הוספה" שמה את הצליל במקום של הסמן הזהוב, מוצמד לקצב. לופים נכנסים לערוץ "לופים" על תחילת תיבה.</p>
+  <h3 style="font-size:15px;margin-top:6px">⭐ הספרייה שלי (בכל הפרויקטים)</h3><div class="libbox">${libHtml()}</div>
   ${mine?`<h3 style="font-size:15px;margin-top:6px">🎵 הצלילים שלי</h3><div class="sfxgrid">${mine}</div>`:''}
   ${px?`<h3 style="font-size:15px;margin-top:14px">🎬 אפקטים מ-Pixabay</h3><div class="sfxgrid">${px}</div>`:''}
   <h3 style="font-size:15px;margin-top:14px">⚡ אפקטים מובנים</h3><div class="sfxgrid">${built}</div>
   <div class="row" style="margin-top:12px"><button id="ownSfx">+ להעלות רעש/קול משלי</button><button id="sfxClose">סגירה</button></div>`,()=>{
     $('sheetBox').querySelectorAll('[data-p]').forEach(x=>x.onclick=()=>preview(bufs[x.dataset.p]));
     $('sheetBox').querySelectorAll('[data-a]').forEach(x=>x.onclick=()=>addLib(bufs[x.dataset.a]));
-    $('ownSfx').onclick=()=>{ closeSheet(); pick(); }; $('sfxClose').onclick=closeSheet;
+    $('ownSfx').onclick=()=>{ closeSheet(); pick(); }; $('sfxClose').onclick=closeSheet; { const lb=$('sheetBox').querySelector('.libbox'); if(lb) libBind(lb); }
   });
 };
 
@@ -3978,7 +3987,7 @@ function openNotes(){ openSheet(`<h3>🗒️ פתק</h3><p class="hint">הערו
 function updProjName(){ const t=$('projNameTag'); if(t) t.textContent=S.projName?'📁 '+S.projName:''; }
 function projSnapshot(){ const derived=[], base=new Set(); allClips().forEach(x=>{ const b=bufs[x.c.buf]; if(!b) return; if(b.src){ derived.push({id:b.id,src:b.src}); base.add(b.src.id); } else base.add(b.id); if(x.c.va&&x.c.va.orig&&bufs[x.c.va.orig]) base.add(x.c.va.orig); }); const metas={}; base.forEach(id=>{ const b=bufs[id]; if(b){ const m={}; META_KEYS.forEach(k=>m[k]=b[k]); metas[id]=m; } });
   missingMetaFor(metas,derived,base);
-  return {v:1,saved:Date.now(),projId:S.projId,projName:S.projName,notes:NOTES||'',yt:S.yt||null,vidfx:S.vidfx||null,prompt:S.prompt||'',bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,xf:S.xf,sheet:S.sheet||null,tracks:tracksForSave(),derived,metas,playhead:S.playhead}; }
+  return {v:1,saved:Date.now(),projId:S.projId,projName:S.projName,notes:NOTES||'',yt:S.yt||null,vidfx:S.vidfx||null,prompt:S.prompt||'',bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,angle:S.angle||null,xf:S.xf,sheet:S.sheet||null,tracks:tracksForSave(),derived,metas,playhead:S.playhead}; }
 async function writeNamed(){ const p=projSnapshot(); await saveProject(); await dbOp('proj','readwrite',st=>st.put(p,'p:'+S.projId)); S._dirty=false; updDirty(); }
 function updDirty(){ const b=$('quickSave'); if(!b) return; b.classList.toggle('dirty',!!S._dirty); b.title=S._dirty?'יש שינויים שלא נשמרו — לחיצה שומרת (Ctrl+S)':'הכל שמור ✓'; const p=$('pvSave'); if(p) p.classList.toggle('dirty',!!S._dirty); }
 async function saveNamed(askName){
@@ -4538,10 +4547,11 @@ let rec=null;
 (function(){ const pop=document.createElement('div'); pop.id='recPop'; pop.hidden=true; const LS=k=>{ try{ return localStorage.getItem('machrozet_rc_'+k); }catch(_){ return null; } };
   const ck=(id,lb,def)=>{ const v=LS(id); const on=v==null?def:v==='1'; return `<label><input type="checkbox" id="${id}" ${on?'checked':''}> ${lb}</label>`; };
   pop.innerHTML=`<div class="rpTop"><button class="pri" id="rcGo">🔴 הקלטה</button><div class="meter"><div id="rcLvl"></div></div><button id="rcOpt" title="אפשרויות">⚙</button><button id="rcClose" title="סגירה">✕</button></div>
-    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcVid','🎥 לצלם גם וידאו (לאורך, בלי זום)',false)}${ck('rcHQ','💎 איכות הכי גבוהה שהמצלמה נותנת (עד 4K · 60 תמונות בשנייה)',true)}${ck('rcPrompt','📜 פרומפטר — המילים גוללות לאט בזמן ההקלטה',false)}<div class="row" style="margin:2px 0 6px"><button type="button" id="rcPrEdit">📜 לפתוח את הפרומפטר (לכתוב ולנסות)</button></div>${ck('rcCount','ספירה של תיבה לפני',true)}${ck('rcClean','🧹 לנקות אוטומטית מוזיקה שנכנסה למיקרופון (בלי אוזניות)',false)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
+    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcVid','🎥 לצלם גם וידאו (לאורך, בלי זום)',false)}<label style="display:flex;gap:6px;align-items:center">🎙 מיקרופון: <select id="rcMic" style="flex:1;min-width:0"><option value="">📱 ברירת מחדל של הטלפון</option></select></label>${ck('rcHQ','💎 איכות הכי גבוהה שהמצלמה נותנת (עד 4K · 60 תמונות בשנייה)',true)}${ck('rcPrompt','📜 פרומפטר — המילים גוללות לאט בזמן ההקלטה',false)}<div class="row" style="margin:2px 0 6px"><button type="button" id="rcPrEdit">📜 לפתוח את הפרומפטר (לכתוב ולנסות)</button></div>${ck('rcCount','ספירה של תיבה לפני',true)}${ck('rcClean','🧹 לנקות אוטומטית מוזיקה שנכנסה למיקרופון (בלי אוזניות)',false)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
   document.body.appendChild(pop);
   pop.querySelectorAll('#rcOpts input').forEach(i=>i.onchange=()=>{ try{ localStorage.setItem('machrozet_rc_'+i.id,i.checked?'1':'0'); }catch(_){} });
-  $('rcOpt').onclick=()=>{ $('rcOpts').hidden=!$('rcOpts').hidden; };
+  $('rcOpt').onclick=()=>{ $('rcOpts').hidden=!$('rcOpts').hidden; if(!$('rcOpts').hidden) micFill($('rcMic')); };
+  { const ms=$('rcMic'); if(ms) ms.onchange=()=>micPick(ms.value); }
   { const pe=$('rcPrEdit'); if(pe) pe.onclick=()=>{ $('recPop').hidden=true; prsOpen(); }; }
   { const pb=$('prBtn'); if(pb) pb.onclick=()=>prsOpen(); }
   $('rcClose').onclick=()=>{ pop.hidden=true; };
@@ -5068,6 +5078,118 @@ async function lyrAuto(tid,rows,pr,only){ const t=S.tracks.find(x=>x.id===tid); 
   pushHist(); const vc=cl.find(c=>bufs[c.buf].kind==='vocal')||cl[0];
   if(only&&S.lyr&&S.lyr.lines.length){ const keep=S.lyr.lines.filter(l=>l.t+l.d<=from+0.05||l.t>=to-0.05); S.lyr.lines=keep.concat(lines).sort((a,b)=>a.t-b.t); } else S.lyr=Object.assign(lyrDef(),S.lyr||{},{lines,clip:vc.id,at:vc.start}); LYS.clear(); lyrSelId=null; lyrBar(); }
 
+/* ===== extras: mic picker, chord detection, quick mix, my sound library, multi-angle video, share project ===== */
+
+/* ---------- 4 · which microphone ---------- */
+function micId(){ try{ return localStorage.getItem('machrozet_mic')||''; }catch(_){ return ''; } }
+function micAudio(base){ const id=micId(); return id?Object.assign({},base,{deviceId:{exact:id}}):base; }
+async function micFill(sel){ if(!sel||!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices) return; let ds=[]; try{ ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput'); }catch(_){}
+  const cur=micId(); const name=(d,i)=>{ const l=d.label||''; if(!l) return 'מיקרופון '+(i+1); if(/bluetooth|airpods|buds|hands-?free|headset|bt/i.test(l)) return '🎧 '+l+' (אוזניות)'; if(/default|ברירת/i.test(l)) return '📱 '+l; return '🎙 '+l; };
+  sel.innerHTML='<option value="">📱 ברירת מחדל של הטלפון</option>'+ds.filter(d=>d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications').map((d,i)=>`<option value="${esc(d.deviceId)}" ${d.deviceId===cur?'selected':''}>${esc(name(d,i))}</option>`).join('');
+  if(cur&&!ds.some(d=>d.deviceId===cur)) sel.value=''; }
+function micPick(v){ try{ if(v) localStorage.setItem('machrozet_mic',v); else localStorage.removeItem('machrozet_mic'); }catch(_){} toast(v?'🎙 ההקלטה הבאה תהיה מהמיקרופון שבחרת':'📱 מיקרופון רגיל של הטלפון',2500); }
+
+/* ---------- 7 · chords from the playback ---------- */
+const CH_Q=[['',[0,4,7]],['m',[0,3,7]]];
+async function detectChordsClip(c,onp){ const b=bufs[c.buf]; if(!b||!b.buffer) throw new Error('אין שמע'); const buf=b.buffer, sr=buf.sampleRate, L=buf.getChannelData(0), R=buf.numberOfChannels>1?buf.getChannelData(1):L;
+  const N=8192, hop=N/2, win=new Float32Array(N); for(let i=0;i<N;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/N);
+  const hb=BPB()/2; const t0=c.start, t1=c.start+c.dur; let k=Math.floor(timeToBeat(t0)/hb); const segs=[];
+  for(;;k++){ const a=beatToTime(k*hb), e=beatToTime((k+1)*hb); if(a>=t1-0.05) break; if(e<=t0+0.05) continue; segs.push({a:Math.max(a,t0),e:Math.min(e,t1),k}); if(segs.length>2000) break; }
+  const lo=Math.ceil(60*N/sr), hi=Math.floor(2000*N/sr), bhi=Math.floor(250*N/sr);
+  const pcOf=new Int8Array(hi+1); for(let i=lo;i<=hi;i++) pcOf[i]=mod(Math.round(12*Math.log2(i*sr/N/440))+9,12);
+  const feats=[]; let lastY=performance.now();
+  for(let si=0;si<segs.length;si++){ const s=segs[si]; const ch=new Float64Array(12), bs=new Float64Array(12); let en=0;
+    const p0=Math.max(0,Math.floor((c.offset+(s.a-c.start))*sr)), p1=Math.min(L.length-N,Math.floor((c.offset+(s.e-c.start))*sr)-N);
+    for(let p=p0;p<=p1;p+=hop){ const re=new Float32Array(N); for(let i=0;i<N;i++) re[i]=(L[p+i]+R[p+i])*0.5*win[i]; const m=fftMag(re); for(let i=lo;i<=hi;i++){ const v=Math.sqrt(m[i]); ch[pcOf[i]]+=v; en+=v; if(i<=bhi) bs[pcOf[i]]+=v; } }
+    feats.push({ch,bs,en}); if(performance.now()-lastY>60){ onp&&onp(Math.round(si/segs.length*100)); await yieldNow(); lastY=performance.now(); } }
+  const k0=b.key||(()=>{ try{ return detectKey(bufs[origOf(c)].buffer||buf); }catch(_){ return null; } })(); const dia=new Set(); try{ if(k0) diatonic(k0).forEach(d=>dia.add(d.root+'|'+(/^m(?!aj)/.test(d.q||'')?'m':''))); }catch(_){}
+  const states=[]; for(let r=0;r<12;r++) CH_Q.forEach(([q,iv])=>states.push({r,q,iv}));
+  const meanEn=feats.reduce((s,f)=>s+f.en,0)/Math.max(1,feats.length);
+  const em=feats.map(f=>{ const n=Math.sqrt(f.ch.reduce((s,v)=>s+v*v,0))||1; const cn=f.ch.map(v=>v/n); const bmax=Math.max(...f.bs)||1;
+    return states.map(st=>{ const w=[1,0.85,0.9]; let num=0, den=0; for(let i=0;i<3;i++){ num+=cn[(st.r+st.iv[i])%12]*w[i]; den+=w[i]*w[i]; } let sc=num/Math.sqrt(den); let other=0; for(let p=0;p<12;p++){ if(!st.iv.some(x=>(st.r+x)%12===p)) other+=cn[p]; } sc-=0.12*other/9; sc+=0.22*(f.bs[st.r]/bmax); if(dia.has(st.r+'|'+st.q)) sc+=0.07; return sc; }); });
+  // Viterbi with a stay bonus
+  const S2=states.length, stay=0.22; let prev=em[0]?em[0].slice():[]; const back=[];
+  for(let t=1;t<em.length;t++){ const cur=new Array(S2), bk=new Int16Array(S2); let bi=0; for(let j=1;j<S2;j++) if(prev[j]>prev[bi]) bi=j; for(let j=0;j<S2;j++){ const a=prev[j]+stay, o=prev[bi]; if(a>=o){ cur[j]=a+em[t][j]; bk[j]=j; } else { cur[j]=o+em[t][j]; bk[j]=bi; } } back.push(bk); prev=cur; }
+  let st=0; for(let j=1;j<S2;j++) if(prev[j]>prev[st]) st=j; const path=new Array(em.length); path[em.length-1]=st; for(let t=em.length-1;t>0;t--){ st=back[t-1][st]; path[t-1]=st; }
+  return segs.map((s,i)=>({t:s.a,e:s.e,k:s.k,sym:feats[i].en<meanEn*0.12?'':chordSymbol({root:states[path[i]].r,q:states[path[i]].q}),bar:Math.floor(s.k/2)})); }
+function chordsText(list,c){ // with lyrics when the words track covers this clip, otherwise bars of 4
+  const lines=(S.lyr&&S.lyr.lines||[]).filter(l=>l.t<c.start+c.dur&&l.t+l.d>c.start);
+  const chAt=(a,e)=>{ const out=[]; list.forEach(x=>{ if(x.e>a+0.05&&x.t<e-0.05&&x.sym&&out[out.length-1]!==x.sym) out.push(x.sym); }); return out; };
+  if(lines.length){ const out=[]; let last=c.start; lines.forEach(l=>{ if(l.t-last>2){ const g=chAt(last,l.t); if(g.length) out.push(g.join('   ')); } const g=chAt(l.t,l.t+l.d); out.push(g.join('   ')); out.push(l.text); out.push(''); last=l.t+l.d; }); const tail=chAt(last,c.start+c.dur); if(tail.length) out.push(tail.join('   ')); return out.join('\n').trim(); }
+  const bars=[]; list.forEach(x=>{ const bb=bars[bars.length-1]; if(!bb||bb.bar!==x.bar) bars.push({bar:x.bar,ch:[x.sym||'—']}); else if(bb.ch[bb.ch.length-1]!==(x.sym||'—')) bb.ch.push(x.sym||'—'); });
+  const rows=[]; for(let i=0;i<bars.length;i+=4) rows.push(bars.slice(i,i+4).map(b=>b.ch.join(' ')).join(' | ')); return rows.join('\n'); }
+async function openChordDetect(){ const f=S.sel&&findClip(S.sel); let c=f&&f.c; if(!c||!bufs[c.buf]||bufs[c.buf].kind!=='song'){ const ph=S.playhead; const s=allClips().filter(x=>bufs[x.c.buf]&&bufs[x.c.buf].kind==='song'); const at=s.find(x=>x.c.start<=ph&&x.c.start+x.c.dur>ph)||s[0]; c=at&&at.c; } if(!c){ toast('צריך שיר (פלייבק) בפרויקט'); return; }
+  openSheet(`<h3>🎼 זיהוי אקורדים</h3><p class="hint">מקשיבה ל"${esc(bufs[c.buf].name)}"… <b id="cdP">0%</b></p>`); let list;
+  try{ list=await detectChordsClip(c,p=>{ const e=$('cdP'); if(e) e.textContent=p+'%'; }); }catch(e){ console.error(e); openSheet(`<h3>🎼 זיהוי אקורדים</h3><p>❌ ${esc(e.message||String(e))}</p><div class="row"><button id="cdX">סגירה</button></div>`,()=>{ $('cdX').onclick=closeSheet; }); return; }
+  const txt=chordsText(list,c); const uniq=[...new Set(list.map(x=>x.sym).filter(Boolean))];
+  openSheet(`<h3>🎼 האקורדים של "${esc(bufs[c.buf].name)}"</h3><p class="hint">זיהוי אוטומטי — כדאי להקשיב ולתקן. האקורדים שנמצאו: <b dir="ltr">${uniq.join('  ')}</b></p>
+   <textarea id="cdTx" dir="ltr" style="width:100%;min-height:42vh;font-size:17px;line-height:1.6;border-radius:12px;padding:10px;font-family:inherit">${esc(txt)}</textarea>
+   <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px"><button class="pri" id="cdSave">📝 לשמור בדף האקורדים</button><button id="cdCopy">⧉ להעתיק</button><button id="cdX">סגירה</button></div>`,()=>{
+    $('cdX').onclick=closeSheet;
+    $('cdCopy').onclick=async()=>{ try{ await navigator.clipboard.writeText($('cdTx').value); toast('✓ הועתק'); }catch(_){ $('cdTx').select(); try{ document.execCommand('copy'); toast('✓ הועתק'); }catch(__){} } };
+    $('cdSave').onclick=()=>{ const t=$('cdTx').value.trim(); const had=S.sheet&&S.sheet.text&&S.sheet.text.trim(); S.sheet=Object.assign({text:'',ink:null,img:null},S.sheet||{}); S.sheet.text=had?(S.sheet.text.trim()+'\n\n— '+bufs[c.buf].name+' —\n'+t):t; scheduleSave(); closeSheet(); toast('✓ נשמר בדף האקורדים — אפשר לנגן איתם ב־🎹',3500); };
+  }); }
+
+/* ---------- 8 · quick mix ---------- */
+function trackRole(t){ if(t.trans||t.sfx) return 'fx'; const ks=t.clips.map(c=>bufs[c.buf]&&bufs[c.buf].kind).filter(Boolean); if(t.vocal||(ks.length&&ks.every(k=>k==='vocal'))) return 'vocal'; if(ks.includes('song')) return 'song'; return 'fx'; }
+const MIXES={vocal:{n:'🎤 שירה בולטת',d:'הקול שלך מעל המוזיקה',v:1.25,s:0.62,f:0.7},bal:{n:'⚖️ מאוזן',d:'שירה ומוזיקה שווים',v:1,s:0.85,f:0.8},song:{n:'🎶 פלייבק חזק',d:'המוזיקה מובילה, השירה ברקע',v:0.8,s:1,f:0.85},flat:{n:'⟲ הכל רגיל',d:'כל הערוצים 100%',v:1,s:1,f:1}};
+function openQuickMix(){ const roles=S.tracks.map(t=>trackRole(t));
+  openSheet(`<h3>🎚 מיקס מהיר</h3><p class="hint">לחיצה אחת מכוונת את הווליום של כל הערוצים. אפשר לשנות אחר כך כל ערוץ בנפרד.</p><div class="sfxgrid">${Object.entries(MIXES).map(([k,m])=>`<div class="sfx"><div class="t">${m.n}</div><div class="d">${m.d}</div><div class="b"><button class="gold" data-mx="${k}">להחיל</button></div></div>`).join('')}</div>
+   <p class="hint" style="margin-top:8px">${S.tracks.map((t,i)=>`${esc(t.name)}: ${roles[i]==='vocal'?'🎤 שירה':roles[i]==='song'?'🎶 פלייבק':'✨ אפקטים'}`).join(' · ')}</p><div class="row"><button id="qmX">סגירה</button></div>`,()=>{
+    $('qmX').onclick=closeSheet;
+    document.querySelectorAll('[data-mx]').forEach(b=>b.onclick=()=>{ const m=MIXES[b.dataset.mx]; pushHist(); S.tracks.forEach((t,i)=>{ const r=roles[i]; t.vol=r==='vocal'?m.v:r==='song'?m.s:m.f; try{ const g=play.tg&&play.tg[t.id]; if(g&&!t.mute) g.gain.value=t.vol; }catch(_){} }); render(); closeSheet(); toast('✓ '+m.n,2000); });
+  }); }
+
+/* ---------- 9 · my sound library (kept across projects) ---------- */
+function libIndex(){ try{ return JSON.parse(localStorage.getItem('machrozet_lib')||'[]'); }catch(_){ return []; } }
+function libSave(a){ try{ localStorage.setItem('machrozet_lib',JSON.stringify(a)); }catch(_){} }
+async function libAddClip(){ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c, b=bufs[c.buf]; if(!b||!b.buffer){ toast('אין שמע בקטע'); return; } if(baseOf(b)&&baseOf(b).vtype){ toast('אפשר לשמור בספרייה רק קטעי שמע'); return; }
+  const sr=b.buffer.sampleRate, s0=Math.floor(c.offset*sr), n=Math.min(b.buffer.length-s0,Math.floor(c.dur*sr)); if(n<=0) return; if(n>sr*60){ toast('הקטע ארוך מדי לספרייה (עד דקה)'); return; }
+  const ab=new AudioBuffer({length:n,numberOfChannels:Math.min(2,b.buffer.numberOfChannels),sampleRate:sr}); for(let ch=0;ch<ab.numberOfChannels;ch++) ab.copyToChannel(b.buffer.getChannelData(ch).subarray(s0,s0+n),ch);
+  const name=(prompt('שם לצליל בספרייה:',b.name||'צליל')||'').trim(); if(!name) return; const id='lib:'+nid(); const bytes=new Uint8Array(wavEncode(ab));
+  try{ await dbOp('files','readwrite',st=>st.put({bytes,meta:{name,kind:'sfx'}},id)); }catch(e){ toast('❌ לא הצלחתי לשמור'); return; }
+  const L=libIndex(); L.unshift({id,name,dur:+(n/sr).toFixed(2)}); libSave(L); toast('⭐ נשמר בספרייה שלי: '+name+' — ✨ צלילים ואפקטים',3500); }
+async function libBuf(it){ const id='lb_'+it.id.slice(4); if(bufs[id]) return bufs[id]; const rec=await dbOp('files','readonly',st=>st.get(it.id)); if(!rec||!rec.bytes) throw new Error('הצליל לא נמצא'); const by=rec.bytes; const buffer=await decode(by.buffer?by.buffer.slice(by.byteOffset||0,(by.byteOffset||0)+by.byteLength):by.slice(0));
+  const b={id,name:it.name,buffer,kind:'sfx',color:'#f2b84b',peaks:computePeaks(buffer),bpm:0,beat:beatSec(),first:0,down:0,snapAt:0}; try{ b.snapAt=onsetOf(buffer,'onset'); }catch(_){} bufs[id]=b; dbPutFile(id,by,b); return b; }
+function libHtml(){ const L=libIndex(); if(!L.length) return `<p class="hint">עוד אין כאן צלילים. בוחרים קטע שמע בטיימליין ← ⭐ לשמור בספרייה.</p>`;
+  return `<div class="sfxgrid">${L.map(it=>`<div class="sfx"><div class="t">⭐ ${esc(it.name)}</div><div class="d">${it.dur} שנ׳</div><div class="b"><button data-lp="${esc(it.id)}">▶</button><button class="gold" data-la="${esc(it.id)}">הוספה</button><button data-ld="${esc(it.id)}">🗑</button></div></div>`).join('')}</div>`; }
+function libBind(root){ root.querySelectorAll('[data-lp]').forEach(x=>x.onclick=async()=>{ const it=libIndex().find(i=>i.id===x.dataset.lp); if(it){ try{ preview(await libBuf(it)); }catch(e){ toast('❌ '+e.message); } } });
+  root.querySelectorAll('[data-la]').forEach(x=>x.onclick=async()=>{ const it=libIndex().find(i=>i.id===x.dataset.la); if(it){ try{ addLib(await libBuf(it)); }catch(e){ toast('❌ '+e.message); } } });
+  root.querySelectorAll('[data-ld]').forEach(x=>x.onclick=async()=>{ const id=x.dataset.ld; if(!confirm('למחוק את הצליל מהספרייה?')) return; libSave(libIndex().filter(i=>i.id!==id)); try{ await dbOp('files','readwrite',st=>st.delete(id)); }catch(_){} const box=x.closest('.libbox'); if(box){ box.innerHTML=libHtml(); libBind(box); } }); }
+
+/* ---------- 10 · several takes, the picture switches between them on the beat ---------- */
+function angleClips(t){ const out=[]; S.tracks.forEach((tr,ti)=>{ const anySolo=S.tracks.some(q=>q.solo); if(tr.mute||(anySolo&&!tr.solo)) return; tr.clips.forEach(c=>{ const b=bufs[c.buf]; if(!b||!baseOf(b)||!baseOf(b).vtype) return; if(t!=null&&(t<c.start||t>=c.start+c.dur)) return; out.push({c,b,ti}); }); }); return out; }
+function anglePick(cands,t){ const A=S.angle; if(!A||!A.on||cands.length<2) return null; cands.sort((p,q)=>p.c.start-q.c.start||p.ti-q.ti); const every=A.every||2; let k=0; try{ k=Math.floor(timeToBeat(t)/(BPB()*every)); }catch(_){ k=Math.floor(t/2); } const n=cands.length; return cands[angleSeq(Math.max(0,k),n)]; }
+const ANGQ={}; function angleSeq(k,n){ const key=n; const a=ANGQ[key]||(ANGQ[key]=[0]); while(a.length<=k){ const j=a.length; const h=((j*2654435761)>>>0)>>>9; a.push(n<=2?(a[j-1]+1)%n:(a[j-1]+1+h%(n-1))%n); } return a[k]; }
+function takeVocals(vc){ const out=[]; S.tracks.forEach(t=>t.clips.forEach(x=>{ const xb=bufs[x.buf]; if(!xb||(baseOf(xb)&&baseOf(xb).vtype)) return; if(xb.kind==='song') return; if((vc.tie&&x.tie===vc.tie)||(vc.link&&x.link===vc.link)||Math.abs(x.start-vc.start)<0.35) out.push(x); })); return out; }
+function openAngles(){ const vs=angleClips(null); if(vs.length<2){ toast('צריך לפחות שני צילומים של אותו קטע — מצלמים שוב על אותו שיר',4000); return; }
+  const A=S.angle=S.angle||{on:false,every:2,aud:null};
+  openSheet(`<h3>🎬 כמה זוויות</h3><p class="hint">יש ${vs.length} צילומים. כשזה פועל, התמונה עוברת ביניהם לבד בקצב של השיר — כמו קליפ שצולם מכמה מצלמות. (גם בייצוא)</p>
+   <div class="row"><label class="hint" style="font-size:16px"><input type="checkbox" id="anOn" ${A.on?'checked':''}> 🎬 להחליף זוויות לבד</label></div>
+   <p class="hint" style="margin:8px 0 4px">כל כמה זמן להחליף:</p><div class="row seg">${[[1,'כל תיבה'],[2,'כל 2 תיבות'],[4,'כל 4 תיבות']].map(([v,n])=>`<button data-ev="${v}" class="${(A.every||2)==v?'on':''}">${n}</button>`).join('')}</div>
+   <p class="hint" style="margin:10px 0 4px">🔊 השירה מאיזה צילום? (של השאר יושתק)</p><div class="row" style="flex-direction:column;align-items:stretch;gap:4px">${vs.map((x,i)=>`<label class="hint" style="font-size:15px"><input type="radio" name="anA" value="${x.c.id}" ${A.aud===x.c.id?'checked':''}> צילום ${i+1} · ${fmtTime(x.c.start).replace(/\.\d+$/,'')}–${fmtTime(x.c.start+x.c.dur).replace(/\.\d+$/,'')} ${takeVocals(x.c).length?'🎤':''}</label>`).join('')}<label class="hint" style="font-size:15px"><input type="radio" name="anA" value="" ${!A.aud?'checked':''}> לא לגעת בשירה</label></div>
+   <div class="row" style="margin-top:10px"><button class="pri" id="anOk">✓ סיום</button></div>`,()=>{
+    const before=snapState(); let ch=false; const mark=()=>{ if(!ch){ pushHist(before); ch=true; } };
+    $('anOn').onchange=e=>{ mark(); A.on=e.target.checked; render(); };
+    document.querySelectorAll('[data-ev]').forEach(b=>b.onclick=()=>{ mark(); A.every=+b.dataset.ev; document.querySelectorAll('[data-ev]').forEach(x=>x.classList.toggle('on',x===b)); });
+    document.querySelectorAll('input[name=anA]').forEach(r=>r.onchange=()=>{ mark(); A.aud=r.value||null; vs.forEach(x=>takeVocals(x.c).forEach(v=>{ if(A.aud){ if(v._angG==null) v._angG=v.gain==null?1:v.gain; v.gain=(x.c.id===A.aud)?v._angG:0; } else if(v._angG!=null){ v.gain=v._angG; delete v._angG; } })); render(); });
+    $('anOk').onclick=()=>{ closeSheet(); render(); toast(A.on?'🎬 הזוויות מתחלפות לבד — ▶ לצפייה':'הזוויות כבויות',3000); };
+  }); }
+
+/* ---------- 19 · send the project to a friend ---------- */
+async function shareOrSave(name,blob,text){ const file=new File([blob],name,{type:blob.type||'application/octet-stream'});
+  let can=false; try{ can=!!(navigator.canShare&&navigator.canShare({files:[file]})); }catch(_){}
+  if(!can) return saveFile(name,blob);
+  return await new Promise(res=>{ const box=document.createElement('div'); box.id='dlAsk'; box.innerHTML=`<div class="dlin"><b>הקובץ מוכן ✓</b><span dir="ltr">${esc(name)} · ${(blob.size/1048576).toFixed(1)}MB</span><button class="pri" id="shGo">📤 לשלוח (וואטסאפ / מייל…)</button><button id="shSave">⬇ לשמור בטלפון</button><button id="shNo">ביטול</button></div>`; document.body.appendChild(box);
+    const done=v=>{ box.remove(); res(v); };
+    $('shNo').onclick=()=>done(false); $('shSave').onclick=async()=>{ box.remove(); res(await saveFile(name,blob)); };
+    $('shGo').onclick=async()=>{ try{ await navigator.share({files:[file],title:name,text:text||''}); done(true); }catch(e){ if(e&&e.name==='AbortError') done(false); else { toast('לא הצלחתי לשתף — שומרת בטלפון במקום'); box.remove(); res(await saveFile(name,blob)); } } }; }); }
+async function shareProject(){ if(!allClips().length&&!S.sheet){ toast('אין עדיין מה לשלוח'); return; } toast('אורזת את הפרויקט לשליחה…',60000);
+  const realSave=saveFile; let captured=null; window.__shareCap=(n,b)=>{ captured={n,b}; return true; };
+  try{ saveFile=async(n,b)=>{ captured={n,b}; return true; }; await exportProject(); }finally{ saveFile=realSave; }
+  if(!captured){ toast('❌ לא הצלחתי לארוז'); return; }
+  await shareOrSave(captured.n,captured.b,'פרויקט מחרוזת 🎵 — פותחים באפליקציה "מחרוזות" ← 📂 פתיחה ← בוחרים את הקובץ. https://machrozet.pages.dev'); }
+
 /* ===== 📜 Prompter studio — one full-screen place to write, rehearse and record with the words =====
    Like teleprompter apps: big text, reading line, current line lit, tap = play/pause, drag = scroll,
    speed + size sliders, "with the song" rehearsal, and "follow the song" (scroll by the words-track timing). */
@@ -5348,7 +5470,7 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   try{ if(navigator.audioSession) navigator.audioSession.type='play-and-record'; }catch(_){}
   /* camera first, microphone last: on some Android phones opening the camera after the mic silenced the mic */
   let V=null; if($('rcVid')&&$('rcVid').checked){ try{ const hq=!!($('rcHQ')&&$('rcHQ').checked); let cst; try{ cst=await camOpen(hq); }catch(e){ if(!hq) throw e; cst=await camOpen(false); } const D=await camPreview(cst,hq); V=camRecorder(cst,D); }catch(e){ console.error(e); toast('לא הצלחתי לפתוח את המצלמה — מקליטה רק קול',4000); } }
-  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e0){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ console.error('mic',e); const n=(e&&e.name)||'';
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:micAudio({echoCancellation:false,noiseSuppression:false,autoGainControl:false})}); }catch(e0){ if(micId()){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:micAudio({})}); }catch(_){} } } if(!stream) try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e0){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ console.error('mic',e); const n=(e&&e.name)||'';
     const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
     let t;
     if(IN_ART) t='בתוך Claude המיקרופון חסום. ההקלטה עובדת באתר: machrozet.pages.dev';
@@ -5532,7 +5654,7 @@ async function doExport(fmt){
     else { data=await mp3Encode(out,p=>prog.textContent='ממירה ל-MP3… '+Math.round(p*100)+'%'); name='playback-mix.mp3'; }
     prog.textContent='אורזת…'; await sleep(10);
     const base=(useRange?'part-':'mix-')+stamp();
-    let ok; if(window.__HOSTED&&!IN_ART){ ok=await saveFile(base+(fmt==='wav'?'.wav':'.mp3'),new Blob([data],{type:fmt==='wav'?'audio/wav':'audio/mpeg'})); }
+    let ok; if(window.__HOSTED&&!IN_ART){ ok=await (fmt==='wav'?saveFile:shareOrSave)(base+(fmt==='wav'?'.wav':'.mp3'),new Blob([data],{type:fmt==='wav'?'audio/wav':'audio/mpeg'})); }
     else { const zip=zipStore(base+(fmt==='wav'?'.wav':'.mp3'),data); ok=await saveFile(base+'.zip',zip); }
     prog.textContent=ok?(window.__HOSTED&&!IN_ART?'✓ ירד: '+base+(fmt==='wav'?'.wav':'.mp3')+' — בתיקיית ההורדות':'✓ ירד: '+base+'.zip — בתיקיית ההורדות. פותחים את ה־zip והשיר בפנים'):'❌ הקובץ לא ירד';
   }catch(e){ console.error(e); prog.textContent='משהו השתבש: '+(e&&e.message||e); }
@@ -5548,7 +5670,7 @@ function baseOf(b){ return b&&b.src?bufs[b.src.id]||b:b; }
 function vurl(b){ const bb=baseOf(b); if(!bb||!bb.vtype) return null; if(VURL[bb.id]) return VURL[bb.id]; const by=rawStore[bb.id]; if(!by) return null; VURL[bb.id]=URL.createObjectURL(new Blob([by],{type:bb.vtype})); return VURL[bb.id]; }
 async function vurlAsync(b){ let u=vurl(b); if(u) return u; const bb=baseOf(b); if(!bb||!bb.vtype) return null; try{ const rec=await dbOp('files','readonly',st=>st.get(bb.id)); if(rec&&rec.bytes){ rawStore[bb.id]=rec.bytes; return vurl(b); } }catch(_){} return null; }
 function hasVideo(){ return allClips().some(x=>{ const b=bufs[x.c.buf]; return b&&baseOf(b)&&baseOf(b).vtype; }); }
-function videoAt(t){ let best=null; S.tracks.forEach((tr,ti)=>{ const anySolo=S.tracks.some(q=>q.solo); if(tr.mute||(anySolo&&!tr.solo)) return; tr.clips.forEach(c=>{ const b=bufs[c.buf]; if(!b||!baseOf(b)||!baseOf(b).vtype) return; if(t<c.start||t>=c.start+c.dur) return; best={c,b,vt:(c.offset+(t-c.start))*(b.src?b.src.tempo||1:1),rate:b.src?b.src.tempo||1:1,key:baseOf(b).id}; }); }); return best; }
+function videoAt(t){ if(S.angle&&S.angle.on){ const cs=angleClips(t); const pk=anglePick(cs,t); if(pk){ const c=pk.c,b=pk.b; return {c,b,vt:(c.offset+(t-c.start))*(b.src?b.src.tempo||1:1),rate:b.src?b.src.tempo||1:1,key:baseOf(b).id}; } } let best=null; S.tracks.forEach((tr,ti)=>{ const anySolo=S.tracks.some(q=>q.solo); if(tr.mute||(anySolo&&!tr.solo)) return; tr.clips.forEach(c=>{ const b=bufs[c.buf]; if(!b||!baseOf(b)||!baseOf(b).vtype) return; if(t<c.start||t>=c.start+c.dur) return; best={c,b,vt:(c.offset+(t-c.start))*(b.src?b.src.tempo||1:1),rate:b.src?b.src.tempo||1:1,key:baseOf(b).id}; }); }); return best; }
 const VPOOL={};
 function vEl(key,url){ let v=VPOOL[key]; if(v&&v.error&&!v._retry){ v._retry=1; try{ v.src=url; v.load(); }catch(_){} } if(!v){ v=document.createElement('video'); v.muted=true; v.playsInline=true; v.setAttribute('playsinline',''); v.setAttribute('muted',''); v.preload='auto'; v.src=url; VPOOL[key]=v; v._born=performance.now();
     }
@@ -5939,10 +6061,10 @@ async function saveProject(){ try{
   allClips().forEach(x=>{ const b=bufs[x.c.buf]; if(!b) return; if(b.src){ derived.push({id:b.id,src:b.src}); base.add(b.src.id); } else base.add(b.id); if(x.c.va&&x.c.va.orig&&bufs[x.c.va.orig]) base.add(x.c.va.orig); });
   const metas={}; base.forEach(id=>{ const b=bufs[id]; if(b){ const m={}; META_KEYS.forEach(k=>m[k]=b[k]); metas[id]=m; } });
   missingMetaFor(metas,derived,base);
-  await dbOp('proj','readwrite',st=>st.put({v:1,saved:Date.now(),projId:S.projId||null,projName:S.projName||'',notes:NOTES||'',yt:S.yt||null,vidfx:S.vidfx||null,prompt:S.prompt||'',bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,xf:S.xf,sheet:S.sheet||null,tracks:tracksForSave(),derived,metas,playhead:S.playhead},'current'));
+  await dbOp('proj','readwrite',st=>st.put({v:1,saved:Date.now(),projId:S.projId||null,projName:S.projName||'',notes:NOTES||'',yt:S.yt||null,vidfx:S.vidfx||null,prompt:S.prompt||'',bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,angle:S.angle||null,xf:S.xf,sheet:S.sheet||null,tracks:tracksForSave(),derived,metas,playhead:S.playhead},'current'));
   // drop files no longer used by this project or any saved project
   const keep=new Set(base); try{ const pk=await dbOp('proj','readonly',st=>st.getAllKeys()); for(const k of (pk||[])){ if(typeof k==='string'&&k.startsWith('p:')){ const q=await dbOp('proj','readonly',st=>st.get(k)); Object.keys((q&&q.metas)||{}).forEach(id=>keep.add(id)); } } }catch(_){ return; }
-  const keys=await dbOp('files','readonly',st=>st.getAllKeys()); const del=(keys||[]).filter(k=>!keep.has(k)); if(del.length) dbOp('files','readwrite',st=>{ del.forEach(k=>st.delete(k)); });
+  const keys=await dbOp('files','readonly',st=>st.getAllKeys()); const del=(keys||[]).filter(k=>!keep.has(k)&&!String(k).startsWith('lib:')); if(del.length) dbOp('files','readwrite',st=>{ del.forEach(k=>st.delete(k)); });
 }catch(e){ console.warn('save failed',e); } }
 async function loadProject(){ let p=null; try{ p=await dbOp('proj','readonly',st=>st.get('current')); }catch(e){ return; }
   if(p&&p.projId){ S.projId=p.projId; S.projName=p.projName||''; updProjName(); }
@@ -5965,7 +6087,7 @@ async function applyProject(p,getRaw){
   p.tracks.forEach((t,ti)=>{ t.clips=t.clips.filter(c=>{ if(bufs[c.buf]) return true; const d=(p.derived||[]).find(x=>x.id===c.buf); const src=d?d.src.id:c.buf; S._missing.push({ti,tid:t.id,c,src,name:((p.metas||{})[src]||{}).name||'קטע',why:why[c.buf]||why[src]||'לא נטען'}); return false; }); });
   setTimeout(()=>{ if(S._missing.length) showMissing(); releaseUnusedBases(); updMem(); },300);
   if(p.notes&&p.notes.trim()&&!NOTES.includes(p.notes.trim())){ NOTES=NOTES.trim()?NOTES.trim()+'\n\n— מהפרויקט —\n'+p.notes:p.notes; saveNotes(); }
-  S.tracks=p.tracks; S.tracks.forEach(t=>{ if(t.fx&&t.fx.tune) t.fx.tune.on=false; }); setTimeout(()=>{ if(S.snap){ lastSnap=S.snap; S.snap=0; try{ $('snap').value='0'; updSnapQ(); }catch(_){} } },0); S.yt=p.yt||null; S.vidfx=p.vidfx||null; S.prompt=p.prompt||''; S.bpb=p.bpb||4; snapOpts(); S.bpm=p.bpm||S.bpm; S.tmap=p.tmap||[]; S.marks=p.marks||[]; S.lyr=p.lyr||null; S.xf=p.xf; S.sheet=p.sheet||null; $('bpm').value=fmtBpm(S.bpm); S.playhead=p.playhead||0;
+  S.tracks=p.tracks; S.tracks.forEach(t=>{ if(t.fx&&t.fx.tune) t.fx.tune.on=false; }); setTimeout(()=>{ if(S.snap){ lastSnap=S.snap; S.snap=0; try{ $('snap').value='0'; updSnapQ(); }catch(_){} } },0); S.yt=p.yt||null; S.vidfx=p.vidfx||null; S.prompt=p.prompt||''; S.bpb=p.bpb||4; snapOpts(); S.bpm=p.bpm||S.bpm; S.tmap=p.tmap||[]; S.marks=p.marks||[]; S.lyr=p.lyr||null; S.angle=p.angle||null; S.xf=p.xf; S.sheet=p.sheet||null; $('bpm').value=fmtBpm(S.bpm); S.playhead=p.playhead||0;
   render(); toast(S._missing&&S._missing.length?'⚠️ הפרויקט נטען חלקית':'הפרויקט נטען ✓',2500);
 }
 /* ---------- missing clips: warn, keep, let her fix ---------- */
@@ -6000,7 +6122,7 @@ function zipMulti(files){ const parts=[], cd=[]; let off=0; const d=new Date(); 
 function unzipStore(buf){ const u=new Uint8Array(buf), v=new DataView(buf); const out={}; let p=0; while(p+30<=u.length&&v.getUint32(p,true)===0x04034b50){ const method=v.getUint16(p+8,true), sz=v.getUint32(p+18,true), nl=v.getUint16(p+26,true), xl=v.getUint16(p+28,true); const name=new TextDecoder().decode(u.subarray(p+30,p+30+nl)); const st=p+30+nl+xl; if(method!==0) throw new Error('קובץ לא נתמך'); out[name]=u.slice(st,st+sz); p=st+sz; } return out; }
 async function exportProject(){ if(!allClips().length&&!S.sheet&&!(NOTES||'').trim()){ toast('אין עדיין מה לשמור'); return; } toast('אורזת את הפרויקט…',60000);
   await saveProject(); let p=null; try{ p=await dbOp('proj','readonly',st=>st.get('current')); }catch(_){}
-  if(!p){ const derived=[], base=new Set(); allClips().forEach(x=>{ const b=bufs[x.c.buf]; if(b.src){ derived.push({id:b.id,src:b.src}); base.add(b.src.id); } else base.add(b.id); if(x.c.va&&x.c.va.orig&&bufs[x.c.va.orig]) base.add(x.c.va.orig); }); const metas={}; base.forEach(id=>{ const b=bufs[id]; const m={}; META_KEYS.forEach(k=>m[k]=b[k]); metas[id]=m; }); p={v:1,notes:NOTES||'',yt:S.yt||null,vidfx:S.vidfx||null,prompt:S.prompt||'',bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,xf:S.xf,sheet:S.sheet||null,tracks:S.tracks,derived,metas,playhead:S.playhead}; }
+  if(!p){ const derived=[], base=new Set(); allClips().forEach(x=>{ const b=bufs[x.c.buf]; if(b.src){ derived.push({id:b.id,src:b.src}); base.add(b.src.id); } else base.add(b.id); if(x.c.va&&x.c.va.orig&&bufs[x.c.va.orig]) base.add(x.c.va.orig); }); const metas={}; base.forEach(id=>{ const b=bufs[id]; const m={}; META_KEYS.forEach(k=>m[k]=b[k]); metas[id]=m; }); p={v:1,notes:NOTES||'',yt:S.yt||null,vidfx:S.vidfx||null,prompt:S.prompt||'',bpb:S.bpb,bpm:S.bpm,tmap:S.tmap||[],marks:S.marks||[],lyr:S.lyr||null,angle:S.angle||null,xf:S.xf,sheet:S.sheet||null,tracks:S.tracks,derived,metas,playhead:S.playhead}; }
   const files=[]; const audioIds=Object.keys(p.metas||{}).filter(id=>rawStore[id]);
   audioIds.forEach(id=>files.push({name:'audio/'+id,data:new Uint8Array(rawStore[id])}));
   p.notes=NOTES||''; files.unshift({name:'project.json',data:new TextEncoder().encode(JSON.stringify(p))});
@@ -6013,6 +6135,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-0358"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-0438"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
