@@ -596,6 +596,7 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="cLink" hidden></button>
       <button id="cTie" hidden></button>
       <button id="cVFade" hidden></button>
+      <button id="cCam" hidden></button>
       <button id="cLyr" title="לזהות את המילים בקטע הזה">📝 מילים לקטע הזה</button>
       <button id="cDup">⧉ שכפול</button>
       <button id="cTrans" class="gold">✨ מעבר לשיר הבא</button>
@@ -3133,7 +3134,7 @@ function barRms(buf,from,beat){ const k='_rms'; const B=buf.buffer; if(buf[k]&&b
   for(let i=st;i+bl<=L.length;i+=bl){ let s=0; for(let j=i;j<i+bl;j+=8){ const v=(L[j]+R[j])/2; s+=v*v; } out.push({t:i/sr,r:Math.sqrt(s/(bl/8))}); } const srt=out.map(o=>o.r).sort((a,b)=>a-b); const med=srt[Math.floor(srt.length*0.6)]||0; const res={beat,list:out,med}; buf[k]=res; return res; }
 function nextSongOf(a){ let best=null; allClips().forEach(x=>{ const b=bufs[x.c.buf]; if(x.c.id===a.id||!b||b.kind!=='song'||/^my_/.test(origOf(x.c))) return; if(x.c.start<=a.start+0.5) return; if(!best||x.c.start<best.c.start) best=x; }); return best; }
 function trSounds(){ const L=[{id:'',name:'— בלי —'}]; MY_SFX.filter(d=>d.mode!=='loop').forEach(d=>{ if(bufs['my_'+d.k]) L.push({id:'my_'+d.k,name:'⭐ '+d.t}); }); SFX_DEFS.forEach(d=>{ if(bufs['sfx_'+d.k]) L.push({id:'sfx_'+d.k,name:d.t}); }); Object.values(bufs).forEach(b=>{ if(b.kind==='sfx'&&!/^(sfx_|my_)/.test(b.id)&&!b.src&&!/^(key_|chd_|nt_)/.test(b.id)) L.push({id:b.id,name:'🎵 '+b.name}); }); return L; }
-const TR_DEF={up:{pre:'my_px_riser',hit:'my_px_boom',ext:''},flat:{pre:'my_swipe',hit:'my_kick2',ext:''},down:{pre:'',hit:'my_px_boom',ext:'sfx_sweepDown'}};
+const TR_DEF={up:{pre:'my_px_riser',hit:'my_px_boom',ext:''},flat:{pre:'my_swipe',hit:'my_kick2',ext:''},down:{pre:'',hit:'my_px_boom',ext:'sfx_sweepDown'},drum:{pre:'my_px_roll1',hit:'my_kick2',ext:''},fade:{pre:'',hit:'',ext:''},stop:{pre:'',hit:'my_px_boom',ext:''}};
 function trTrack(){ let t=S.tracks.find(t=>t.trans); if(!t){ t=newTrack('מעברים'); t.trans=true; } return t; }
 async function openTransition(aId){ await ensureMySfx(); await ensureSfx(); let fa=findClip(aId); if(!fa) return; let fb=nextSongOf(fa.c); if(!fb){ toast('אין שיר אחרי השיר הזה'); return; }
   const isStr=c=>/\(ישר /.test(bufs[origOf(c)].name);
@@ -3156,9 +3157,9 @@ async function openTransition(aId){ await ensureMySfx(); await ensureSfx(); let 
     S.tracks.forEach(t=>t.clips=t.clips.filter(c=>c.tr!==tag));
     if(P.match&&Math.abs(bpmB/bpmA-1)>0.002){ const ts=clipTS(b); await setClipTS(b,ts.t*bpmA/(bufs[b.buf].bpm||bpmA),ts.s,false); }
     const bb=bufs[b.buf]; const beatB=bb.beat; const T=dl(P.k);
-    a.dur=Math.min(T-a.start+(P.style==='down'?beatA:beatA*0.25), bA.buffer.duration-a.offset); a.fo=Math.min(a.dur/2,P.style==='down'?barA:beatA*0.25+0.04);
-    const d=bDown(bb,P.bAdj); d.t=Math.max(0,d.t+P.bBeat*beatB); const pre=P.style==='down'?0:0.012; const off=Math.max(0,d.t-pre); const oldStart=B0.start;
-    b.offset=off; b.start=T-(d.t-off); b.dur=bb.buffer.duration-off; b.fi=P.style==='down'?beatB:pre; const dlt=b.start-oldStart;
+    const st=P.style; a.dur=Math.min(T-a.start+(st==='down'?beatA:st==='fade'?2*barA:st==='stop'?-beatA:beatA*0.25), bA.buffer.duration-a.offset); a.fo=Math.min(a.dur/2,st==='down'?barA:st==='fade'?2*barA:st==='stop'?0.06:beatA*0.25+0.04);
+    const d=bDown(bb,P.bAdj); d.t=Math.max(0,d.t+P.bBeat*beatB); const barB=beatB*BPB(); const pre=P.style==='down'?0:P.style==='fade'?2*barB:0.012; const off=Math.max(0,d.t-pre); const oldStart=B0.start;
+    b.offset=off; b.start=T-(d.t-off); b.dur=bb.buffer.duration-off; b.fi=P.style==='down'?beatB:P.style==='fade'?Math.max(barB,d.t-off):pre; const dlt=b.start-oldStart;
     S.tracks.forEach(t=>t.clips.forEach(c=>{ if(c.id!==b.id&&c.id!==a.id&&c.start>=oldStart-0.05) c.start+=dlt; }));
     const tt=trTrack(); const put=(id,g,rv)=>{ const sb=bufs[id]; if(!sb) return; const c=mkClip(sb,0); c.start=T-(sb.snapAt||0); if(c.start<0){ c.offset=-c.start; c.dur+=c.start; c.start=0; } c.tr=tag; c.gain=g; if(rv) c.rev=rv; tt.clips.push(c); };
     { const bpmBn=bufs[b.buf].bpm||bpmB; const tb=timeToBeat(T)/BPB(); const bar=Math.round(tb); S.tmap=(S.tmap||[]).filter(x=>!(x.tr===tag)); if(Math.abs(bpmBn-bpmA)>0.3&&Math.abs(beatToTime(bar*BPB())-T)<0.06&&bar>0){ S.tmap=S.tmap.filter(x=>x.bar!==bar); S.tmap.push({bar,bpm:Math.round(bpmBn*100)/100,tr:tag}); } }
@@ -3170,6 +3171,7 @@ async function openTransition(aId){ await ensureMySfx(); await ensureSfx(); let 
   openSheet(`<div id="trBox"><h3>✨ מעבר: ${esc(bA.name)} ← ${esc(bufs[B0.buf].name)}</h3>
    <p class="hint">קצב ${fmtBpm(bpmA)} → ${fmtBpm(bpmB)} · הצעה: ${sug==='up'?'🚀 המראה':sug==='down'?'🪶 נחיתה':'➡️ חלק'}</p>
    <div class="row seg"><button data-st="up">🚀 המראה</button><button data-st="flat">➡️ חלק</button><button data-st="down">🪶 נחיתה</button></div>
+   <div class="row seg"><button data-st="drum">🥁 תופים</button><button data-st="fade">🌫 פייד</button><button data-st="stop">⏸ עצירה</button></div>
    <div class="row"><span class="hint">✂ איפה נגמר השיר:</span><b id="trCut"></b></div>
    <div class="row"><button id="trK8m">◀◀ 8</button><button id="trKm">◀ תיבה</button><button id="trKp">תיבה ▶</button><button id="trK8p">8 ▶▶</button></div>
    <div class="row"><span class="hint">▶ השיר הבא נכנס:</span><b id="trB"></b><button id="trBm">◀ תיבה</button><button id="trBp">תיבה ▶</button></div><div class="row"><span class="hint">אם השיר הבא לא נכנס על ה־1:</span><button id="trBbm">◀ פעמה</button><button id="trBbp">פעמה ▶</button><label class="hint"><input type="checkbox" id="trSkip" ${P.skip?'checked':''}> לדלג על פתיח</label></div>
@@ -3333,6 +3335,7 @@ function updPanel(){ setTimeout(updKeyTag,0);
   const f=S.sel&&findClip(S.sel); $('panelMain').hidden=!!f; $('panelClip').hidden=!f; if(!f) return;
   const c=f.c,b=bufs[c.buf];
   { const vb=$('cVa'); vb.hidden=!(b&&b.kind==='vocal'&&!b.vtype); }
+  { const cb=$('cCam'); const isV3=!!(b&&baseOf(b)&&baseOf(b).vtype); cb.hidden=!isV3; const cm=CAMS.find(x=>x[0]===(c.cam||''))||CAMS[0]; cb.textContent=cm[1]; cb.title='תנועת מצלמה: '+cm[1]+' (לחיצה מחליפה)'; cb.classList.toggle('gold',!!c.cam); }
   { const fb=$('cVFade'); const isV2=!!(b&&baseOf(b)&&baseOf(b).vtype); fb.hidden=!isV2; const on=(c.fi>0.05||c.fo>0.05); fb.textContent=on?'🌗 פייד פועל — לבטל':'🌗 פייד כניסה ויציאה'; fb.classList.toggle('gold',on); fb.title=on?'פייד פועל — לבטל':'פייד כניסה ויציאה לוידאו'; }
   { const tb=$('cTie'); const isV=!!(b&&baseOf(b)&&baseOf(b).vtype); tb.hidden=!(c.tie||isV); tb.textContent=c.tie?'📎 זזים יחד — לנתק':'📎 להזיז יחד עם השירה והמילים'; tb.classList.toggle('gold',!!c.tie); }
   { const lb=$('cLink'); lb.hidden=!(c.link||c.unl); lb.textContent=c.link?'🔗 מחובר לוידאו — לנתק':'⛓ לחבר שוב לוידאו'; lb.classList.toggle('gold',!!c.link); }
@@ -3369,6 +3372,7 @@ $('cCopy').onclick=()=>{ const f=findClip(S.sel); if(!f) return; clipboard={len:
 $('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם ⧉ העתקה של קטע'); return; } pushHist(); const n=pasteAt(snapTime(S.playhead)); render(); toast(n?'הודבק בסמן ✓':'לא הודבק'); };
 $('cLink').onclick=()=>linkToggle();
 $('cTie').onclick=()=>tieToggle();
+$('cCam').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const i=CAMS.findIndex(x=>x[0]===(c.cam||'')); const nx=CAMS[(i+1)%CAMS.length]; c.cam=nx[0]||undefined; if(!c.cam) delete c.cam; render(); toast(nx[1]+(c.cam?' — על כל הקטע הזה (גם בייצוא). לחיצה נוספת מחליפה':''),3000); };
 $('cVFade').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const on=(c.fi>0.05||c.fo>0.05); const d=on?0:Math.min(1,c.dur/4); c.fi=d; c.fo=d; render(); toast(on?'פייד בוטל':'🌗 פייד של שנייה בהתחלה ובסוף — אפשר לכוון ב־⋯ עוד (פייד ↗ ↘)',3500); };
 $('cLyr').onclick=()=>{ if(!S.lyr){ pushHist(); S.lyr=lyrDef(); } lyrAutoSheet(); };
 $('cVa').onclick=()=>vaOpen();
@@ -5643,8 +5647,13 @@ async function vfxPrep(v){ const M=S.vidfx&&S.vidfx.mk; if(!(mkOn(M)||faceOn(S.v
 function faceOn(F){ return !!F&&F.faceOnly!==false&&((F.beauty||0)>0||(F.glow||0)>0); }
 function mkOn(M){ return M&&((M.lip||0)>0||(M.blush||0)>0||(M.eyes||0)>0); }
 function drawFit(g,v,W,H,t,exp){ drawFit0(g,v,W,H,t,exp); try{ drawLyrics(g,W,H,t); }catch(e){ window.__lyrErr=e&&e.message; } }
+const CAMS=[['','🎥 בלי תנועה'],['in','🔍 זום איטי פנימה'],['out','🔭 זום איטי החוצה'],['drift','↔️ תנועה לצד'],['breath','🌬 נשימה עדינה']];
+function camAt(t,W,H,v){ const a=videoAt(t); if(!a||!a.c.cam) return null; const c=a.c; const p=Math.max(0,Math.min(1,(t-c.start)/Math.max(0.1,c.dur))); const e=p*p*(3-2*p); const A=c.camA||0.14;
+  let fx=W/2, fy=H*0.42; try{ const Lm=FM.sm||FM.lm; if(Lm&&Lm.length>=468&&v&&v.videoWidth){ const r=Math.min(W/v.videoWidth,H/v.videoHeight), w=v.videoWidth*r, h=v.videoHeight*r; fx=(W-w)/2+((Lm[234].x+Lm[454].x)/2)*w; fy=(H-h)/2+((Lm[10].y+Lm[152].y)/2)*h; } }catch(_){}
+  let z=1; if(c.cam==='in') z=1+A*e; else if(c.cam==='out') z=1+A*(1-e); else if(c.cam==='drift'){ z=1+A*0.7; fx=W*(0.3+0.4*e); } else if(c.cam==='breath') z=1+A*0.35*(0.5+0.5*Math.sin((t-c.start)*Math.PI*2/7));
+  return {z,fx,fy}; }
 function vFadeAt(t){ if(t==null) t=S.playhead; const a=videoAt(t); if(!a) return 1; const c=a.c; let k=1; if(c.fi>0.01) k=Math.min(k,(t-c.start)/c.fi); if(c.fo>0.01) k=Math.min(k,(c.start+c.dur-t)/c.fo); return Math.max(0,Math.min(1,k)); }
-function drawFit0(g,v,W,H,t,exp){ drawFit1(g,v,W,H,t,exp); if(v){ const k=vFadeAt(t); if(k<1){ g.save(); g.globalAlpha=1-k*k*(3-2*k); g.fillStyle='#000'; g.fillRect(0,0,W,H); g.restore(); } } }
+function drawFit0(g,v,W,H,t,exp){ const cm=v?camAt(t==null?S.playhead:t,W,H,v):null; if(cm&&cm.z>1.0005){ g.save(); g.translate(cm.fx,cm.fy); g.scale(cm.z,cm.z); g.translate(-cm.fx,-cm.fy); drawFit1(g,v,W,H,t,exp); g.restore(); } else drawFit1(g,v,W,H,t,exp); if(v){ const k=vFadeAt(t); if(k<1){ g.save(); g.globalAlpha=1-k*k*(3-2*k); g.fillStyle='#000'; g.fillRect(0,0,W,H); g.restore(); } } }
 function drawFit1(g,v,W,H,t,exp){ try{ drawFitFx(g,v,W,H,t,exp); window.__vfxErr=null; }catch(e){ window.__vfxErr=(e&&e.message)||String(e); try{ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(v&&v.videoWidth){ const r=Math.min(W/v.videoWidth,H/v.videoHeight); g.drawImage(v,(W-v.videoWidth*r)/2,(H-v.videoHeight*r)/2,v.videoWidth*r,v.videoHeight*r); } }catch(_){} } }
 function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!v||!v.videoWidth) return; const F=S.vidfx; const r=Math.min(W/v.videoWidth,H/v.videoHeight); let w=v.videoWidth*r, h=v.videoHeight*r;
   if(!F){ try{ g.drawImage(v,(W-w)/2,(H-h)/2,w,h); }catch(_){} return; }
@@ -6004,6 +6013,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-0009"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-0358"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
