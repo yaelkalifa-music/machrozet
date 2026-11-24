@@ -168,6 +168,7 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .knwc .knwl{min-width:26px;text-align:center;font-weight:700;color:var(--gold);font-size:15px}
 #camPrev{position:fixed;left:50%;top:58px;height:min(64vh,calc(100vh - 150px));width:auto;max-width:92vw;transform:translateX(-50%) scaleX(-1);border-radius:16px;border:3px solid #ff4d6d;z-index:70;background:#000;box-shadow:0 8px 30px #000c;touch-action:none}
 #camPrev[hidden]{display:none}
+body.camBack #camPrev,body.camBack #camSrc.camShow{transform:translateX(-50%)}body.camBack #camPrev.small,body.camBack #camSrc.camShow.small{transform:none}
  #prompter{position:fixed;left:0;right:0;top:0;height:42vh;z-index:80;background:transparent;display:flex;flex-direction:column;color:#fff;pointer-events:none}#prompter .prView,#prompter .prBar{pointer-events:auto}
 #prompter[hidden]{display:none}#prompter .prView{flex:1;overflow:hidden;position:relative;touch-action:none;padding:0 16px}
 #prompter .prText{white-space:pre-wrap;text-align:center;direction:rtl;font-weight:800;line-height:1.45;padding-top:9vh;padding-bottom:30vh;color:#fff;opacity:.92;text-shadow:0 0 3px #000,0 0 3px #000,0 2px 8px #000c;-webkit-text-stroke:.6px #0008;will-change:transform}
@@ -4562,8 +4563,9 @@ let rec=null;
 (function(){ const pop=document.createElement('div'); pop.id='recPop'; pop.hidden=true; const LS=k=>{ try{ return localStorage.getItem('machrozet_rc_'+k); }catch(_){ return null; } };
   const ck=(id,lb,def)=>{ const v=LS(id); const on=v==null?def:v==='1'; return `<label><input type="checkbox" id="${id}" ${on?'checked':''}> ${lb}</label>`; };
   pop.innerHTML=`<div class="rpTop"><button class="pri" id="rcGo">🔴 הקלטה</button><div class="meter"><div id="rcLvl"></div></div><button id="rcOpt" title="אפשרויות">⚙</button><button id="rcClose" title="סגירה">✕</button></div>
-    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcVid','🎥 לצלם גם וידאו (לאורך, בלי זום)',false)}<label style="display:flex;gap:6px;align-items:center">🎙 מיקרופון: <select id="rcMic" style="flex:1;min-width:0"><option value="">📱 ברירת מחדל של הטלפון</option></select></label>${ck('rcHQ','💎 איכות הכי גבוהה שהמצלמה נותנת (עד 4K · 60 תמונות בשנייה)',true)}${ck('rcPrompt','📜 פרומפטר — המילים גוללות לאט בזמן ההקלטה',false)}<div class="row" style="margin:2px 0 6px"><button type="button" id="rcPrEdit">📜 לפתוח את הפרומפטר (לכתוב ולנסות)</button></div>${ck('rcCount','ספירה של תיבה לפני',true)}${ck('rcClean','🧹 לנקות אוטומטית מוזיקה שנכנסה למיקרופון (בלי אוזניות)',false)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
+    <div id="rcOpts" hidden>${ck('rcMon','לשמוע את עצמי',false)}${ck('rcRev','עם ריוורב',true)}${ck('rcVid','🎥 לצלם גם וידאו (לאורך, בלי זום)',false)}<div class="row" id="rcFace" style="align-items:center;gap:6px;margin:2px 0 6px"><span>📷 מצלמה:</span><button type="button" data-face="user">🤳 קדמית (סלפי)</button><button type="button" data-face="environment">📷 אחורית</button></div><label style="display:flex;gap:6px;align-items:center">🎙 מיקרופון: <select id="rcMic" style="flex:1;min-width:0"><option value="">📱 ברירת מחדל של הטלפון</option></select></label>${ck('rcHQ','💎 איכות הכי גבוהה שהמצלמה נותנת (עד 4K · 60 תמונות בשנייה)',true)}${ck('rcPrompt','📜 פרומפטר — המילים גוללות לאט בזמן ההקלטה',false)}<div class="row" style="margin:2px 0 6px"><button type="button" id="rcPrEdit">📜 לפתוח את הפרומפטר (לכתוב ולנסות)</button></div>${ck('rcCount','ספירה של תיבה לפני',true)}${ck('rcClean','🧹 לנקות אוטומטית מוזיקה שנכנסה למיקרופון (בלי אוזניות)',false)}<label id="rcPunchL"><input type="checkbox" id="rcPunch" checked> רק באזור המסומן</label><p class="hint">הקלטה חדשה נכנסת מעל הקודמת — שומעים רק את העליונה.</p></div><p id="rcMsg"></p>`;
   document.body.appendChild(pop);
+  { const mk=()=>pop.querySelectorAll('[data-face]').forEach(b=>b.classList.toggle('gold',b.dataset.face===camFace())); mk(); pop.querySelectorAll('[data-face]').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('machrozet_face',b.dataset.face); }catch(_){} mk(); toast(b.dataset.face==='user'?'🤳 מצלמה קדמית':'📷 מצלמה אחורית — מצלמים מישהו אחר / את הבמה',2200); }); }
   pop.querySelectorAll('#rcOpts input').forEach(i=>i.onchange=()=>{ try{ localStorage.setItem('machrozet_rc_'+i.id,i.checked?'1':'0'); }catch(_){} });
   $('rcOpt').onclick=()=>{ $('rcOpts').hidden=!$('rcOpts').hidden; if(!$('rcOpts').hidden) micFill($('rcMic')); };
   { const ms=$('rcMic'); if(ms) ms.onchange=()=>micPick(ms.value); }
@@ -4778,12 +4780,13 @@ function lyrBase(c){ return typeof c==='string'&&c.startsWith('g:')?(LYR_GRAD[c.
 const lyrHeb=s=>/[֐-׿]/.test(s);
 function lyrWrap(g,text,maxW){ const words=String(text).split(/\s+/).filter(Boolean); const rows=[]; let cur=''; for(const w of words){ const tr=cur?cur+' '+w:w; if(g.measureText(tr).width>maxW&&cur){ rows.push(cur); cur=w; } else cur=tr; } if(cur) rows.push(cur); return rows.length?rows:['']; }
 const easeOut=x=>1-Math.pow(1-x,3), backOut=x=>{ const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2); };
-let LYR_DEMO=null;
+let LYR_DEMO=null, LYR_DRAG=null;
 function drawLyrics(g,W,H,t){ const L=S.lyr; if(!L||L.hide) return; if(t==null) t=S.playhead;
   if(L._v===2){ if(L.font==='Fredoka'&&L.anim==='dream'&&L.fx==='soft'){ L.font='Heebo'; L.anim='fade'; L.fx='shadow'; } delete L._v; }
   let act=(L.lines||[]).filter(l=>t>=l.t&&t<l.t+l.d);
+  if(LYR_DRAG&&!act.length) act=[{t:t-1,d:1e6,text:LYR_DRAG}];
   if(!act.length&&LYR_DEMO){ const p=(performance.now()/1000)%3.2; act=[{t:t-p,d:2.8,text:LYR_DEMO}]; if(p>2.8) act=[]; }
-  act.slice(-2).forEach((l,k,arr)=>lyrPaint(g,W,H,t,l,L,arr.length>1?(k===0?-1:0):0)); }
+  g.canvas.__lyrBox=null; act.slice(-2).forEach((l,k,arr)=>lyrPaint(g,W,H,t,l,L,arr.length>1?(k===0?-1:0):0)); }
 function lyrPaint(g,W,H,t,l,L,stackUp){
   const a=t-l.t, b=l.t+l.d-t; const fs=Math.round(Math.min(W,H)*0.11*(L.size||1)); const fam=`"L-${L.font||'Heebo'}", Heebo, system-ui, sans-serif`;
   g.save(); g.font=`${fs}px ${fam}`; const rtl=lyrHeb(l.text); try{ g.direction=rtl?'rtl':'ltr'; }catch(_){} g.textAlign='center'; g.textBaseline='middle';
@@ -4794,7 +4797,8 @@ function lyrPaint(g,W,H,t,l,L,stackUp){
   const full=rows.join(' '); let showChars=full.length, showWords=1e9;
   if(an==='type'){ const dur=Math.min(l.d*0.7,full.length*0.055); showChars=Math.floor(full.length*Math.min(1,a/Math.max(0.05,dur)))+1; }
   if(an==='word'){ const nw=full.split(/\s+/).length; const dur=Math.min(l.d*0.75,nw*0.35); showWords=Math.floor(nw*Math.min(1,a/Math.max(0.05,dur)))+1; }
-  g.globalAlpha=alpha; const cx=W/2;
+  g.globalAlpha=alpha; const _mw=Math.max(1,...rows.map(r=>g.measureText(r).width)); const cx=Math.max(_mw/2+4,Math.min(W-_mw/2-4,(L.x==null?0.5:L.x)*W));
+  { const bx={x0:cx-_mw/2,x1:cx+_mw/2,y0:cy-lh/2,y1:cy+(rows.length-0.5)*lh,W,H}; const o=g.canvas.__lyrBox; g.canvas.__lyrBox=o?{x0:Math.min(o.x0,bx.x0),x1:Math.max(o.x1,bx.x1),y0:Math.min(o.y0,bx.y0),y1:Math.max(o.y1,bx.y1),W,H}:bx; }
   if(sc!==1){ g.translate(cx,cy+(rows.length-1)*lh/2); g.scale(sc,sc); g.translate(-cx,-(cy+(rows.length-1)*lh/2)); }
   const widths=rows.map(r=>g.measureText(r).width); const mw=Math.max(...widths);
   if(L.fx==='box'||L.fx==='boxw'){ const pad=fs*0.35; g.fillStyle=L.fx==='box'?'rgba(0,0,0,.55)':'rgba(255,255,255,.82)'; const x0=cx-mw/2-pad, y0=cy-lh/2-pad*0.5+dy, w=mw+pad*2, h=rows.length*lh+pad; const r=Math.min(fs*0.35,h/2); g.beginPath(); if(g.roundRect) g.roundRect(x0,y0,w,h,r); else g.rect(x0,y0,w,h); g.fill(); }
@@ -4968,16 +4972,17 @@ function lyrStyleSheet(){ const L=S.lyr; const cur=L.lines.find(l=>S.playhead>=l
   <h4 style="margin:8px 0 4px">✨ אפקט</h4><div class="row lyopt" style="flex-wrap:wrap;gap:6px">${LYR_FX.map(([k,n])=>`<button data-x="${k}">${n}</button>`).join('')}</div>
   <h4 style="margin:8px 0 4px">🎬 איך המילים נכנסות</h4><div class="row lyopt" style="flex-wrap:wrap;gap:6px">${LYR_ANIM.map(([k,n])=>`<button data-a="${k}">${n}</button>`).join('')}</div>
   <div id="lyK" ${L.anim==='karaoke'?'':'hidden'}><h4 style="margin:8px 0 4px">🎤 צבע הקריוקי</h4><div class="row lyopt" style="flex-wrap:wrap;gap:6px">${LYR_COLORS.filter(c=>c!=='#111111').map(c=>`<button data-k="${c}" class="lysw" style="background:${sw(c)}"></button>`).join('')}</div></div>
-  <label class="hint" style="display:block;margin-top:8px">🔠 גודל <input type="range" id="lySz" min="0.5" max="2" step="0.05" value="${L.size||1}" style="width:100%"></label>
+  <p class="hint" style="margin:6px 0 0">✋ אפשר גם לגרור את המילים באצבע על התמונה, ולצבוט בשתי אצבעות כדי להגדיל / להקטין <button type="button" id="lyCen" style="padding:2px 8px">↺ למרכז</button></p>
+  <label class="hint" style="display:block;margin-top:8px">🔠 גודל <input type="range" id="lySz" min="0.35" max="2.6" step="0.05" value="${L.size||1}" style="width:100%"></label>
   <label class="hint" style="display:block">↕️ גובה על המסך (למעלה ⟵ ⟶ למטה) <input type="range" id="lyY" min="0.06" max="0.94" step="0.01" value="${L.y==null?0.8:L.y}" style="width:100%"></label>
   <div class="row" style="margin-top:10px"><button class="pri" id="lyOk">✓ סיום</button></div>`,()=>{
     const before=snapState(); let changed=false; const ch=()=>{ if(!changed){ pushHist(before); changed=true; } else { S._dirty=true; updDirty(); scheduleSave(); } };
     const mark=()=>{ document.querySelectorAll('.lyopt button').forEach(b=>{ const on=(b.dataset.f&&b.dataset.f===L.font)||(b.dataset.c&&b.dataset.c===L.color)||(b.dataset.x&&b.dataset.x===(L.fx||'shadow'))||(b.dataset.a&&b.dataset.a===(L.anim||'fade'))||(b.dataset.k&&b.dataset.k===L.kc); b.classList.toggle('on',!!on); }); $('lyK').hidden=L.anim!=='karaoke'; };
     mark(); lyrReady();
     document.querySelectorAll('.lyopt button').forEach(b=>b.onclick=()=>{ ch(); if(b.dataset.f){ L.font=b.dataset.f; lyrReady(); } if(b.dataset.c) L.color=b.dataset.c; if(b.dataset.x) L.fx=b.dataset.x; if(b.dataset.a) L.anim=b.dataset.a; if(b.dataset.k) L.kc=b.dataset.k; mark(); });
-    $('lySz').oninput=e=>{ ch(); L.size=+e.target.value; }; $('lyY').oninput=e=>{ ch(); L.y=+e.target.value; };
+    $('lySz').oninput=e=>{ ch(); L.size=+e.target.value; }; $('lyCen').onclick=()=>{ ch(); L.x=0.5; L.y=0.8; L.size=1; $('lySz').value=1; $('lyY').value=0.8; }; $('lyY').oninput=e=>{ ch(); L.y=+e.target.value; };
     $('lyOk').onclick=()=>{ LYR_DEMO=null; closeSheet(); render(); };
-    const pc=$('lyPrev'), pg=pc.getContext('2d'); const t0=performance.now();
+    const pc=$('lyPrev'), pg=pc.getContext('2d'); lyrGest(pc); const t0=performance.now();
     const loop=()=>{ if(!document.body.contains(pc)||$('sheet').hidden){ LYR_DEMO=null; return; } requestAnimationFrame(loop);
       let a=videoAt(S.playhead); if(!a){ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); if(vc) a=videoAt(vc.c.start+0.1); } const v=a&&VPOOL[a.key];
       if(v&&v.videoWidth){ const k=Math.min(640/v.videoWidth,640/v.videoHeight); const nw=Math.round(v.videoWidth*k), nh=Math.round(v.videoHeight*k); if(pc.width!==nw||pc.height!==nh){ pc.width=nw; pc.height=nh; } }
@@ -5092,6 +5097,26 @@ async function lyrAuto(tid,rows,pr,only){ const t=S.tracks.find(x=>x.id===tid); 
   if(!lines.length) throw new Error('לא הצלחתי לזהות מילים — אפשר להדביק את הטקסט ואני אשבץ אותו');
   pushHist(); const vc=cl.find(c=>bufs[c.buf].kind==='vocal')||cl[0];
   if(only&&S.lyr&&S.lyr.lines.length){ const keep=S.lyr.lines.filter(l=>l.t+l.d<=from+0.05||l.t>=to-0.05); S.lyr.lines=keep.concat(lines).sort((a,b)=>a.t-b.t); } else S.lyr=Object.assign(lyrDef(),S.lyr||{},{lines,clip:vc.id,at:vc.start}); LYS.clear(); lyrSelId=null; lyrBar(); }
+
+/* ===== move / resize the lyrics with fingers on the video ===== */
+function lyrGest(cv){ if(!cv||cv._lyrG) return; cv._lyrG=1; cv.style.touchAction='none';
+  const P=new Map(); let st=null, hinted=false;
+  const pos=e=>{ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)/r.width*cv.width, y:(e.clientY-r.top)/r.height*cv.height, cx:e.clientX, cy:e.clientY}; };
+  const sync=()=>{ const sz=document.getElementById('lySz'), yy=document.getElementById('lyY'); if(sz) sz.value=S.lyr.size||1; if(yy) yy.value=S.lyr.y==null?0.8:S.lyr.y; };
+  const begin=()=>{ const L=S.lyr; const arr=[...P.values()]; const W=cv.width, H=cv.height;
+    if(arr.length>=2){ const a=arr[0], b=arr[1]; st={pinch:true, d0:Math.hypot(a.cx-b.cx,a.cy-b.cy)||1, s0:L.size||1, mx:(a.x+b.x)/2, my:(a.y+b.y)/2, x0:L.x==null?0.5:L.x, y0:L.y==null?0.8:L.y, hist:st&&st.hist}; }
+    else { const a=arr[0]; st={pinch:false, px:a.x, py:a.y, x0:L.x==null?0.5:L.x, y0:L.y==null?0.8:L.y, hist:st&&st.hist}; } };
+  cv.addEventListener('pointerdown',e=>{ const L=S.lyr; if(!L||L.hide||!(L.lines&&L.lines.length)) return; const p=pos(e);
+    if(!P.size){ const B=cv.__lyrBox; if(B){ const pad=Math.max(24*(cv.width/Math.max(1,cv.getBoundingClientRect().width)),(B.y1-B.y0)*0.4); if(p.x<B.x0-pad||p.x>B.x1+pad||p.y<B.y0-pad||p.y>B.y1+pad) return; }
+      else { const near=L.lines.reduce((a,l)=>Math.abs(l.t-S.playhead)<Math.abs(a.t-S.playhead)?l:a,L.lines[0]); LYR_DRAG=near.text; } }
+    e.preventDefault(); e.stopPropagation(); try{ cv.setPointerCapture(e.pointerId); }catch(_){} P.set(e.pointerId,p); const h=st&&st.hist; begin(); if(!h){ pushHist(); st.hist=true; } else st.hist=true; });
+  cv.addEventListener('pointermove',e=>{ if(!P.has(e.pointerId)||!st) return; e.preventDefault(); P.set(e.pointerId,pos(e)); const L=S.lyr; const W=cv.width, H=cv.height; const arr=[...P.values()];
+    if(st.pinch&&arr.length>=2){ const a=arr[0], b=arr[1]; const d=Math.hypot(a.cx-b.cx,a.cy-b.cy); L.size=Math.max(0.35,Math.min(2.6,st.s0*d/st.d0)); const mx=(a.x+b.x)/2, my=(a.y+b.y)/2; L.x=Math.max(0.05,Math.min(0.95,st.x0+(mx-st.mx)/W)); L.y=Math.max(0.05,Math.min(0.95,st.y0+(my-st.my)/H)); }
+    else if(!st.pinch){ const a=arr[0]; let x=st.x0+(a.x-st.px)/W, y=st.y0+(a.y-st.py)/H; if(Math.abs(x-0.5)<0.025) x=0.5; L.x=Math.max(0.05,Math.min(0.95,x)); L.y=Math.max(0.05,Math.min(0.95,y)); }
+    sync(); });
+  const up=e=>{ if(!P.has(e.pointerId)) return; P.delete(e.pointerId); if(P.size){ begin(); return; } st=null; LYR_DRAG=null; S._dirty=true; try{ updDirty(); scheduleSave(); }catch(_){}
+    if(!hinted){ hinted=true; try{ if(!localStorage.getItem('machrozet_lyrg')){ localStorage.setItem('machrozet_lyrg','1'); toast('✋ גוררים את המילים באצבע · שתי אצבעות = להגדיל / להקטין',3500); } }catch(_){} } };
+  cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up); }
 
 /* ===== extras: mic picker, chord detection, quick mix, my sound library, multi-angle video, share project ===== */
 
@@ -5516,10 +5541,11 @@ async function cleanClip(c,auto){ if(IN_ART||!window.__HOSTED){ toast('הניק�
   finally{ cleaning=false; } }
 
 /* ---------- 🎥 film while recording (portrait, no zoom) ---------- */
-async function camOpen(hq){ let st=null; const base={facingMode:'user',frameRate:{ideal:hq?60:30}};
+function camFace(){ try{ return localStorage.getItem('machrozet_face')==='environment'?'environment':'user'; }catch(_){ return 'user'; } }
+async function camOpen(hq){ let st=null; const face=camFace(); document.body.classList.toggle('camBack',face==='environment'); const base={facingMode:face,frameRate:{ideal:hq?60:30}};
   const tries=hq?[{width:{ideal:3840},height:{ideal:2160}},{width:{ideal:1920},height:{ideal:1080}}]:[];
   for(const v of [...tries,{width:{ideal:1920},height:{ideal:1080},aspectRatio:{ideal:16/9},resizeMode:'none'},{width:{ideal:1920},height:{ideal:1080}},{}]){ try{ st=await navigator.mediaDevices.getUserMedia({audio:false,video:Object.assign({},base,v)}); break; }catch(_){} }
-  if(!st) st=await navigator.mediaDevices.getUserMedia({audio:false,video:true});
+  if(!st) st=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:face}}).catch(()=>navigator.mediaDevices.getUserMedia({audio:false,video:true}));
   const tr=st.getVideoTracks()[0]; try{ const cap=tr.getCapabilities?tr.getCapabilities():{}; if(cap.zoom) await tr.applyConstraints({advanced:[{zoom:cap.zoom.min}]}); }catch(_){}
   if(hq){ try{ const cap=tr.getCapabilities?tr.getCapabilities():{}; const c={}; if(cap.width&&cap.width.max) c.width={ideal:Math.min(cap.width.max,3840)}; if(cap.height&&cap.height.max) c.height={ideal:Math.min(cap.height.max,3840)}; if(cap.frameRate&&cap.frameRate.max) c.frameRate={ideal:Math.min(60,cap.frameRate.max)}; await tr.applyConstraints(c); }catch(_){}
     try{ const ss=tr.getSettings(); if(!(ss.frameRate>=24)) await tr.applyConstraints({frameRate:{ideal:60}}); }catch(_){} }
@@ -6022,7 +6048,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     refresh(); }); }
 // floating preview
 (function(){ const box=document.createElement('div'); box.id='vidBox'; box.innerHTML='<div class="vbar"><span>🎬 וידאו · לגרור מכאן</span><button id="vFx" title="אפקטים לוידאו">✨</button><button id="vBig" title="גדול/קטן">⤢</button><button id="vClose" title="סגירה">✕</button></div><canvas id="vCan" width="640" height="360"></canvas><div class="vtl" data-notr><div class="vtr"><button id="vtB5" title="5 שניות אחורה">«5</button><button id="vtB1" title="שנייה אחורה">‹1</button><button id="vtPl" title="ניגון/עצירה">▶</button><button id="vtF1" title="שנייה קדימה">1›</button><button id="vtF5" title="5 שניות קדימה">5»</button><span class="vtt" id="vtTime">0:00</span></div><canvas id="vScrub" width="600" height="60"></canvas></div><div class="vrs l" title="גרירה להגדלה/הקטנה">⤡</div><div class="vrs r" title="גרירה להגדלה/הקטנה">⤢</div>'; document.body.appendChild(box);
-  const cv=box.querySelector('canvas'), g=cv.getContext('2d'); let shown=false, userClosed=false, cur=null;
+  const cv=box.querySelector('canvas'), g=cv.getContext('2d'); try{ lyrGest(cv); }catch(_){} let shown=false, userClosed=false, cur=null;
   $('vClose').onclick=()=>{ userClosed=true; box.style.display='none'; shown=false; };
   const setW=w=>{ w=clamp(Math.round(w),150,Math.min(innerWidth-8,900)); box.style.width=w+'px'; box.classList.remove('big'); try{ localStorage.setItem('machrozet_vw',w); }catch(_){} };
   try{ const sw=+localStorage.getItem('machrozet_vw'); if(sw) box.style.width=clamp(sw,150,innerWidth-8)+'px'; }catch(_){}
@@ -6301,6 +6327,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1124-1218"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1124-1227"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
