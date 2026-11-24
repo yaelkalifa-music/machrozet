@@ -562,7 +562,8 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <button id="ytHome" title="חיפוש שיר ביוטיוב">▶️ יוטיוב</button>
       <button id="noteHome" title="פתק להערות וקישורים">🗒️ פתק</button>
       <button class="gold" id="openSfx">✨ צלילים ואפקטים</button>
-      <button id="addVocal">🎤 שירה</button>
+      <button id="addVocal" style="display:none">🎤 שירה</button>
+      <button id="medBtn" class="gold" data-keep-text>🎼 עריכת מחרוזת</button>
       <button id="multiOn">☑ בחירה מרובה</button>
       <button id="perfOn" class="gold">🎤 מצב הופעה</button>
       <button id="allTools">🎛 כל המחרוזת</button>
@@ -3851,7 +3852,7 @@ document.addEventListener('selectstart',e=>{ if(!e.target.closest||!e.target.clo
 const fileIn=$('file');
 const pick=()=>{ importAs=null; ac(); fileIn.value=''; fileIn.click(); };
 $('addSongs').onclick=pick; $('ytHome').onclick=()=>ytSearch(); $('noteHome').onclick=()=>openNotes();
-$('addVocal').onclick=()=>{ importAs='vocal'; ac(); fileIn.value=''; fileIn.click(); }; $('emptyAdd').onclick=pick;
+$('medBtn').onclick=()=>openMedley(); $('addVocal').onclick=()=>{ importAs='vocal'; ac(); fileIn.value=''; fileIn.click(); }; $('emptyAdd').onclick=pick;
 fileIn.onchange=()=>importFiles([...fileIn.files]);
 scroller.addEventListener('dragover',e=>e.preventDefault());
 scroller.addEventListener('drop',e=>{ e.preventDefault(); importFiles([...e.dataTransfer.files].filter(f=>/audio|\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(f.type+' '+f.name))); });
@@ -4055,14 +4056,14 @@ window.addEventListener('keydown',e=>{ if(!(e.ctrlKey||e.metaKey)) return; const
   const tag=$('projNameTag'); if(tag){ brand.appendChild(tag); tag.style.cursor='pointer'; tag.title='📁 הפרויקטים שלי'; tag.onclick=()=>openMyProjects(); }
   { const mp=document.createElement('button'); mp.id='hdrProj'; mp.textContent='📁'; mp.title='📁 הפרויקטים שלי — לפתוח / חדש / למחוק / גיבוי'; mp.onclick=()=>openMyProjects(); const qs=$('quickSave'); if(qs&&qs.parentNode===hdr) hdr.insertBefore(mp,qs.nextSibling); else hdr.insertBefore(mp,gear);
     const nw=document.createElement('button'); nw.id='hdrNew'; nw.textContent='➕'; nw.title='➕ פרויקט חדש'; nw.onclick=()=>$('newProj').click(); hdr.insertBefore(nw,mp.nextSibling); }
-  ['saveProj','openProj','newProj','shareProj','addTrack','myProj'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
+  ['saveProj','openProj','newProj','shareProj','addTrack','myProj','addVocal','allTools','openSfx'].forEach(id=>{ const e=$(id); if(e) e.style.display='none'; });
   { const rt=$('recTop'); if(rt) rt.style.display='none'; }
   // key tag into transport
   const kt=$('keyTag'); if(kt){ $('transport').insertBefore(kt,$('transport').querySelector('.sp')); }
   // bottom: main row = most used, the rest behind ☰
   const pm=$('panelMain'); const row=pm.querySelector('.row'); const hint=pm.querySelector('.row.hint');
   const extra=document.createElement('div'); extra.className='row'; extra.id='pmMore'; extra.hidden=true;
-  const keep=['addSongs','openPlay','recBtn'];
+  const keep=['addSongs','medBtn','openPlay','recBtn'];
   [...row.children].forEach(el=>{ if(!keep.includes(el.id)) extra.appendChild(el); });
   keep.forEach(id=>row.appendChild($(id)));
   const mb=document.createElement('button'); mb.id='pmMoreBtn'; mb.textContent='☰ עוד'; row.appendChild(mb);
@@ -5388,6 +5389,27 @@ async function openPitchScore(){ const f=S.sel&&findClip(S.sel); if(!f){ toast('
   if(rows){ out.insertAdjacentHTML('beforeend',`<h4 style="margin:12px 0 4px">${L.length?'לפי שורות המילים':'מקומות לחזק'}</h4><div>${rows}</div><p class="hint">לחיצה על שורה קופצת לשם.</p>`); out.querySelectorAll('[data-ps]').forEach(d=>d.onclick=()=>{ closeSheet(); seek(Math.max(0,+d.dataset.ps-0.5)); }); }
   else out.insertAdjacentHTML('beforeend','<p>לא נמצאו מקומות בעייתיים 👏</p>'); }
 
+/* ===== 🎼 medley editing hub ===== */
+function medSongs(){ return allClips().filter(x=>{ const b=bufs[x.c.buf]; return b&&b.kind==='song'&&!/^(sfx_|my_)/.test(origOf(x.c))&&x.c.dur>3; }).sort((a,b)=>a.c.start-b.c.start); }
+function medHear(t){ closeSheet(); stopPlay&&S.playing&&stopPlay(); S.playhead=Math.max(0,t); placePlayhead(); startPlay(); }
+function openMedley(){ const L=medSongs(); const nm=x=>esc((bufs[x.c.buf].name||x.c.name||'שיר').replace(/\.[a-z0-9]+$/i,'')); let j='';
+  L.forEach((x,i)=>{ j+=`<div style="background:#2a1f36;border:1px solid #5a4470;border-radius:12px;padding:8px 10px;margin:6px 0"><b>${i+1}. ${nm(x)}</b> <span class="hint">${fmtTime(x.c.start).replace(/\.\d+$/,'')} ${bufs[x.c.buf].bpm?'· קצב '+fmtBpm(bufs[x.c.buf].bpm):''}</span>
+      <div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap"><button data-mo="${x.c.id}">✏️ לערוך את השיר</button><button data-mh="${x.c.start}">▶ לשמוע</button></div></div>`;
+    const n=L[i+1]; if(n){ const jt=n.c.start; j+=`<div style="border:2px dashed #f2b84b;border-radius:12px;padding:8px 10px;margin:4px 0 4px 0;background:#2b2412"><b>🔀 המעבר בין ${i+1} ל־${i+2}</b>
+      <div class="row" style="margin-top:6px;gap:6px;flex-wrap:wrap"><button class="gold" data-mc="${n.c.id}">🔗 לחבר בקצב</button><button data-mt="${x.c.id}">✨ מעבר (תופים / פייד / עצירה)</button><button data-ms="${jt}">🔔 צליל / אפקט במעבר</button><button data-mh="${Math.max(0,jt-5)}">▶ לשמוע את המעבר</button></div></div>`; } });
+  openSheet(`<h3>🎼 עריכת מחרוזת</h3><p class="hint">כאן עורכים את כל המחרוזת: השירים לפי הסדר, ובין כל שניים — המעבר.</p>
+  <div class="row" style="gap:6px;flex-wrap:wrap"><button class="pri" id="mdAdd">+ להוסיף שיר</button><button id="mdSfx">🔔 צלילים ואפקטים</button><button id="mdAll">🎛 כל המחרוזת: סולם, יישור ביט, עוצמה</button></div>
+  ${L.length?(L.length<2?'<p class="hint" style="margin-top:10px">יש שיר אחד. מוסיפים עוד שיר — והוא נכנס אחריו — ואז יופיע כאן המעבר ביניהם.</p>':'')+'<div style="margin-top:10px">'+j+'</div>':'<p style="margin-top:10px">עוד אין שירים. לוחצים <b>+ להוסיף שיר</b> ובוחרים שירים (אפשר כמה ביחד).</p>'}
+  <p class="hint" style="margin-top:8px">💡 טיפ: גוררים שיר על הטיימליין כדי להזיז אותו. בכל שיר יש עוד אפשרויות ב־✏️.</p>`,()=>{
+    $('mdAdd').onclick=()=>{ closeSheet(); $('addSongs').click(); }; $('mdSfx').onclick=()=>{ closeSheet(); $('openSfx').click(); }; $('mdAll').onclick=()=>{ closeSheet(); $('allTools').click(); };
+    const sb=$('sheetBox');
+    sb.querySelectorAll('[data-mo]').forEach(b=>b.onclick=()=>{ closeSheet(); select(b.dataset.mo); });
+    sb.querySelectorAll('[data-mh]').forEach(b=>b.onclick=()=>medHear(+b.dataset.mh));
+    sb.querySelectorAll('[data-mc]').forEach(b=>b.onclick=()=>{ closeSheet(); select(b.dataset.mc); $('cConnect').click(); });
+    sb.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{ closeSheet(); select(b.dataset.mt); $('cTrans').click(); });
+    sb.querySelectorAll('[data-ms]').forEach(b=>b.onclick=()=>{ closeSheet(); S.playhead=Math.max(0,+b.dataset.ms-0.05); placePlayhead(); $('openSfx').click(); });
+  }); }
+
 /* ===== 📜 Prompter studio — one full-screen place to write, rehearse and record with the words =====
    Like teleprompter apps: big text, reading line, current line lit, tap = play/pause, drag = scroll,
    speed + size sliders, "with the song" rehearsal, and "follow the song" (scroll by the words-track timing). */
@@ -6343,6 +6365,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1125-0135"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1125-0152"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
