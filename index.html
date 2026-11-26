@@ -5918,7 +5918,8 @@ const VLOOKS={ none:{n:'🎞 טבעי',a:{}},
   vintage:{n:'📼 וינטג׳ פילם',a:{sa:-.18,ct:.06,fa:.3,wa:.25},shT:[.35,.25,.15,.10]},
   cool:{n:'❄ קר וחלומי',a:{br:.05,sa:-.05,wa:-.3},hiT:[.6,.75,1,.10]},
   vivid:{n:'🌈 צבעים חיים',a:{sa:.4,ct:.1,vi:.2}} };
-const VPRESETS={ none:{look:'none',beauty:0,glow:0,vig:0,grain:0,spark:0,leak:0,zoom:0,flash:0},
+const VPRESETS={ none:{look:'none',beauty:0,glow:0,vig:0,grain:0,spark:0,leak:0,zoom:0,flash:0,mist:0},
+  night:{n:'🌙 זוהר לילה',look:'warm',beauty:0.55,glow:0.3,vig:0.15,grain:0,spark:0,leak:0.15,zoom:0,flash:0,mist:0.75},
   stage:{n:'✨ זוהר הופעה',look:'warm',beauty:0.4,glow:0.5,vig:0.35,grain:0,spark:0.6,leak:0.3,zoom:0,flash:0},
   dream:{n:'🌸 חלומי',look:'pink',beauty:0.6,glow:0.6,vig:0.25,grain:0,spark:0.3,leak:0.4,zoom:0,flash:0},
   cine:{n:'🎬 קולנוע',look:'cine',beauty:0.3,glow:0.25,vig:0.5,grain:0.25,spark:0,leak:0,zoom:0,flash:0},
@@ -5990,6 +5991,14 @@ function drawMakeup(g,W,H,L,M){ if(!L||L.length<468) return; const P=i=>[L[i].x*
   if(M.blush>0){ const col=(MKLIP[M.lc]||MKLIP.rose)[1]; g.save(); g.globalCompositeOperation='soft-light'; for(const [ci,oi] of [[50,234],[280,454]]){ const c=P(ci), o=P(oi); const cx=c[0]*.75+o[0]*.25, cy=c[1]-fw*.02; const R=fw*.17; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(${col},${.8*M.blush})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); }
   if(M.eyes>0){ g.save(); g.globalCompositeOperation='soft-light'; for(const i of [145,374]){ const c=P(i); const cx=c[0], cy=c[1]+fw*.035; const R=fw*.09; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(255,240,225,${.6*M.eyes})`); gr.addColorStop(1,'rgba(255,240,225,0)'); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); } }
 async function vfxPrep(v){ const M=S.vidfx&&S.vidfx.mk; if(!(mkOn(M)||faceOn(S.vidfx))||!v.videoWidth) return; try{ await fmLoad(); }catch(_){ return; } await fmDetectNow(fmDetCan(v)); }
+/* 🌫 mist / bloom: highlights spread a soft dreamy glow + gentle light streaks (like a Pro-Mist filter) */
+function mistApply(g,W,H,m){ try{ const a=vfxCan('mist1',Math.max(8,W>>3),Math.max(8,H>>3)), b=vfxCan('mist2',Math.max(4,W>>5),Math.max(4,H>>5)); const x=a.getContext('2d'), y=b.getContext('2d');
+  x.globalCompositeOperation='copy'; x.imageSmoothingQuality='high'; x.drawImage(g.canvas,0,0,a.width,a.height); x.globalCompositeOperation='multiply'; x.drawImage(a,0,0); x.drawImage(a,0,0); x.globalCompositeOperation='source-over';
+  y.globalCompositeOperation='copy'; y.imageSmoothingQuality='high'; y.drawImage(a,0,0,b.width,b.height); y.globalCompositeOperation='source-over';
+  g.save(); g.setTransform(1,0,0,1,0,0); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+  g.globalCompositeOperation='screen'; g.globalAlpha=Math.min(1,0.75*m); g.drawImage(b,0,0,W,H); g.globalAlpha=Math.min(1,0.45*m); g.drawImage(a,0,0,W,H);
+  g.globalAlpha=0.35*m; g.drawImage(b,-W*0.6,0,W*2.2,H); g.globalAlpha=0.12*m; g.fillStyle='#ffe8d0'; g.globalCompositeOperation='soft-light'; g.fillRect(0,0,W,H);
+  g.restore(); }catch(_){} }
 function faceOn(F){ return !!F&&F.faceOnly!==false&&((F.beauty||0)>0||(F.glow||0)>0); }
 function mkOn(M){ return M&&((M.lip||0)>0||(M.blush||0)>0||(M.eyes||0)>0); }
 function drawFit(g,v,W,H,t,exp){ drawFit0(g,v,W,H,t,exp); try{ drawLyrics(g,W,H,t); }catch(e){ window.__lyrErr=e&&e.message; } }
@@ -6019,6 +6028,7 @@ function drawFitFx(g,v,W,H,t,exp){ g.fillStyle='#000'; g.fillRect(0,0,W,H); if(!
     gl.drawArrays(gl.TRIANGLE_STRIP,0,4); const ge=gl.getError(); if(ge&&ge!==gl.NO_ERROR){ window.__vfxErr='gl '+ge; } g.drawImage(c,0,0,W,H);
   } else { try{ g.drawImage(src,(W-w*z)/2,(H-h*z)/2,w*z,h*z); }catch(_){} }
   if(mk&&FM.sm){ g.save(); g.translate((W-w*z)/2,(H-h*z)/2); drawMakeup(g,w*z,h*z,FM.sm,M); g.restore(); }
+  if(F.mist>0) mistApply(g,W,H,F.mist);
   if(F.leak>0){ g.save(); g.globalCompositeOperation='screen'; const a=tt*0.35; for(const [cx,cy,col,k] of [[0.15+0.25*Math.sin(a),0.2+0.1*Math.cos(a*1.3),'255,140,60',1],[0.85+0.15*Math.cos(a*0.8),0.75+0.15*Math.sin(a*1.1),'255,80,150',0.8]]){ const R=Math.max(W,H)*0.6; const gr=g.createRadialGradient(cx*W,cy*H,0,cx*W,cy*H,R); gr.addColorStop(0,`rgba(${col},${0.5*F.leak*k})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(0,0,W,H); } g.restore(); }
   if(F.spark>0){ g.save(); g.globalCompositeOperation='lighter'; const N=Math.round(26*F.spark); for(let i=0;i<N;i++){ const sd=i*12.9898; const px=((Math.sin(sd)*43758.5453)%1+1)%1, sp=0.04+(((Math.sin(sd*1.7)*24634.6345)%1+1)%1)*0.08; const py=1-((tt*sp+((Math.sin(sd*2.3)*9137.31)%1+1)%1)%1); const tw=0.5+0.5*Math.sin(tt*4+i*1.3); const s=(2+((i*7)%5))*Math.min(W,H)/400*(0.6+tw*0.6); const X=px*W, Y=py*H; const gr=g.createRadialGradient(X,Y,0,X,Y,s*4); gr.addColorStop(0,`rgba(255,240,200,${0.9*tw})`); gr.addColorStop(1,'rgba(255,200,120,0)'); g.fillStyle=gr; g.fillRect(X-s*4,Y-s*4,s*8,s*8); g.strokeStyle=`rgba(255,250,230,${0.8*tw})`; g.lineWidth=Math.max(1,s/3); g.beginPath(); g.moveTo(X-s*3,Y); g.lineTo(X+s*3,Y); g.moveTo(X,Y-s*3); g.lineTo(X,Y+s*3); g.stroke(); } g.restore(); } }
 let TESTFX=null;
@@ -6053,7 +6063,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
     ${sl('mk','lip','💋 שפתיים')}${sl('mk','blush','🌸 סומק')}${sl('mk','eyes','👁 הארת עיניים')}<div id="mkStat" class="hint"></div></div>
   <div class="vpane" data-p="color"><div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(VLOOKS).map(([k,l])=>`<button data-l="${k}">${l.n}</button>`).join('')}</div>
     ${VADJ.slice(0,5).map(([k,lb])=>sl('adj',k,lb,-100)).join('')}<details><summary class="hint" style="cursor:pointer;margin:6px 0">▾ עוד כיוונים</summary>${VADJ.slice(5).map(([k,lb])=>sl('adj',k,lb,-100)).join('')}</details></div>
-  <div class="vpane" data-p="deco">${sl('fx','spark','✨ נצנוצים')}${sl('fx','leak','🔆 אור חם')}${sl('fx','glow','🌟 זוהר')}${sl('fx','vig','⚫ מסגרת כהה')}${sl('fx','grain','📽 גרעיניות פילם')}${sl('fx','zoom','💓 זום לקצב')}${sl('fx','flash','⚡ הבזק לקצב')}</div>
+  <div class="vpane" data-p="deco">${sl('fx','spark','✨ נצנוצים')}${sl('fx','leak','🔆 אור חם')}${sl('fx','glow','🌟 זוהר')}${sl('fx','mist','🌫 זוהר רך (מיסט)')}${sl('fx','vig','⚫ מסגרת כהה')}${sl('fx','grain','📽 גרעיניות פילם')}${sl('fx','zoom','💓 זום לקצב')}${sl('fx','flash','⚡ הבזק לקצב')}</div>
   <div class="row" style="margin-top:10px"><button id="vfxReset">↺ לאפס הכל</button><button id="vfxDiag">🩺 בדיקה</button></div><pre id="vfxDiagOut" data-notr style="white-space:pre-wrap;font-size:11px;direction:ltr;text-align:left"></pre>`,()=>{
     const box=$('sheetBox'); const pc=$('vfxPrev'), pg=pc.getContext('2d'); const t0=performance.now();
     const ploop=()=>{ if(!document.body.contains(pc)||$('sheet').hidden) return; requestAnimationFrame(ploop); let a=videoAt(S.playhead); if(!a){ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); if(vc) a=videoAt(vc.c.start+0.1); } const v=a&&VPOOL[a.key];
@@ -6062,7 +6072,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
       const st=$('mkStat'); if(st&&window.__vfxErr) st.textContent='⚠ '+window.__vfxErr; else if(st&&mkOn(cur.mk)) st.textContent=FM.st===1?'⏳ טוענת זיהוי פנים (פעם אחת)…':FM.st===3?'❌ זיהוי הפנים לא נטען במכשיר הזה':FM.st===2?(FM.lm?'👤 הפנים זוהו ✓':'🔎 מחפשת פנים… (צריך שהפנים ייראו בסרטון)'):''; };
     { const a0=videoAt(S.playhead)||(()=>{ const vc=allClips().find(x=>bufs[x.c.buf]&&bufs[x.c.buf].vtype); return vc?videoAt(vc.c.start+0.1):null; })(); if(a0){ const u=vurl(a0.b); if(u) vEl(a0.key,u); else vurlAsync(a0.b).then(()=>{ const u2=vurl(a0.b); if(u2) vEl(a0.key,u2); }); } }
     requestAnimationFrame(ploop);
-    const empty=nf=>nf.look==='none'&&!vadjOn(nf.adj)&&!mkOn(nf.mk)&&!['beauty','glow','spark','leak','vig','grain','zoom','flash'].some(k=>nf[k]>0);
+    const empty=nf=>nf.look==='none'&&!vadjOn(nf.adj)&&!mkOn(nf.mk)&&!['beauty','glow','spark','leak','vig','grain','zoom','flash','mist'].some(k=>nf[k]>0);
     const apply=()=>{ S.vidfx=empty(cur)?null:JSON.parse(JSON.stringify(cur)); S._dirty=true; updDirty(); scheduleSave(); if(mkOn(cur.mk)&&FM.st===0) fmLoad().catch(()=>{}); };
     const refresh=()=>{ box.querySelectorAll('input[data-g]').forEach(i=>{ const g=i.dataset.g,k=i.dataset.k; const v=Math.round((g==='adj'?((cur.adj||{})[k]||0):g==='mk'?((cur.mk||{})[k]||0):(cur[k]||0))*100); i.value=v; i.nextElementSibling.textContent=(g==='adj'&&v>0?'+':'')+v; });
       box.querySelectorAll('[data-l]').forEach(b=>b.classList.toggle('on',b.dataset.l===cur.look)); box.querySelectorAll('[data-lc]').forEach(b=>b.classList.toggle('on',((cur.mk||{}).lc||'rose')===b.dataset.lc));
@@ -6365,6 +6375,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1125-1654"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1126-0958"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
