@@ -5922,7 +5922,7 @@ const VLOOKS={ none:{n:'🎞 טבעי',a:{}},
   cool:{n:'❄ קר וחלומי',a:{br:.05,sa:-.05,wa:-.3},hiT:[.6,.75,1,.10]},
   vivid:{n:'🌈 צבעים חיים',a:{sa:.4,ct:.1,vi:.2}} };
 const VPRESETS={ none:{look:'none',beauty:0,glow:0,vig:0,grain:0,spark:0,leak:0,zoom:0,flash:0,mist:0},
-  night:{n:'🌙 זוהר לילה',look:'warm',beauty:0.55,glow:0.3,vig:0.15,grain:0,spark:0,leak:0.15,zoom:0,flash:0,mist:0.75},
+  night:{n:'🌙 זוהר לילה',look:'warm',beauty:0.55,glow:0.3,vig:0.15,grain:0,spark:0,leak:0.15,zoom:0,flash:0,mist:0.75,mk:{hl:0.6}},
   stage:{n:'✨ זוהר הופעה',look:'warm',beauty:0.4,glow:0.5,vig:0.35,grain:0,spark:0.6,leak:0.3,zoom:0,flash:0},
   dream:{n:'🌸 חלומי',look:'pink',beauty:0.6,glow:0.6,vig:0.25,grain:0,spark:0.3,leak:0.4,zoom:0,flash:0},
   cine:{n:'🎬 קולנוע',look:'cine',beauty:0.3,glow:0.25,vig:0.5,grain:0.25,spark:0,leak:0,zoom:0,flash:0},
@@ -5992,6 +5992,10 @@ function drawMakeup(g,W,H,L,M){ if(!L||L.length<468) return; const P=i=>[L[i].x*
   if(M.lip>0){ const col=(MKLIP[M.lc]||MKLIP.rose)[1]; const k=4, mw=Math.ceil(W/k), mh=Math.ceil(H/k); const mc=vfxCan('lipm',mw,mh), x=mc.getContext('2d'); x.clearRect(0,0,mw,mh); x.fillStyle=`rgb(${col})`; x.beginPath(); LIPO.forEach((i,n)=>{ const p=P(i); n?x.lineTo(p[0]/k,p[1]/k):x.moveTo(p[0]/k,p[1]/k); }); x.closePath(); x.fill(); x.globalCompositeOperation='destination-out'; x.beginPath(); LIPI.forEach((i,n)=>{ const p=P(i); n?x.lineTo(p[0]/k,p[1]/k):x.moveTo(p[0]/k,p[1]/k); }); x.closePath(); x.fill(); x.globalCompositeOperation='source-over';
     g.save(); g.imageSmoothingQuality='high'; g.globalCompositeOperation='multiply'; g.globalAlpha=M.lip*0.3; g.drawImage(mc,0,0,W,H); g.globalCompositeOperation='color'; g.globalAlpha=M.lip*0.45; g.drawImage(mc,0,0,W,H); g.globalCompositeOperation='soft-light'; g.globalAlpha=Math.min(1,M.lip); g.drawImage(mc,0,0,W,H); g.restore(); }
   if(M.blush>0){ const col=(MKLIP[M.lc]||MKLIP.rose)[1]; g.save(); g.globalCompositeOperation='soft-light'; for(const [ci,oi] of [[50,234],[280,454]]){ const c=P(ci), o=P(oi); const cx=c[0]*.75+o[0]*.25, cy=c[1]-fw*.02; const R=fw*.17; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(${col},${.8*M.blush})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); }
+  if(M.hl>0){ const h=M.hl; g.save(); for(const [ei,oi] of [[117,234],[346,454]]){ const e=P(ei), o=P(oi); const cx=e[0]*.58+o[0]*.42, cy=e[1]*.58+o[1]*.42+fw*.035; const ang=Math.atan2(o[1]-e[1],o[0]-e[0])-0.35*Math.sign(o[0]-e[0]); const R=fw*.17;
+      for(const [op,a,col] of [['soft-light',.9,'255,250,240'],['screen',.42,'255,244,228']]){ g.save(); g.globalCompositeOperation=op; g.translate(cx,cy); g.rotate(ang); g.scale(1,.42); const gr=g.createRadialGradient(0,0,0,0,0,R); gr.addColorStop(0,`rgba(${col},${a*h})`); gr.addColorStop(.55,`rgba(${col},${a*h*.45})`); gr.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gr; g.fillRect(-R,-R,R*2,R*2); g.restore(); } }
+    { const a=P(6), b=P(4); const cx=(a[0]+b[0])/2, cy=(a[1]+b[1])/2; const ang=Math.atan2(b[1]-a[1],b[0]-a[0]); const R=Math.hypot(b[0]-a[0],b[1]-a[1])*.6; g.save(); g.globalCompositeOperation='screen'; g.translate(cx,cy); g.rotate(ang); g.scale(1,.22); const gr=g.createRadialGradient(0,0,0,0,0,R); gr.addColorStop(0,`rgba(255,246,232,${.3*h})`); gr.addColorStop(1,'rgba(255,246,232,0)'); g.fillStyle=gr; g.fillRect(-R,-R,R*2,R*2); g.restore(); }
+    g.restore(); }
   if(M.eyes>0){ g.save(); g.globalCompositeOperation='soft-light'; for(const i of [145,374]){ const c=P(i); const cx=c[0], cy=c[1]+fw*.035; const R=fw*.09; const gr=g.createRadialGradient(cx,cy,0,cx,cy,R); gr.addColorStop(0,`rgba(255,240,225,${.6*M.eyes})`); gr.addColorStop(1,'rgba(255,240,225,0)'); g.fillStyle=gr; g.fillRect(cx-R,cy-R,R*2,R*2); } g.restore(); } }
 async function vfxPrep(v){ const M=S.vidfx&&S.vidfx.mk; if(!(mkOn(M)||faceOn(S.vidfx))||!v.videoWidth) return; try{ await fmLoad(); }catch(_){ return; } await fmDetectNow(fmDetCan(v)); }
 /* 🌫 mist / bloom: highlights spread a soft dreamy glow + gentle light streaks (like a Pro-Mist filter) */
@@ -6003,7 +6007,7 @@ function mistApply(g,W,H,m){ try{ const a=vfxCan('mist1',Math.max(8,W>>3),Math.m
   g.globalAlpha=0.35*m; g.drawImage(b,-W*0.6,0,W*2.2,H); g.globalAlpha=0.12*m; g.fillStyle='#ffe8d0'; g.globalCompositeOperation='soft-light'; g.fillRect(0,0,W,H);
   g.restore(); }catch(_){} }
 function faceOn(F){ return !!F&&F.faceOnly!==false&&((F.beauty||0)>0||(F.glow||0)>0); }
-function mkOn(M){ return M&&((M.lip||0)>0||(M.blush||0)>0||(M.eyes||0)>0); }
+function mkOn(M){ return M&&((M.lip||0)>0||(M.blush||0)>0||(M.eyes||0)>0||(M.hl||0)>0); }
 function drawFit(g,v,W,H,t,exp){ drawFit0(g,v,W,H,t,exp); try{ drawLyrics(g,W,H,t); }catch(e){ window.__lyrErr=e&&e.message; } }
 const CAMS=[['','🎥 בלי תנועה'],['in','🔍 זום איטי פנימה'],['out','🔭 זום איטי החוצה'],['drift','↔️ תנועה לצד'],['breath','🌬 נשימה עדינה']];
 function camAt(t,W,H,v){ const a=videoAt(t); if(!a||!a.c.cam) return null; const c=a.c; const p=Math.max(0,Math.min(1,(t-c.start)/Math.max(0.1,c.dur))); const e=p*p*(3-2*p); const A=c.camA||0.14;
@@ -6063,7 +6067,7 @@ function openVidFx(){ let cur=JSON.parse(JSON.stringify(S.vidfx||Object.assign({
   <div class="vpane" data-p="beauty"><label class="hint" style="display:block;font-size:15px;margin:4px 0"><input type="checkbox" id="vfxFace" ${cur.faceOnly!==false?'checked':''}> 🙂 החלקה וזוהר רק על הפנים (הרקע נשאר כמו שהוא)</label>${sl('fx','beauty','💄 החלקת עור')}<div class="row"><button data-auto="1">🪄 שיפור אוטומטי (בהיר ויפה)</button></div>
     <h4 style="margin:10px 0 4px">💋 איפור</h4><div class="row" style="flex-wrap:wrap;gap:6px"><button data-mkp="soft">✨ עדין</button><button data-mkp="glam">💄 ערב</button><button data-mkp="off">🚫 בלי</button></div>
     <div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(MKLIP).map(([k,m])=>`<button data-lc="${k}"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgb(${m[1]});vertical-align:middle"></span> ${m[0]}</button>`).join('')}</div>
-    ${sl('mk','lip','💋 שפתיים')}${sl('mk','blush','🌸 סומק')}${sl('mk','eyes','👁 הארת עיניים')}<div id="mkStat" class="hint"></div></div>
+    ${sl('mk','lip','💋 שפתיים')}${sl('mk','blush','🌸 סומק')}${sl('mk','hl','✨ היילייטר (ברק בלחיים)')}${sl('mk','eyes','👁 הארת עיניים')}<div id="mkStat" class="hint"></div></div>
   <div class="vpane" data-p="color"><div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(VLOOKS).map(([k,l])=>`<button data-l="${k}">${l.n}</button>`).join('')}</div>
     ${VADJ.slice(0,5).map(([k,lb])=>sl('adj',k,lb,-100)).join('')}<details><summary class="hint" style="cursor:pointer;margin:6px 0">▾ עוד כיוונים</summary>${VADJ.slice(5).map(([k,lb])=>sl('adj',k,lb,-100)).join('')}</details></div>
   <div class="vpane" data-p="deco">${sl('fx','spark','✨ נצנוצים')}${sl('fx','leak','🔆 אור חם')}${sl('fx','glow','🌟 זוהר')}${sl('fx','mist','🌫 זוהר רך (מיסט)')}${sl('fx','vig','⚫ מסגרת כהה')}${sl('fx','grain','📽 גרעיניות פילם')}${sl('fx','zoom','💓 זום לקצב')}${sl('fx','flash','⚡ הבזק לקצב')}</div>
@@ -6378,6 +6382,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1126-1004"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1126-1010"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
