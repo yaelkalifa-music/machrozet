@@ -177,6 +177,7 @@ header label{display:flex;align-items:center;gap:4px;color:var(--dim);font-size:
 .knwc .knwl{min-width:26px;text-align:center;font-weight:700;color:var(--gold);font-size:15px}
 #camPrev{position:fixed;left:50%;top:58px;height:min(64vh,calc(100vh - 150px));width:auto;max-width:92vw;transform:translateX(-50%) scaleX(-1);border-radius:16px;border:3px solid #ff4d6d;z-index:70;background:#000;box-shadow:0 8px 30px #000c;touch-action:none}
 #camPrev[hidden]{display:none}
+#cFxRow[hidden]{display:none!important}
 body.camBack #camPrev,body.camBack #camSrc.camShow{transform:translateX(-50%)}body.camBack #camPrev.small,body.camBack #camSrc.camShow.small{transform:none}
  #prompter{position:fixed;left:0;right:0;top:0;height:42vh;z-index:80;background:transparent;display:flex;flex-direction:column;color:#fff;pointer-events:none}#prompter .prView,#prompter .prBar{pointer-events:auto}
 #prompter[hidden]{display:none}#prompter .prView{flex:1;overflow:hidden;position:relative;touch-action:none;padding:0 16px}
@@ -596,7 +597,8 @@ body.tool-ts .clip.sel .hl,body.tool-ts .clip.sel .hr{background:#ffb020cc;curso
       <div class="ctl">פייד ↗ <input type="range" id="cFi" min="0" max="10" step="0.05"><b id="cFiV"></b></div>
       <div class="ctl">פייד ↘ <input type="range" id="cFo" min="0" max="10" step="0.05"><b id="cFoV"></b></div>
     </div>
-    <div class="row">
+    <div class="row" id="cTrkFxRow"><button id="cTrkFx" data-keep-text>✨ אפקטים לקול — לכל הערוץ</button><button id="cOwnFx" data-keep-text style="font-size:12px">+ אפקט מיוחד רק לקטע הזה (רדיו, טלפון, דאבל…)</button></div>
+    <div class="row" id="cFxRow"><p class="hint" style="width:100%;margin:0">אפקט נוסף רק לקטע הזה (בנוסף לאפקטים של הערוץ):</p>
       <div class="ctl">🌫 ריוורב <input type="range" id="cRev" min="0" max="100" step="1"><b id="cRevV"></b></div>
       <div class="ctl">🔁 אקו <input type="range" id="cEcho" min="0" max="100" step="1"><b id="cEchoV"></b></div>
       <label class="hint">🎤 סאונד
@@ -3356,6 +3358,7 @@ function updPanel(){ setTimeout(updKeyTag,0);
   const f=S.sel&&findClip(S.sel); $('panelMain').hidden=!!f; $('panelClip').hidden=!f; if(!f) return;
   const c=f.c,b=bufs[c.buf];
   { const vb=$('cVa'); vb.hidden=!(b&&b.kind==='vocal'&&!b.vtype); }
+  { const hasCF=(c.rev>0)||(c.echo>0)||!!c.vfx; if(S.sel!==window.__fxRowSel){ window.__fxRowSel=S.sel; $('cFxRow').hidden=!hasCF; } else if(hasCF) $('cFxRow').hidden=false; $('cOwnFx').hidden=!$('cFxRow').hidden; }
   { const isVv=!!(b&&baseOf(b)&&baseOf(b).vtype); const vb=$('cVTr'); vb.hidden=!isVv; vb.classList.toggle('gold',!!c.vtr); vb.textContent=c.vtr?'🎞 '+((VTRS.find(x=>x[0]===c.vtr)||['',''])[1]):'🎞 מעבר וידאו'; const kd=b&&(baseOf(b)||b).kind; $('cPitch').hidden=!(kd==='vocal'||isVv||(f.t&&f.t.vocal)); $('cSilence').hidden=kd==='notes'||kd==='sfx'; }
   { const cb=$('cCam'); const isV3=!!(b&&baseOf(b)&&baseOf(b).vtype); cb.hidden=!isV3; const cm=CAMS.find(x=>x[0]===(c.cam||''))||CAMS[0]; cb.textContent=cm[1]; cb.title='תנועת מצלמה: '+cm[1]+' (לחיצה מחליפה)'; cb.classList.toggle('gold',!!c.cam); }
   { const isVv=!!(b&&baseOf(b)&&baseOf(b).vtype); $('cAng').hidden=!(isVv&&angleClips(null).length>1); $('cAng').classList.toggle('gold',!!(S.angle&&S.angle.on)); $('cChords').hidden=!(b&&b.kind==='song'); $('cLibAdd').hidden=!(b&&!isVv&&b.buffer); }
@@ -3396,7 +3399,7 @@ $('cPaste').onclick=()=>{ if(!clipboard){ toast('קודם 📄 העתקה של �
 $('cLink').onclick=()=>linkToggle();
 $('cTie').onclick=()=>tieToggle();
 $('cAng').onclick=()=>openAngles(); $('cChords').onclick=()=>openChordDetect(); $('cLibAdd').onclick=()=>libAddClip();
-$('cVTr').onclick=()=>openVTr(); $('cPitch').onclick=()=>openPitchScore(); $('cSilence').onclick=()=>openSilence(); $('abBtn').onclick=()=>abToggle();
+$('cVTr').onclick=()=>openVTr(); $('cOwnFx').onclick=()=>{ $('cFxRow').hidden=false; $('cOwnFx').hidden=true; }; $('cTrkFx').onclick=()=>{ const f=findClip(S.sel); if(!f) return; const th=document.querySelectorAll('#lanes .lane')[f.ti]; const a=(th&&th.querySelector('.thead'))||$('cTrkFx'); openTrackFx(f.t,a); }; $('cPitch').onclick=()=>openPitchScore(); $('cSilence').onclick=()=>openSilence(); $('abBtn').onclick=()=>abToggle();
 $('cCam').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const i=CAMS.findIndex(x=>x[0]===(c.cam||'')); const nx=CAMS[(i+1)%CAMS.length]; c.cam=nx[0]||undefined; if(!c.cam) delete c.cam; render(); toast(nx[1]+(c.cam?' — על כל הקטע הזה (גם בייצוא). לחיצה נוספת מחליפה':''),3000); };
 $('cVFade').onclick=()=>{ const f=S.sel&&findClip(S.sel); if(!f) return; const c=f.c; pushHist(); const on=(c.fi>0.05||c.fo>0.05); const d=on?0:Math.min(1,c.dur/4); c.fi=d; c.fo=d; render(); toast(on?'פייד בוטל':'🌗 פייד של שנייה בהתחלה ובסוף — אפשר לכוון ב־⋯ עוד (פייד ↗ ↘)',3500); };
 $('cLyr').onclick=()=>{ if(!S.lyr){ pushHist(); S.lyr=lyrDef(); } lyrAutoSheet(); };
@@ -6375,6 +6378,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1126-0958"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1126-1004"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
