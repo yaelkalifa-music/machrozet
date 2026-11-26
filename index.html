@@ -5603,7 +5603,7 @@ async function camPreview(st,hq){ let v=$('camSrc'); if(!v){ v=document.createEl
   const D={on:true,v,hq:!!hq,direct:!v.videoWidth||Math.abs(v.videoWidth/v.videoHeight-9/16)<0.02}; try{ const ss=st.getVideoTracks()[0].getSettings(); D.fps=Math.round(ss.frameRate||30); }catch(_){ D.fps=30; } const camInfo=()=>{ const w=v.videoWidth,h=v.videoHeight; const ow=D.direct?w:(D.cv?D.cv.width:w), oh=D.direct?h:(D.cv?D.cv.height:h); return '📷 '+ow+'×'+oh+' · '+D.fps+' תמונות בשנייה'+(oh>=2000?' · 4K/QHD 💎':oh>=1900?' · Full HD':''); };
   if(D.direct){ v.className='camShow'+(camSmall()?' small':''); camTapSize(v); toast(camInfo()+'\n👆 נגיעה בתמונה = קטן / גדול',3500); return D; } /* camera already portrait: record it as is, full quality */
   let cv=$('camPrev'); if(!cv){ cv=document.createElement('canvas'); cv.id='camPrev'; document.body.appendChild(cv); }
-  const c0=camCrop(v.videoWidth,v.videoHeight); const sc=Math.min(1,(D.hq?2560:1920)/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false; D.cv=cv; cv.classList.toggle('small',camSmall()); camTapSize(cv); toast(camInfo()+'\n👆 נגיעה בתמונה = קטן / גדול',3500);
+  const c0=camCrop(v.videoWidth,v.videoHeight); const sc=Math.min(1,1920/c0.sh); cv.width=Math.round(c0.sw*sc/2)*2; cv.height=Math.round(c0.sh*sc/2)*2; cv.hidden=false; D.cv=cv; cv.classList.toggle('small',camSmall()); camTapSize(cv); toast(camInfo()+'\n👆 נגיעה בתמונה = קטן / גדול',3500);
   const g=cv.getContext('2d',{alpha:false}); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
   const draw=()=>{ if(!D.on) return; if(v.videoWidth){ const c=camCrop(v.videoWidth,v.videoHeight); try{ g.drawImage(v,c.sx,c.sy,c.sw,c.sh,0,0,cv.width,cv.height); }catch(_){} if(D.track&&D.track.requestFrame) D.track.requestFrame(); } };
   D.draw=draw; if(v.requestVideoFrameCallback){ const loop=()=>{ if(!D.on) return; draw(); v.requestVideoFrameCallback(loop); }; v.requestVideoFrameCallback(loop); } else { D.timer=setInterval(draw,1000/30); }
@@ -6186,7 +6186,7 @@ async function doExportVideo(){
       const fps=30, NF=Math.ceil(len*fps); let lastPct=-1;
       for(let i=0;i<NF;i++){ if(job.stop) break; if(encErr) throw encErr;
         const t=from+i/fps; const a=videoAt(t); const v=a&&EP[a.key];
-        if(v){ await seekEl(v,Math.min(a.vt,(v.duration||a.vt)-0.02)); await vfxPrep(v); drawFit(g,v,W,H,t,true); } else drawFit(g,null,W,H,t);
+        if(v){ await seekEl(v,Math.min(a.vt+0.5/fps*(a.rate||1),(v.duration||a.vt)-0.02)); await vfxPrep(v); drawFit(g,v,W,H,t,true); } else drawFit(g,null,W,H,t);
         const fr=new VideoFrame(cv,{timestamp:Math.round(i*1e6/fps),duration:Math.round(1e6/fps)}); ve.encode(fr,{keyFrame:i%60===0}); fr.close();
         while(ve.encodeQueueSize>8) await yieldNow();
         const pct=Math.floor(i/NF*100); if(pct!==lastPct){ lastPct=pct; jobPill('🎬 מייצאת וידאו '+pct+'%'); await yieldNow(); } }
@@ -6211,7 +6211,7 @@ async function doExportVideo(){
     const fps=30, NF=Math.ceil(len*fps); let lastPct=-1;
     for(let i=0;i<NF;i++){ if(job.stop) break; if(encErr) throw encErr;
       const t=from+i/fps; const a=videoAt(t); const v=a&&EP[a.key];
-      if(v){ await seekEl(v,Math.min(a.vt,(v.duration||a.vt)-0.02)); await vfxPrep(v); drawFit(g,v,W,H,t,true); } else drawFit(g,null,W,H,t);
+      if(v){ await seekEl(v,Math.min(a.vt+0.5/fps*(a.rate||1),(v.duration||a.vt)-0.02)); await vfxPrep(v); drawFit(g,v,W,H,t,true); } else drawFit(g,null,W,H,t);
       const fr=new VideoFrame(cv,{timestamp:Math.round(i*1e6/fps),duration:Math.round(1e6/fps)}); ve.encode(fr,{keyFrame:i%60===0}); fr.close();
       while(ve.encodeQueueSize>8) await yieldNow();
       const pct=Math.floor(i/NF*100); if(pct!==lastPct){ lastPct=pct; jobPill('🎬 מייצאת וידאו '+pct+'%'); await yieldNow(); } }
@@ -6386,6 +6386,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1127-0110"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1127-0119"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
