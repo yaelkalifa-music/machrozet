@@ -5144,14 +5144,17 @@ function lyrGest(cv){ if(!cv||cv._lyrG) return; cv._lyrG=1; cv.style.touchAction
 
 /* ---------- 4 · which microphone ---------- */
 function micId(){ try{ return localStorage.getItem('machrozet_mic')||''; }catch(_){ return ''; } }
-function micAudio(base){ const id=micId(); return id?Object.assign({},base,{deviceId:{exact:id}}):base; }
+const MIC_HEAD=/headset|wired|earpiece|usb|bluetooth|airpods|buds|hands-?free|אוזני/i, MIC_PHONE=/speaker|built|bottom|back|front|phone|internal|מובנה|טלפון/i;
+let MIC_AUTO='';
+async function micPrepare(){ MIC_AUTO=''; const id=micId(); if(id&&id!=='phone') return; try{ const ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput'&&d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications'&&d.label); const ph=ds.find(d=>MIC_PHONE.test(d.label)&&!MIC_HEAD.test(d.label)); if(ph&&ds.some(d=>MIC_HEAD.test(d.label))) MIC_AUTO=ph.deviceId; }catch(_){} }
+function micAudio(base){ let id=micId(); if(id==='phone'||!id) id=MIC_AUTO; if(id==='headset') id=''; return id?Object.assign({},base,{deviceId:{exact:id}}):base; }
 async function micFill(sel){ if(!sel||!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices) return; let ds=[]; try{ ds=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='audioinput'); }catch(_){}
   const cur=micId(); const name=(d,i)=>{ const l=d.label||''; if(!l) return 'מיקרופון '+(i+1); if(/bluetooth|airpods|buds|hands-?free|headset|bt/i.test(l)) return '🎧 '+l+' (אוזניות)'; if(/default|ברירת/i.test(l)) return '📱 '+l; return '🎙 '+l; };
-  sel.innerHTML='<option value="">📱 ברירת מחדל של הטלפון</option>'+ds.filter(d=>d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications').map((d,i)=>`<option value="${esc(d.deviceId)}" ${d.deviceId===cur?'selected':''}>${esc(name(d,i))}</option>`).join('');
-  if(cur&&!ds.some(d=>d.deviceId===cur)) sel.value='';
+  sel.innerHTML='<option value="">📱 המיקרופון של הטלפון (אוטומטי)</option><option value="headset" '+(cur==='headset'?'selected':'')+'>🎧 המיקרופון של האוזניות</option>'+ds.filter(d=>d.deviceId&&d.deviceId!=='default'&&d.deviceId!=='communications').map((d,i)=>`<option value="${esc(d.deviceId)}" ${d.deviceId===cur?'selected':''}>${esc(name(d,i))}</option>`).join('');
+  if(cur&&cur!=='headset'&&!ds.some(d=>d.deviceId===cur)) sel.value='';
   { let h=sel.parentElement&&sel.parentElement.querySelector('.micHint'); if(!h&&sel.parentElement){ h=document.createElement('div'); h.className='hint micHint'; h.style.cssText='width:100%;margin-top:3px'; sel.parentElement.appendChild(h); }
-    if(h) h.textContent=/Android/i.test(navigator.userAgent)?'💡 באנדרואיד: כשמחוברות אוזניות חוט עם מיקרופון, הטלפון מקליט מהמיקרופון של האוזניות. כדי להקליט מהמיקרופון של הטלפון — אוזניות בלי מיקרופון, או לבחור כאן מיקרופון אחר אם מופיע.':''; } }
-function micPick(v){ try{ if(v) localStorage.setItem('machrozet_mic',v); else localStorage.removeItem('machrozet_mic'); }catch(_){} toast(v?'🎙 ההקלטה הבאה תהיה מהמיקרופון שבחרת':'📱 מיקרופון רגיל של הטלפון',2500); }
+    if(h) h.textContent=/Android/i.test(navigator.userAgent)?'💡 התוכנה מנסה תמיד את המיקרופון של הטלפון. אם הגלקסי לא מרשה (אוזניות חוט עם מיקרופון) — בתחילת ההקלטה כתוב מאיפה מקליטים.':''; } }
+function micPick(v){ try{ if(v) localStorage.setItem('machrozet_mic',v); else localStorage.removeItem('machrozet_mic'); }catch(_){} toast(v==='headset'?'🎧 ההקלטה תהיה מהמיקרופון של האוזניות':v?'🎙 ההקלטה הבאה תהיה מהמיקרופון שבחרת':'📱 ההקלטה תהיה מהמיקרופון של הטלפון (אם הטלפון מאפשר)',2600); }
 
 /* ---------- 7 · chords from the playback ---------- */
 const CH_Q=[['',[0,4,7]],['m',[0,3,7]]];
@@ -5700,8 +5703,9 @@ async function startRec(){ const c=ac(); let stream; const msg=t=>{ if($('rcMsg'
   try{ if(navigator.audioSession) navigator.audioSession.type='play-and-record'; }catch(_){}
   /* camera first, microphone last: on some Android phones opening the camera after the mic silenced the mic */
   let V=null; if($('rcVid')&&$('rcVid').checked){ try{ const hq=!!($('rcHQ')&&$('rcHQ').checked); let cst; try{ cst=await camOpen(hq); }catch(e){ if(!hq) throw e; cst=await camOpen(false); } const D=await camPreview(cst,hq); V=camRecorder(cst,D); }catch(e){ console.error(e); toast('לא הצלחתי לפתוח את המצלמה — מקליטה רק קול',4000); } }
+  try{ await micPrepare(); }catch(_){}
   try{ stream=await navigator.mediaDevices.getUserMedia({audio:micAudio({echoCancellation:false,noiseSuppression:false,autoGainControl:false})}); }catch(e0){ if(micId()){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:micAudio({})}); }catch(_){} } } if(!stream) try{ stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false}}); }catch(e0){ try{ stream=await navigator.mediaDevices.getUserMedia({audio:true}); }catch(e){ console.error('mic',e); const n=(e&&e.name)||'';
-  try{ const tr=stream&&stream.getAudioTracks()[0]; if(tr){ const lab=tr.label||''; const want=micId(); const got=(tr.getSettings&&tr.getSettings().deviceId)||''; const nice=/headset|wired|earpiece|אוזני/i.test(lab)?'🎧 '+lab+' (המיקרופון של האוזניות)':/speaker|built|bottom|back|front|טלפון/i.test(lab)?'📱 '+lab+' (המיקרופון של הטלפון)':'🎙 '+(lab||'המיקרופון הרגיל');
+  try{ const tr=stream&&stream.getAudioTracks()[0]; if(tr){ const lab=tr.label||''; const want=MIC_AUTO||((micId()&&micId()!=='headset'&&micId()!=='phone')?micId():''); const got=(tr.getSettings&&tr.getSettings().deviceId)||''; const nice=/headset|wired|earpiece|אוזני/i.test(lab)?'🎧 '+lab+' (המיקרופון של האוזניות)':/speaker|built|bottom|back|front|טלפון/i.test(lab)?'📱 '+lab+' (המיקרופון של הטלפון)':'🎙 '+(lab||'המיקרופון הרגיל');
     if(want&&got&&got!==want) toast('⚠ המיקרופון שבחרת לא זמין עכשיו — מקליטה מ: '+nice,4500); else toast('מקליטה מ: '+nice,2600); } }catch(_){}
     const ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1);
     let t;
@@ -6390,6 +6394,6 @@ window.__app={S,bufs,importFiles,findClip,analyze,doExport,projEnd,schedule,save
 render();
 loadProject();
 </script>
-<script>window.__HOSTED=true; window.__BUILD="1127-1105"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
+<script>window.__HOSTED=true; window.__BUILD="1127-1110"; var _d=document.getElementById("fromDrive"); if(_d) _d.style.display="none"; var _r=document.getElementById("recBtn"); if(_r) _r.style.display=""; if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 </body>
 </html>
